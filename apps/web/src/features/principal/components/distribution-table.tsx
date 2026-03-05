@@ -196,19 +196,19 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-2 w-2"
                         onClick={handleAdd}
                         disabled={createMutation.isPending}
                       >
-                        <Check className="h-3.5 w-3.5" />
+                        <Check className="h-2 w-2" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-2 w-2"
                         onClick={() => setIsAdding(false)}
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-2 w-2" />
                       </Button>
                     </div>
                   </TableCell>
@@ -267,19 +267,19 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
+                              className="h-2 w-2"
                               onClick={() => handleSaveEdit(row.id, row.name)}
                               disabled={updateMutation.isPending}
                             >
-                              <Check className="h-3 w-3" />
+                              <Check className="h-2 w-2" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7"
+                              className="h-2 w-2"
                               onClick={handleCancelEdit}
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-2 w-2" />
                             </Button>
                           </div>
                         ) : (
@@ -300,10 +300,10 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-destructive"
+                          className="h-2 w-2 text-destructive"
                           onClick={() => handleDelete(row)}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-2 w-2" />
                         </Button>
                       </TableCell>
                     </TableRow>

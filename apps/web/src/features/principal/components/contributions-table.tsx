@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, Check, X, Pencil, Trash2 } from "lucide-react";
 import {
   Table,
@@ -62,6 +62,17 @@ export function ContributionsTable({ contributions }: ContributionsTableProps) {
   const createMutation = useCreateContribution();
   const updateMutation = useUpdateContribution();
   const deleteMutation = useDeleteContribution();
+
+  // Sort contributions by date (newest first)
+  const sortedContributions = useMemo(() => {
+    const monthIndex = (m: string) =>
+      MONTHS.indexOf(m as (typeof MONTHS)[number]);
+    return [...contributions].sort((a, b) => {
+      const yearDiff = b.year - a.year;
+      if (yearDiff !== 0) return yearDiff;
+      return monthIndex(b.month) - monthIndex(a.month);
+    });
+  }, [contributions]);
 
   // ── Inline edit state ──
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -246,7 +257,7 @@ export function ContributionsTable({ contributions }: ContributionsTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                contributions.map((row) => {
+                sortedContributions.map((row) => {
                   const isEditing = editingId === row.id;
                   return (
                     <TableRow key={row.id}>
