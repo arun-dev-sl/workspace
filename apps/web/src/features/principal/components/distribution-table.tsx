@@ -194,6 +194,7 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
                       <Button
+                        data-slot="badge"
                         variant="ghost"
                         size="icon"
                         className="size-4"
@@ -203,6 +204,7 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                         <Check className="size-4" />
                       </Button>
                       <Button
+                        data-slot="badge"
                         variant="ghost"
                         size="icon"
                         className="size-4"
@@ -265,6 +267,7 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                               }}
                             />
                             <Button
+                              data-slot="badge"
                               variant="ghost"
                               size="icon"
                               className="size-4"
@@ -274,6 +277,7 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                               <Check className="size-4" />
                             </Button>
                             <Button
+                              data-slot="badge"
                               variant="ghost"
                               size="icon"
                               className="size-4"
@@ -284,6 +288,7 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                           </div>
                         ) : (
                           <button
+                            data-slot="badge"
                             type="button"
                             className="inline-flex cursor-pointer items-center gap-1 tabular-nums hover:underline"
                             onClick={() => handleStartEdit(row)}
@@ -298,6 +303,7 @@ export function DistributionTable({ distribution }: DistributionTableProps) {
                       </TableCell>
                       <TableCell>
                         <Button
+                          data-slot="badge"
                           variant="ghost"
                           size="icon"
                           className="size-4 text-destructive"

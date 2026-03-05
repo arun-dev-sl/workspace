@@ -462,6 +462,7 @@ export function ContributionsTable({ contributions }: ContributionsTableProps) {
                         {isEditing ? (
                           <div className="flex items-center justify-end gap-1">
                             <Button
+                              data-slot="badge"
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
@@ -471,6 +472,7 @@ export function ContributionsTable({ contributions }: ContributionsTableProps) {
                               <Check className="h-3 w-3" />
                             </Button>
                             <Button
+                              data-slot="badge"
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
@@ -481,6 +483,7 @@ export function ContributionsTable({ contributions }: ContributionsTableProps) {
                           </div>
                         ) : (
                           <Button
+                            data-slot="badge"
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-destructive"
