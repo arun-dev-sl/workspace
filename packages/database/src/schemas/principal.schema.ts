@@ -30,6 +30,8 @@ export const principalContributionsTable = pgTable(
     label: varchar('label', { length: 20 }).notNull(),
     /** Amount in Lakhs (e.g. 1.14 = ₹1,14,000) */
     amountLakhs: numeric('amount_lakhs', { precision: 12, scale: 4 }).notNull(),
+    /** Monthly salary in Lakhs (nullable — user may not provide it) */
+    salaryLakhs: numeric('salary_lakhs', { precision: 12, scale: 4 }),
 
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
