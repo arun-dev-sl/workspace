@@ -17,6 +17,7 @@ import {
 import { MainLayout } from "@/components/layouts";
 import { fetchBusAnalytics } from "@/features/expenses/api/bus-analytics";
 import { fetchInvestmentAnalytics } from "@/features/expenses/api/investment-analytics";
+import { PrincipalInvestmentTab } from "@/features/principal/components/principal-tab";
 
 import type {
   AnalyticsPeriod,
@@ -66,6 +67,7 @@ import {
   Coins,
   Activity,
   Repeat,
+  Wallet,
 } from "lucide-react";
 import { Separator } from "@workspace/ui/components/ui/separator";
 
@@ -1350,6 +1352,10 @@ const PatternsPage = () => {
               <TrendingUp className="h-4 w-4" />
               Investments
             </TabsTrigger>
+            <TabsTrigger value="principal" className="gap-2">
+              <Wallet className="h-4 w-4" />
+              Principal
+            </TabsTrigger>
             {/* Future tabs: Auto, Food, Subscriptions, etc. */}
           </TabsList>
 
@@ -1359,6 +1365,10 @@ const PatternsPage = () => {
 
           <TabsContent value="investments" className="mt-6">
             <InvestmentsPatternTab />
+          </TabsContent>
+
+          <TabsContent value="principal" className="mt-6">
+            <PrincipalInvestmentTab />
           </TabsContent>
         </Tabs>
       </div>

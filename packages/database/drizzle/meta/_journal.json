@@ -43,6 +43,13 @@
       "when": 1771764661414,
       "tag": "0005_add_dividends_table",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1772729889222,
+      "tag": "0006_wise_victor_mancha",
+      "breakpoints": true
     }
   ]
 }

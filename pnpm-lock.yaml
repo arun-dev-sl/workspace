@@ -261,6 +261,9 @@ importers:
       framer-motion:
         specifier: ^12.31.0
         version: 12.31.0(react-dom@19.2.4)(react@19.2.4)
+      lodash:
+        specifier: ^4.17.23
+        version: 4.17.23
       lucide-react:
         specifier: ^0.561.0
         version: 0.561.0(react@19.2.4)
@@ -274,7 +277,7 @@ importers:
         specifier: ^6.0.0
         version: 6.1.0(react@19.2.4)
       react-hook-form:
-        specifier: ^7.68.0
+        specifier: ^7.71.1
         version: 7.71.1(react@19.2.4)
       react-router-dom:
         specifier: ^7.6.3
@@ -313,6 +316,9 @@ importers:
       '@testing-library/user-event':
         specifier: ^14.6.1
         version: 14.6.1(@testing-library/dom@10.4.1)
+      '@types/lodash':
+        specifier: ^4.17.24
+        version: 4.17.24
       '@types/node':
         specifier: ^24.10.2
         version: 24.10.9
@@ -6204,6 +6210,10 @@ packages:
     resolution: {integrity: sha512-RDvF6wTulMPjrNdCoYRC8gNR880JNGT8uB+REUpC2Ns4pRqQJhGz90wh7rgdXDPpCczF3VGktDuFGVnz8zP7HA==}
     dev: true
 
+  /@types/lodash@4.17.24:
+    resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
+    dev: true
+
   /@types/mdx@2.0.13:
     resolution: {integrity: sha512-+OWZQfAYyio6YkJb3HLxDrvnx6SWWDbC0zVPfBRzUk0/nqoDyf6dNxQi3eArPe8rJ473nobTMQ/8Zk+LxJ+Yuw==}
     dev: true
@@ -6687,7 +6697,7 @@ packages:
       obug: 2.1.1
       std-env: 3.10.0
       tinyrainbow: 3.0.3
-      vitest: 4.0.18(@types/node@24.10.9)(@vitest/browser-playwright@4.0.18)(jiti@2.6.1)(tsx@4.21.0)
+      vitest: 4.0.18(@types/node@24.10.9)(@vitest/ui@4.0.18)(jiti@2.6.1)(jsdom@27.4.0)(msw@2.12.7)(tsx@4.21.0)
     dev: true
 
   /@vitest/eslint-plugin@1.6.6(eslint@9.39.2)(typescript@5.9.3)(vitest@4.0.18):
@@ -11237,7 +11247,6 @@ packages:
 
   /lodash@4.17.23:
     resolution: {integrity: sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==}
-    dev: true
 
   /log-symbols@4.1.0:
     resolution: {integrity: sha512-8XPvpAA8uyhfteu8pIvQxpJZ7SYYdpUivZpGy6sFsBuKRY/7rQGavedeB8aK+Zkyq6upMFVL/9AW6vOYzfRyLg==}
