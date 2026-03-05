@@ -11,6 +11,7 @@ export interface PrincipalRepositoryPort {
       year: number
       label: string
       amountLakhs: string
+      salaryLakhs?: string | null
     }[],
   ): Promise<{ imported: number, updated: number }>
 
@@ -25,14 +26,14 @@ export interface PrincipalRepositoryPort {
   /** Create a single contribution row. Returns the created record. */
   createContribution(
     userId: string,
-    entry: { month: string, year: number, label: string, amountLakhs: string },
+    entry: { month: string, year: number, label: string, amountLakhs: string, salaryLakhs?: string | null },
   ): Promise<PrincipalContribution>
 
   /** Update a single contribution by id (must belong to userId). */
   updateContribution(
     id: string,
     userId: string,
-    data: { month?: string, year?: number, label?: string, amountLakhs?: string },
+    data: { month?: string, year?: number, label?: string, amountLakhs?: string, salaryLakhs?: string | null },
   ): Promise<PrincipalContribution | null>
 
   /** Delete a single contribution by id (must belong to userId). */

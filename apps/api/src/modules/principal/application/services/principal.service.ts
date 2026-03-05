@@ -38,6 +38,7 @@ export class PrincipalService {
       month: c.month,
       year: c.year,
       amountLakhs: Number(c.amountLakhs),
+      salaryLakhs: c.salaryLakhs == null ? null : Number(c.salaryLakhs),
       label: c.label,
     }))
 
@@ -168,7 +169,7 @@ export class PrincipalService {
    */
   async createContribution(
     userId: string,
-    data: { month: string, year: number, amountLakhs: number },
+    data: { month: string, year: number, amountLakhs: number, salaryLakhs?: number | null },
   ) {
     const month = PrincipalService.MONTHS.find(
       (m) => m.toLowerCase() === data.month.toLowerCase(),
@@ -183,6 +184,7 @@ export class PrincipalService {
       year: data.year,
       label,
       amountLakhs: data.amountLakhs.toString(),
+      salaryLakhs: data.salaryLakhs == null ? null : data.salaryLakhs.toString(),
     })
 
     return {
@@ -190,6 +192,7 @@ export class PrincipalService {
       month: record.month,
       year: record.year,
       amountLakhs: Number(record.amountLakhs),
+      salaryLakhs: record.salaryLakhs == null ? null : Number(record.salaryLakhs),
       label: record.label,
     }
   }
@@ -200,12 +203,16 @@ export class PrincipalService {
   async updateContribution(
     id: string,
     userId: string,
-    data: { month?: string, year?: number, amountLakhs?: number },
+    data: { month?: string, year?: number, amountLakhs?: number, salaryLakhs?: number | null },
   ) {
     const updateData: Record<string, unknown> = {}
 
     if (data.amountLakhs !== undefined) {
       updateData.amountLakhs = data.amountLakhs.toString()
+    }
+
+    if (data.salaryLakhs !== undefined) {
+      updateData.salaryLakhs = data.salaryLakhs == null ? null : data.salaryLakhs.toString()
     }
 
     if (data.month !== undefined || data.year !== undefined) {
@@ -223,7 +230,7 @@ export class PrincipalService {
     const record = await this.principalRepository.updateContribution(
       id,
       userId,
-      updateData as { month?: string, year?: number, label?: string, amountLakhs?: string },
+      updateData as { month?: string, year?: number, label?: string, amountLakhs?: string, salaryLakhs?: string | null },
     )
     if (!record) throw new NotFoundException('Contribution not found')
 
@@ -232,6 +239,7 @@ export class PrincipalService {
       month: record.month,
       year: record.year,
       amountLakhs: Number(record.amountLakhs),
+      salaryLakhs: record.salaryLakhs == null ? null : Number(record.salaryLakhs),
       label: record.label,
     }
   }

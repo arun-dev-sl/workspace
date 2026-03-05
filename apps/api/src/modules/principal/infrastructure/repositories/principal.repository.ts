@@ -41,6 +41,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
       year: number
       label: string
       amountLakhs: string
+      salaryLakhs?: string | null
     }[],
   ): Promise<{ imported: number, updated: number }> {
     let imported = 0
@@ -55,6 +56,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
           year: entry.year,
           label: entry.label,
           amountLakhs: entry.amountLakhs,
+          salaryLakhs: entry.salaryLakhs ?? null,
         })
         .onConflictDoUpdate({
           target: [
@@ -65,6 +67,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
           set: {
             label: entry.label,
             amountLakhs: entry.amountLakhs,
+            salaryLakhs: entry.salaryLakhs ?? null,
             updatedAt: new Date(),
           },
         })
@@ -142,7 +145,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
 
   async createContribution(
     userId: string,
-    entry: { month: string, year: number, label: string, amountLakhs: string },
+    entry: { month: string, year: number, label: string, amountLakhs: string, salaryLakhs?: string | null },
   ): Promise<PrincipalContribution> {
     const result = await this.db
       .insert(principalContributionsTable)
@@ -152,6 +155,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
         year: entry.year,
         label: entry.label,
         amountLakhs: entry.amountLakhs,
+        salaryLakhs: entry.salaryLakhs ?? null,
       })
       .onConflictDoUpdate({
         target: [
@@ -162,6 +166,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
         set: {
           label: entry.label,
           amountLakhs: entry.amountLakhs,
+          salaryLakhs: entry.salaryLakhs ?? null,
           updatedAt: new Date(),
         },
       })
@@ -173,7 +178,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
   async updateContribution(
     id: string,
     userId: string,
-    data: { month?: string, year?: number, label?: string, amountLakhs?: string },
+    data: { month?: string, year?: number, label?: string, amountLakhs?: string, salaryLakhs?: string | null },
   ): Promise<PrincipalContribution | null> {
     const result = await this.db
       .update(principalContributionsTable)

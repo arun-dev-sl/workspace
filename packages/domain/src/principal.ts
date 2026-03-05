@@ -4,6 +4,7 @@ export interface PrincipalContributionDto {
   month: string
   year: number
   amountLakhs: number
+  salaryLakhs: number | null
   label: string
 }
 
@@ -17,6 +18,7 @@ export interface UpsertContributionPayload {
   month: string
   year: number
   amountLakhs: number
+  salaryLakhs?: number | null
 }
 
 export interface PrincipalDistributionDto {

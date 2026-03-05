@@ -67,7 +67,7 @@ export class PrincipalController {
   @ApiOperation({ summary: 'Create a single contribution' })
   async createContribution(
     @Request() req: FastifyRequest & { user: { id: string } },
-    @Body() body: { month: string, year: number, amountLakhs: number },
+    @Body() body: { month: string, year: number, amountLakhs: number, salaryLakhs?: number | null },
   ) {
     return this.principalService.createContribution(req.user.id, body)
   }
@@ -77,7 +77,7 @@ export class PrincipalController {
   async updateContribution(
     @Request() req: FastifyRequest & { user: { id: string } },
     @Param('id') id: string,
-    @Body() body: { month?: string, year?: number, amountLakhs?: number },
+    @Body() body: { month?: string, year?: number, amountLakhs?: number, salaryLakhs?: number | null },
   ) {
     return this.principalService.updateContribution(id, req.user.id, body)
   }
