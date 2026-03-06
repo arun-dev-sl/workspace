@@ -291,7 +291,7 @@ export default function ExpenseEmailDetailsPage() {
               </CardHeader>
               <CardContent className="min-w-0">
                 <Tabs defaultValue={email.bodyHtml ? "text" : "rendered"}>
-                  <TabsList>
+                  <TabsList className="w-full overflow-x-auto">
                     <TabsTrigger value="text">Text</TabsTrigger>
                     <TabsTrigger value="rendered" disabled={!email.bodyHtml}>
                       Rendered (HTML)

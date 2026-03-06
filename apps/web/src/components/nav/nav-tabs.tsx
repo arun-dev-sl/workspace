@@ -13,7 +13,7 @@ import {
 import { appPaths } from "@/config/app-paths";
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/ui/tabs";
 
-const navItems = [
+export const navItems = [
   {
     label: "Dashboard",
     href: appPaths.auth.dashboard.getHref(),

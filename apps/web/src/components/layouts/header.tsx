@@ -6,7 +6,7 @@ import { cn } from "@workspace/ui/lib/utils";
 import type { VariantProps } from "class-variance-authority";
 
 const headerVariants = cva(
-  "flex items-center justify-between h-[3rem] box-border px-4 w-full",
+  "flex items-center justify-between h-12 box-border px-4 sm:px-6 md:px-8 w-full",
   {
     variants: {
       variant: {

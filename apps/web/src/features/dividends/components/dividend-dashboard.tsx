@@ -74,12 +74,12 @@ const fmtCurrencyCompact = (v: number) => {
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-28" />
         ))}
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         <Skeleton className="h-80" />
         <Skeleton className="h-80" />
       </div>
@@ -100,7 +100,7 @@ function YearlyGrowthCards({ data }: { data: DividendDashboard }) {
   const isPositive = yearlyGrowth.growthPercent >= 0;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">
@@ -198,7 +198,7 @@ function LifetimeDividendPerCompany({ data }: { data: DividendDashboard }) {
   const grandTotal = items.reduce((sum, c) => sum + c.totalAmount, 0);
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Building2 className="h-4 w-4" />
@@ -258,7 +258,7 @@ const monthlyChartConfig: ChartConfig = {
 
 function MonthlyTrendChart({ data }: { data: DividendDashboard }) {
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <CalendarDays className="h-4 w-4" />
@@ -336,7 +336,7 @@ function TopStocksPieChart({ data }: { data: DividendDashboard }) {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Trophy className="h-4 w-4" />
@@ -420,7 +420,7 @@ function PerCompanyBarChart({ data }: { data: DividendDashboard }) {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Building2 className="h-4 w-4" />
@@ -511,7 +511,7 @@ function YieldAnalysisChart({ data }: { data: DividendDashboard }) {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <BarChart3 className="h-4 w-4" />
@@ -582,7 +582,7 @@ function RepeatPayoutTable({ data }: { data: DividendDashboard }) {
   }
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Repeat className="h-4 w-4" />
@@ -649,7 +649,7 @@ function AvgDividendPerShareChart({ data }: { data: DividendDashboard }) {
   if (chartData.length === 0) return null;
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Banknote className="h-4 w-4" />
@@ -701,7 +701,7 @@ function DividendCalendar({ data }: { data: DividendDashboard }) {
   const maxAmount = Math.max(...data.monthlyTrend.map((m) => m.totalAmount), 1);
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <CalendarDays className="h-4 w-4" />
@@ -769,7 +769,7 @@ export function DividendDashboardView({ year }: DividendDashboardProps) {
       <DividendCalendar data={data} />
 
       {/* C + F — Trend + Top Stocks side by side */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
         <MonthlyTrendChart data={data} />
         <TopStocksPieChart data={data} />
       </div>

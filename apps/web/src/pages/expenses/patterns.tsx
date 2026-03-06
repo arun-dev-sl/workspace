@@ -119,7 +119,7 @@ const dailyFrequencyChartConfig: ChartConfig = {
 
 function SummaryCards({ data }: { data: BusAnalytics }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
@@ -487,7 +487,7 @@ function DailyFrequencyChart({
 function BusTabSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
@@ -564,12 +564,12 @@ function BusPatternTab() {
           <SummaryCards data={data} />
           <TopRoutesTable routes={data.routes} />
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <MonthlyTrendChart data={data.monthlyTrend} />
             <DayOfWeekChart data={data.dayOfWeek} />
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <TimeOfDayChart data={data.timeOfDay} />
             <DailyFrequencyChart data={data.dailyFrequency} />
           </div>
@@ -599,7 +599,7 @@ const ASSET_TYPE_COLORS: Record<string, string> = {
 
 function InvestmentSummaryCards({ data }: { data: InvestmentAnalytics }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Invested</CardTitle>
@@ -1216,7 +1216,7 @@ function InvestmentTimeOfDayChart({
 function InvestmentTabSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="pb-2">
@@ -1296,7 +1296,7 @@ function InvestmentsPatternTab() {
         <div className="space-y-6">
           <InvestmentSummaryCards data={data} />
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <AssetAllocationChart data={data.assetTypeBreakdown} />
             <MonthlyInvestmentTrendChart data={data.monthlyTrend} />
           </div>
@@ -1310,7 +1310,7 @@ function InvestmentsPatternTab() {
 
           <LargestInvestmentsTable data={data.largestInvestments} />
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <InvestmentDayOfWeekChart data={data.dayOfWeek} />
             <InvestmentTimeOfDayChart data={data.timeOfDay} />
           </div>
@@ -1327,7 +1327,7 @@ function InvestmentsPatternTab() {
 const PatternsPage = () => {
   return (
     <MainLayout>
-      <div className="flex flex-1 flex-col gap-6 px-6 py-10 mx-8">
+      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
         <header className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
@@ -1343,7 +1343,7 @@ const PatternsPage = () => {
         </header>
 
         <Tabs defaultValue="bus">
-          <TabsList>
+          <TabsList className="w-full overflow-x-auto">
             <TabsTrigger value="bus" className="gap-2">
               <Bus className="h-4 w-4" />
               Bus

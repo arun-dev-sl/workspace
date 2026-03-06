@@ -51,7 +51,7 @@ export function AssetDonutChart({ distribution }: AssetDonutChartProps) {
   );
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Coins className="h-5 w-5" />

@@ -26,7 +26,7 @@ export default function DividendsPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-1 flex-col gap-6 px-6 py-10 mx-8">
+      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
         {/* Header */}
         <header className="flex flex-col gap-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -42,7 +42,7 @@ export default function DividendsPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Select
                 value={String(selectedYear)}
                 onValueChange={(v) => setSelectedYear(Number(v))}
@@ -65,7 +65,7 @@ export default function DividendsPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="w-full overflow-x-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="all">All Dividends</TabsTrigger>
           </TabsList>

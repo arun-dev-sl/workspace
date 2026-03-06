@@ -5,8 +5,8 @@ import { NeumorphicLoader } from "@workspace/ui/components/ui/neumorphic-loader"
 const Dashboard = () => {
   return (
     <MainLayout>
-      <div className="flex justify-center">
-        <Card className="mt-10 max-w-3xl p-10">
+      <div className="flex justify-center p-4 sm:p-6">
+        <Card className="mt-4 sm:mt-10 w-full max-w-3xl p-6 sm:p-10">
           <div
             data-slot="badge"
             className="rounded-full p-10 border-2 flex w-full gap-4 hover:scale-[99%] transition-all duration-100"

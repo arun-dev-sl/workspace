@@ -91,7 +91,7 @@ export function PrincipalInvestmentTab() {
 
       {/* Charts Row 1: Monthly + Cumulative */}
       {hasContributions && (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
           <MonthlyInvestmentChart
             contributions={data.contributions}
             metrics={contributionMetrics}
@@ -103,7 +103,7 @@ export function PrincipalInvestmentTab() {
       )}
 
       {/* Charts Row 2: Donut + Insights */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
         {hasDistribution && (
           <AssetDonutChart distribution={distributionMetrics} />
         )}

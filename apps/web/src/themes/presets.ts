@@ -69,7 +69,6 @@ const defaultPreset: ThemePreset = {
     '--shadow-2xl': '0px 1px 2px 0px hsl(0 0% 0% / 0.45)',
     '--tracking-normal': '0em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0 0 0)',
@@ -129,7 +128,6 @@ const defaultPreset: ThemePreset = {
     '--shadow-2xl': '0px 1px 2px 0px hsl(0 0% 0% / 0.45)',
     '--tracking-normal': '0em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -195,7 +193,6 @@ const vercelPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.25)',
     '--tracking-normal': '-0.011em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0 0 0)',
@@ -255,7 +252,6 @@ const vercelPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.7)',
     '--tracking-normal': '-0.011em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -321,7 +317,6 @@ const supabasePreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.01 166.11)',
@@ -381,7 +376,6 @@ const supabasePreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -435,7 +429,6 @@ const oceanPreset: ThemePreset = {
     '--shadow': '0px 2px 4px hsl(0 0% 0% / 0.08)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.02 240)',
@@ -483,7 +476,6 @@ const oceanPreset: ThemePreset = {
     '--shadow': '0px 2px 4px hsl(0 0% 0% / 0.3)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -527,7 +519,6 @@ const rosePreset: ThemePreset = {
     '--radius': '0.5rem',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.13 0.03 20)',
@@ -563,7 +554,6 @@ const rosePreset: ThemePreset = {
     '--radius': '0.5rem',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -748,7 +738,6 @@ const sunsetPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.02 47.66)',
@@ -808,7 +797,6 @@ const sunsetPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -874,7 +862,6 @@ const forestPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.10 0.01 142.50)',
@@ -934,7 +921,6 @@ const forestPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -997,7 +983,6 @@ const lavenderPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.01 320)',
@@ -1057,7 +1042,6 @@ const lavenderPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1120,7 +1104,6 @@ const coralPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.02 20)',
@@ -1180,7 +1163,6 @@ const coralPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1243,7 +1225,6 @@ const slatePreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.11 0 0)',
@@ -1303,7 +1284,6 @@ const slatePreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1367,7 +1347,6 @@ const cyberpunkPreset: ThemePreset = {
       '0px 0px 48px 0px hsl(264 100% 60% / 0.3), 0px 0px 24px 0px hsl(20 100% 50% / 0.25)',
     '--tracking-normal': '0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.08 0.02 264.05)',
@@ -1428,7 +1407,6 @@ const cyberpunkPreset: ThemePreset = {
       '0px 0px 56px 0px hsl(264 100% 70% / 0.7), 0px 0px 40px 0px hsl(20 100% 60% / 0.6)',
     '--tracking-normal': '0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1491,7 +1469,6 @@ const mintPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.11 0.01 180)',
@@ -1551,7 +1528,6 @@ const mintPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1614,7 +1590,6 @@ const goldPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.02em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.02 70)',
@@ -1674,7 +1649,6 @@ const goldPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.02em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1737,7 +1711,6 @@ const indigoPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.10 0.01 260)',
@@ -1797,7 +1770,6 @@ const indigoPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1860,7 +1832,6 @@ const emeraldPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.10 0.01 150)',
@@ -1920,7 +1891,6 @@ const emeraldPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -1986,7 +1956,6 @@ const amberPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.01 85.87)',
@@ -2046,7 +2015,6 @@ const amberPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -2112,7 +2080,6 @@ const skyPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.11 0.02 220)',
@@ -2172,7 +2139,6 @@ const skyPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -2238,7 +2204,6 @@ const burgundyPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.02em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.12 0.01 10)',
@@ -2298,7 +2263,6 @@ const burgundyPreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.02em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -2364,7 +2328,6 @@ const limePreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.20)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.10 0.02 120)',
@@ -2424,7 +2387,6 @@ const limePreset: ThemePreset = {
     '--shadow-2xl': '0px 25px 50px -12px hsl(0 0% 0% / 0.5)',
     '--tracking-normal': '-0.01em',
     '--spacing': '0.25rem',
-    '--font-size-base': '16px',
   },
 }
 
@@ -2490,7 +2452,6 @@ const plainThemePreset = {
     '--shadow-2xl': '0px 24px 48px 0px hsl(0 0% 0% / 0.40)',
     '--spacing': '0.3125rem',
     '--tracking-normal': '0em',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': 'oklch(0.1591 0.0237 265.9485)',
@@ -2553,7 +2514,6 @@ const plainThemePreset = {
     '--shadow-2xl': '0px 24px 48px 0px hsl(0 0% 0% / 0.40)',
     '--spacing': '0.3125rem',
     '--tracking-normal': '0em',
-    '--font-size-base': '16px',
   },
 }
 
@@ -2650,7 +2610,6 @@ const neumorphismPreset: ThemePreset = {
     '--neu-primary-hover': '#8B84FF',
     '--spacing': '0.25rem',
     '--tracking-normal': '0em',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': '#2D333D',
@@ -2744,7 +2703,6 @@ const neumorphismPreset: ThemePreset = {
     '--neu-primary-hover': '#A5ABFF',
     '--spacing': '0.25rem',
     '--tracking-normal': '0em',
-    '--font-size-base': '16px',
   },
 }
 
@@ -2817,7 +2775,6 @@ const glassmorphismPreset: ThemePreset = {
     '--glass-specular': '1',
     '--spacing': '0.25rem',
     '--tracking-normal': '-0.011em',
-    '--font-size-base': '16px',
   },
   dark: {
     '--background': '#0f172a',
@@ -2887,7 +2844,6 @@ const glassmorphismPreset: ThemePreset = {
     '--glass-specular': '1',
     '--spacing': '0.25rem',
     '--tracking-normal': '-0.011em',
-    '--font-size-base': '16px',
   },
 }
 

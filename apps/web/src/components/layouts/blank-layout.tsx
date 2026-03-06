@@ -38,7 +38,11 @@ function BlankLayout({
     <div
       data-slot="blank-layout"
       data-bordered={bordered || undefined}
-      className={cn("relative z-0", bordered && "lg:px-12", className)}
+      className={cn(
+        "relative z-0 px-4 sm:px-6 md:px-8 lg:px-12",
+        bordered && "lg:px-12",
+        className,
+      )}
       {...props}
     >
       {/* Horizontal borders */}
@@ -68,7 +72,7 @@ function BlankLayout({
         {/* Main content */}
         <div
           data-slot="blank-layout-content"
-          className="flex flex-1 flex-col bg-card"
+          className="flex flex-1 flex-col bg-card pt-12"
         >
           {children}
         </div>

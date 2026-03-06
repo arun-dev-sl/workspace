@@ -42,7 +42,7 @@ export function MonthlyInvestmentChart({
   if (contributions.length === 0) return null;
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
