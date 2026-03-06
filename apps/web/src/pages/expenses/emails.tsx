@@ -672,14 +672,8 @@ const ExpenseEmailsPage = () => {
                       <span className="sr-only">Sync options</span>
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent align="start" className="w-auto p-3">
+                  <PopoverContent align="start" className="w-auto p-3 relative">
                     <div className="space-y-3">
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium">Sync from date</p>
-                        <p className="text-xs text-muted-foreground">
-                          Run a one-off sync starting from the selected date.
-                        </p>
-                      </div>
                       <Calendar
                         mode="single"
                         selected={syncFromDate}

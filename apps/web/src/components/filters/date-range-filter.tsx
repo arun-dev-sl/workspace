@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { format } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
+import { endOfDay, format, parseISO, startOfDay } from "date-fns";
 
 import { Button } from "@workspace/ui/components/ui/button";
 import { Calendar } from "@workspace/ui/components/ui/calendar";
@@ -10,6 +10,11 @@ import {
 } from "@workspace/ui/components/ui/popover";
 import { CalendarIcon, X } from "lucide-react";
 import { cn } from "@workspace/ui/lib/utils";
+
+type DateRangeValue = {
+  from: Date | undefined;
+  to?: Date;
+};
 
 interface DateRangeFilterProps {
   /** ISO date string or undefined */
@@ -36,22 +41,51 @@ export function DateRangeFilter({
 }: DateRangeFilterProps) {
   const [open, setOpen] = useState(false);
 
-  const selected =
-    dateFrom || dateTo
-      ? {
-          from: dateFrom ? new Date(dateFrom) : new Date(),
-          to: dateTo ? new Date(dateTo) : undefined,
-        }
-      : undefined;
+  const selected = useMemo<DateRangeValue | undefined>(() => {
+    const from = dateFrom ? parseISO(dateFrom) : undefined;
+    const to = dateTo ? parseISO(dateTo) : undefined;
+
+    if (!from && !to) {
+      return undefined;
+    }
+
+    return { from, to };
+  }, [dateFrom, dateTo]);
+
+  const [draftRange, setDraftRange] = useState<DateRangeValue | undefined>(
+    selected,
+  );
+
+  useEffect(() => {
+    if (!open) {
+      setDraftRange(selected);
+    }
+  }, [open, selected]);
 
   const hasRange = dateFrom || dateTo;
 
   const label = hasRange
     ? [
-        dateFrom ? format(new Date(dateFrom), "MMM d") : "…",
-        dateTo ? format(new Date(dateTo), "MMM d") : "…",
+        dateFrom ? format(parseISO(dateFrom), "MMM d") : "…",
+        dateTo ? format(parseISO(dateTo), "MMM d") : "…",
       ].join(" – ")
     : "Date range";
+
+  const handleApply = () => {
+    onChange({
+      from: draftRange?.from
+        ? startOfDay(draftRange.from).toISOString()
+        : undefined,
+      to: draftRange?.to ? endOfDay(draftRange.to).toISOString() : undefined,
+    });
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    setDraftRange(undefined);
+    onChange({ from: undefined, to: undefined });
+    setOpen(false);
+  };
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -69,23 +103,41 @@ export function DateRangeFilter({
             {label}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <Calendar
-            mode="range"
-            selected={selected}
-            onSelect={(range) => {
-              onChange({
-                from: range?.from?.toISOString(),
-                to: range?.to?.toISOString(),
-              });
-              // Close only when both ends are selected
-              if (range?.from && range?.to) {
-                setOpen(false);
-              }
-            }}
-            numberOfMonths={2}
-            autoFocus
-          />
+        <PopoverContent className="w-auto p-0" align="center">
+          <div className="space-y-3 p-3">
+            <Calendar
+              mode="range"
+              selected={draftRange}
+              onSelect={setDraftRange}
+              numberOfMonths={2}
+              autoFocus
+            />
+            <div className="flex items-center justify-between gap-2 border-t pt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClear}
+                disabled={!draftRange?.from && !draftRange?.to}
+              >
+                Clear
+              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDraftRange(selected);
+                    setOpen(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button size="sm" onClick={handleApply}>
+                  Apply
+                </Button>
+              </div>
+            </div>
+          </div>
         </PopoverContent>
       </Popover>
       {hasRange && (
@@ -93,7 +145,7 @@ export function DateRangeFilter({
           variant="ghost"
           size="icon"
           className="size-7"
-          onClick={() => onChange({ from: undefined, to: undefined })}
+          onClick={handleClear}
         >
           <X className="size-3.5" />
           <span className="sr-only">Clear date range</span>

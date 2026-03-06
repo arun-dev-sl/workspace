@@ -673,6 +673,86 @@
     box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12) !important;
   }
 
+  :root[data-theme-preset="glassmorphism"] [data-slot="calendar"] {
+    color: var(--foreground);
+  }
+
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-nav-button,
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-day-button {
+    border: 1px solid
+      rgba(255, 255, 255, calc(var(--glass-border-opacity) * 0.9));
+    background: rgba(
+      var(--glass-tint),
+      calc(var(--glass-surface-opacity) - 0.12)
+    );
+    backdrop-filter: blur(calc(var(--glass-blur) * 0.75))
+      saturate(var(--glass-saturation));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.75))
+      saturate(var(--glass-saturation));
+    box-shadow:
+      0 6px 18px rgba(0, 0, 0, 0.06),
+      var(--glass-highlight);
+  }
+
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-day-button:hover,
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-nav-button:hover {
+    background: rgba(
+      var(--glass-tint),
+      calc(var(--glass-surface-opacity) + 0.02)
+    );
+  }
+
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-range-middle {
+    background: rgba(
+      var(--glass-tint),
+      calc(var(--glass-surface-opacity) + 0.04)
+    );
+    color: var(--foreground);
+  }
+
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-day-selected,
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-day-range-start,
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-day-range-end {
+    border-color: rgba(255, 255, 255, calc(var(--glass-border-opacity) + 0.1));
+    background: rgba(
+      var(--glass-tint),
+      calc(var(--glass-surface-opacity) + 0.18)
+    ) !important;
+    color: var(--foreground) !important;
+  }
+
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-day-today:not(.calendar-day-selected) {
+    background: rgba(
+      var(--glass-tint),
+      calc(var(--glass-surface-opacity) + 0.08)
+    );
+    color: var(--foreground);
+  }
+
+  :root[data-theme-preset="glassmorphism"]
+    [data-slot="calendar"]
+    .calendar-weekday {
+    color: color-mix(in oklab, var(--foreground) 68%, transparent);
+  }
+
   :root[data-theme-preset="glassmorphism"] [data-slot="tooltip-content"] {
     border: 1px solid rgba(255, 255, 255, var(--glass-border-opacity)) !important;
     border-radius: calc(var(--glass-border-radius) * 0.75) !important;
