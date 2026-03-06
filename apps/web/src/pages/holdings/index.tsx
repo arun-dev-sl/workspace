@@ -26,10 +26,9 @@ export default function HoldingsPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-1 flex-col gap-6 px-6 py-10 mx-8">
+      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
         {/* Header */}
-        <header
-          className="flex flex-col gap-4">
+        <header className="flex flex-col gap-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-2">
               <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
@@ -43,7 +42,7 @@ export default function HoldingsPage() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <ImportGrowwDialog />
               <Button onClick={() => setAddOpen(true)}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -58,7 +57,7 @@ export default function HoldingsPage() {
 
         {/* Tabs: Stocks / Mutual Funds */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
+          <TabsList className="w-full overflow-x-auto">
             <TabsTrigger value="stocks">
               Stocks{stockCount > 0 && ` (${stockCount})`}
             </TabsTrigger>

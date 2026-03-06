@@ -28,6 +28,9 @@ export const appPaths = {
     holdings: {
       getHref: () => '/holdings',
     },
+    dividends: {
+      getHref: () => '/dividends',
+    },
     playground: {
       getHref: () => '/playground',
     },

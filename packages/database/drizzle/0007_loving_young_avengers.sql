@@ -1,0 +1,1 @@
+ALTER TABLE "principal_contributions" ADD COLUMN "salary_lakhs" numeric(12, 4);

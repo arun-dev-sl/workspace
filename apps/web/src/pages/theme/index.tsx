@@ -4,23 +4,24 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@workspace/ui/components/ui/card'
+} from "@workspace/ui/components/ui/card";
 
-import { ThemeEditorPanel } from './components/theme-editor-panel'
-import { MainLayout } from '@/components/layouts/main-layout'
-import { PreviewSandbox } from './components/preview-sandbox'
-
+import { ThemeEditorPanel } from "./components/theme-editor-panel";
+import { MainLayout } from "@/components/layouts/main-layout";
+import { PreviewSandbox } from "./components/preview-sandbox";
 
 export default function ThemeSettingsPage() {
   return (
     <MainLayout>
-      <div className="flex flex-1 flex-col gap-6 px-6 py-10 mx-8">
+      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
         <header className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
               Theme Editor
             </p>
-            <h1 className="text-2xl font-semibold text-foreground">Customize</h1>
+            <h1 className="text-2xl font-semibold text-foreground">
+              Customize
+            </h1>
             <p className="max-w-2xl text-sm text-muted-foreground">
               Customize your design system visually.
             </p>
@@ -52,5 +53,5 @@ export default function ThemeSettingsPage() {
         </div>
       </div>
     </MainLayout>
-  )
+  );
 }

@@ -311,7 +311,7 @@ const AnalyticsPage = () => {
 
   return (
     <MainLayout>
-      <div className="flex flex-1 flex-col gap-6 px-6 py-10 mx-8">
+      <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
         {/* Header */}
         <header className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -324,8 +324,9 @@ const AnalyticsPage = () => {
             <p className="max-w-2xl text-sm text-muted-foreground">
               Spending patterns, category breakdowns and trends.
             </p>
-          </div> {/* Period selector */}
-          <div className="flex items-center gap-2">
+          </div>{" "}
+          {/* Period selector */}
+          <div className="flex flex-wrap items-center gap-2">
             {PERIODS.map((p) => (
               <Button
                 key={p.value}
@@ -356,7 +357,7 @@ const AnalyticsPage = () => {
         </header>
 
         {/* ── Summary cards ── */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <SummaryCard
             title="Total Spent"
             value={summary ? fmtCurrency(summary.totalSpent) : undefined}
@@ -396,9 +397,9 @@ const AnalyticsPage = () => {
         </div>
 
         {/* ── Charts row 1: Daily spending + Category pie ── */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
           {/* Daily spending bar chart — 2 cols */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base">Daily Spending</CardTitle>
               <CardDescription>Debits &amp; credits per day</CardDescription>
@@ -527,9 +528,9 @@ const AnalyticsPage = () => {
         </div>
 
         {/* ── Charts row 2: Monthly trend + Payment modes ── */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
           {/* Monthly trend line chart — 2 cols */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base">Monthly Trend</CardTitle>
               <CardDescription>Last 12 months overview</CardDescription>
@@ -781,7 +782,9 @@ const AnalyticsPage = () => {
                   const pct = maxAmount > 0 ? (m.amount / maxAmount) * 100 : 0;
                   return (
                     <div
-                      key={m.merchant} className="flex items-center gap-3 py-2">
+                      key={m.merchant}
+                      className="flex items-center gap-3 py-2"
+                    >
                       <span className="w-5 text-xs text-muted-foreground">
                         {i + 1}
                       </span>
@@ -871,7 +874,7 @@ const AnalyticsPage = () => {
         />
 
         {/* ── Day-of-Week + Cumulative Spend ── */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
           {/* Day-of-Week bar chart */}
           <Card>
             <CardHeader>
@@ -1056,9 +1059,9 @@ const AnalyticsPage = () => {
         </div>
 
         {/* ── Category Trend + Savings Rate ── */}
-        <div className="grid gap-6 lg:grid-cols-3">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
           {/* Category trend multi-line — 2 cols */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 overflow-hidden">
             <CardHeader>
               <div className="flex items-center gap-2">
                 <Layers className="size-4 text-muted-foreground" />
@@ -1343,7 +1346,7 @@ const AnalyticsPage = () => {
         </Card>
 
         {/* ── Top VPA Payees + Card Category Breakdown ── */}
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
           {/* Top VPA Payees */}
           <Card>
             <CardHeader>
@@ -1458,7 +1461,7 @@ const AnalyticsPage = () => {
               <Separator className="w-full mt-2" />
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {milestoneEtaQ.data.map((eta) => (
                   <MilestoneEtaCard key={eta.id} eta={eta} />
                 ))}
@@ -1675,32 +1678,32 @@ function PeriodComparisonSection({
 }) {
   const metrics = data
     ? [
-      {
-        label: "Total Spent",
-        current: data.currentPeriod.totalSpent,
-        change: data.changes.spentChange,
-        invert: true, // negative change is good
-      },
-      {
-        label: "Total Received",
-        current: data.currentPeriod.totalReceived,
-        change: data.changes.receivedChange,
-        invert: false,
-      },
-      {
-        label: "Transaction Count",
-        current: data.currentPeriod.transactionCount,
-        change: data.changes.countChange,
-        invert: false,
-        isCurrency: false,
-      },
-      {
-        label: "Avg Transaction",
-        current: data.currentPeriod.avgTransaction,
-        change: data.changes.avgChange,
-        invert: true,
-      },
-    ]
+        {
+          label: "Total Spent",
+          current: data.currentPeriod.totalSpent,
+          change: data.changes.spentChange,
+          invert: true, // negative change is good
+        },
+        {
+          label: "Total Received",
+          current: data.currentPeriod.totalReceived,
+          change: data.changes.receivedChange,
+          invert: false,
+        },
+        {
+          label: "Transaction Count",
+          current: data.currentPeriod.transactionCount,
+          change: data.changes.countChange,
+          invert: false,
+          isCurrency: false,
+        },
+        {
+          label: "Avg Transaction",
+          current: data.currentPeriod.avgTransaction,
+          change: data.changes.avgChange,
+          invert: true,
+        },
+      ]
     : [];
 
   return (
@@ -1714,13 +1717,13 @@ function PeriodComparisonSection({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-20 w-full" />
             ))}
           </div>
         ) : data ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {metrics.map((m) => {
               const isPositive = m.change > 0;
               const isGood = m.invert ? !isPositive : isPositive;
@@ -1728,7 +1731,9 @@ function PeriodComparisonSection({
               return (
                 <div
                   data-slot="badge"
-                  key={m.label} className="rounded-lg border p-4 space-y-1">
+                  key={m.label}
+                  className="rounded-lg border p-4 space-y-1"
+                >
                   <p className="text-xs font-medium text-muted-foreground">
                     {m.label}
                   </p>
@@ -1850,9 +1855,7 @@ function MilestoneEtaCard({ eta }: { eta: MilestoneEta }) {
         : "var(--color-chart-1)";
 
   return (
-    <div
-      data-slot="badge"
-      className="rounded-lg border p-4 space-y-3">
+    <div data-slot="badge" className="rounded-lg border p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium">{eta.description}</p>

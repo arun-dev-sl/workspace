@@ -12,6 +12,7 @@ import ExpenseEmailDetailsPage from "@/pages/expenses/email-details";
 import AnalyticsPage from "@/pages/expenses/analytics";
 import PatternsPage from "@/pages/expenses/patterns";
 import HoldingsPage from "@/pages/holdings";
+import DividendsPage from "@/pages/dividends";
 import PlaygroundPage from "@/pages/playground";
 
 const router = createBrowserRouter([
@@ -83,6 +84,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <HoldingsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "dividends",
+        element: (
+          <ProtectedRoute>
+            <DividendsPage />
           </ProtectedRoute>
         ),
       },

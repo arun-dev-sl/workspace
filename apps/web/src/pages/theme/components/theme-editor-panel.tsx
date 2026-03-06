@@ -113,20 +113,6 @@ export function ThemeEditorPanel() {
         />
       );
     }
-    if (variable === "--tracking-normal") {
-      return (
-        <SliderInput
-          label={variable}
-          value={value}
-          onChange={(newValue) => setOverride(activeMode, variable, newValue)}
-          variableName={variable}
-          min={-0.05}
-          max={0.1}
-          step={0.001}
-          unit="em"
-        />
-      );
-    }
     if (variable === "--font-size-base") {
       return (
         <SliderInput
@@ -138,6 +124,21 @@ export function ThemeEditorPanel() {
           max={24}
           step={1}
           unit="px"
+        />
+      );
+    }
+
+    if (variable === "--tracking-normal") {
+      return (
+        <SliderInput
+          label={variable}
+          value={value}
+          onChange={(newValue) => setOverride(activeMode, variable, newValue)}
+          variableName={variable}
+          min={-0.05}
+          max={0.1}
+          step={0.001}
+          unit="em"
         />
       );
     }
@@ -251,7 +252,7 @@ export function ThemeEditorPanel() {
         </div>
 
         {/* FOOTER */}
-        <div className="flex justify-between items-center pt-3 mt-3 border-t">
+        <div className="flex flex-wrap justify-between items-center gap-2 pt-3 mt-3 border-t">
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleClearOverrides}>
               Clear

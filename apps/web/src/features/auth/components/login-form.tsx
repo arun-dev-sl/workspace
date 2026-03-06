@@ -27,6 +27,7 @@ import { setStoredTokens } from "@/lib/auth";
 import { loginSchema, type LoginFormData } from "../schemas";
 import { useMutation } from "@tanstack/react-query";
 import type { LoginResponse } from "@/lib/api-types";
+import { Key } from "lucide-react";
 
 const LoginForm = () => {
   const navigate = useNavigate();
@@ -117,6 +118,7 @@ const LoginForm = () => {
         <Field orientation="responsive">
           <Button type="submit" form="login-form" disabled={isPending}>
             {isPending && <Spinner />}
+            <Key className="size-4" />
             Login
           </Button>
           <FieldDescription className="text-center">

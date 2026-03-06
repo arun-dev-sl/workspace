@@ -6,13 +6,14 @@ import {
   Mail,
   Paintbrush,
   Briefcase,
+  Banknote,
   FlaskConical,
 } from "lucide-react";
 
 import { appPaths } from "@/config/app-paths";
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/ui/tabs";
 
-const navItems = [
+export const navItems = [
   {
     label: "Dashboard",
     href: appPaths.auth.dashboard.getHref(),
@@ -33,6 +34,11 @@ const navItems = [
     label: "Holdings",
     href: appPaths.auth.holdings.getHref(),
     icon: Briefcase,
+  },
+  {
+    label: "Dividends",
+    href: appPaths.auth.dividends.getHref(),
+    icon: Banknote,
   },
   {
     label: "Emails",
