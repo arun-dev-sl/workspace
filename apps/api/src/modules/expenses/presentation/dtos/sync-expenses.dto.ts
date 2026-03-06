@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator'
+import { IsOptional, IsString, Matches, MaxLength } from 'class-validator'
 
 /**
  * Sync Expenses DTO
@@ -22,4 +22,12 @@ export class SyncExpensesDto {
   @IsOptional()
   @MaxLength(512)
   after?: string
+
+  /**
+   * Optional one-off sync start date (YYYY-MM-DD).
+   */
+  @IsString()
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  fromDate?: string
 }

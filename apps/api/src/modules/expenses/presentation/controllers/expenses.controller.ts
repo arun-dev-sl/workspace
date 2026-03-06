@@ -53,6 +53,7 @@ export class ExpensesController {
     const { jobId } = await this.expensesService.startSyncJob({
       userId: req.user.id,
       query: dto.query,
+      fromDate: dto.fromDate,
     })
     return {
       jobId,

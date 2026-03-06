@@ -1,4 +1,5 @@
-import { Inject, Injectable, Logger } from '@nestjs/common'
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
+import { format, isValid, parseISO } from 'date-fns'
 
 import {
   EMAIL_PARSERS,
@@ -126,8 +127,15 @@ export class ExpensesService {
      * Start an async sync job
      * Returns immediately with a job ID that can be polled for status
      */
-  async startSyncJob(params: { userId: string, query?: string }): Promise<{ jobId: string }> {
-    const query = params.query ?? await this.emailSyncService.buildIncrementalQuery(params.userId, EXPENSE_CATEGORY, EXPENSE_QUERY_TERMS)
+  async startSyncJob(params: { userId: string, query?: string, fromDate?: string }): Promise<{ jobId: string }> {
+    const query = params.query
+      ?? (params.fromDate
+        ? this.buildSyncQueryFromDate(params.fromDate)
+        : await this.emailSyncService.buildIncrementalQuery(
+            params.userId,
+            EXPENSE_CATEGORY,
+            EXPENSE_QUERY_TERMS,
+          ))
 
     const { jobId } = await this.emailSyncService.startSync({
       userId: params.userId,
@@ -138,6 +146,16 @@ export class ExpensesService {
       this.logger.error(`Post-sync processing for job ${jobId} failed`, error)
     })
     return { jobId }
+  }
+
+  private buildSyncQueryFromDate(fromDate: string): string {
+    const parsedDate = parseISO(fromDate)
+
+    if (!isValid(parsedDate)) {
+      throw new BadRequestException('Invalid fromDate. Expected format: YYYY-MM-DD.')
+    }
+
+    return `${EXPENSE_QUERY_TERMS} after:${format(parsedDate, 'yyyy/MM/dd')}`
   }
 
   /**

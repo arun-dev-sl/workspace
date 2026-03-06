@@ -26,6 +26,7 @@ import { BulkActionsToolbar } from "@/features/expenses/components/bulk-actions-
 import { CATEGORY_OPTIONS } from "@/features/expenses/constants/category-options";
 import { Badge } from "@workspace/ui/components/ui/badge";
 import { Button } from "@workspace/ui/components/ui/button";
+import { Calendar } from "@workspace/ui/components/ui/calendar";
 import {
   Card,
   CardContent,
@@ -35,6 +36,11 @@ import {
 import { Checkbox } from "@workspace/ui/components/ui/checkbox";
 import { Input } from "@workspace/ui/components/ui/input";
 import { Label } from "@workspace/ui/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@workspace/ui/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -67,6 +73,7 @@ import {
 import {
   Dot,
   MailSearch,
+  MoreVertical,
   Pencil,
   RotateCw,
   RefreshCcw,
@@ -555,6 +562,8 @@ const ExpenseEmailsPage = () => {
   });
 
   const { startSync, startReprocess, job, isSyncing } = useSyncJob();
+  const [syncDateOpen, setSyncDateOpen] = useState(false);
+  const [syncFromDate, setSyncFromDate] = useState<Date | undefined>();
 
   const disconnectMutation = useMutation({
     mutationFn: disconnectGmail,
@@ -570,6 +579,17 @@ const ExpenseEmailsPage = () => {
         });
     },
   });
+
+  const handleSyncFromDate = () => {
+    if (!syncFromDate) {
+      startSync();
+      setSyncDateOpen(false);
+      return;
+    }
+
+    startSync({ fromDate: format(syncFromDate, "yyyy-MM-dd") });
+    setSyncDateOpen(false);
+  };
 
   return (
     <MainLayout>
@@ -606,37 +626,86 @@ const ExpenseEmailsPage = () => {
               Disconnect Gmail
             </Button>
             <div className="flex flex-col gap-2">
-              <Button
-                variant="outline"
-                onClick={startSync}
-                disabled={!statusQuery.data?.connected || isSyncing}
-                className="relative overflow-hidden"
-              >
-                <RefreshCcw />
-                {isSyncing && (
-                  <div
-                    className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-300"
-                    style={{
-                      width: job?.totalEmails
-                        ? `${(job.processedEmails / job.totalEmails) * 100}%`
-                        : "5%",
-                    }}
-                  />
-                )}
-
-                <span className="relative z-10">
-                  {job?.status === "processing" && job.totalEmails ? (
-                    <>
-                      Syncing (<AnimatedNumber value={job.processedEmails} /> /{" "}
-                      {job.totalEmails})
-                    </>
-                  ) : job?.status === "completed" ? (
-                    "Synced"
-                  ) : (
-                    "Sync"
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  onClick={() => startSync()}
+                  disabled={!statusQuery.data?.connected || isSyncing}
+                  className="relative overflow-hidden"
+                >
+                  <RefreshCcw />
+                  {isSyncing && job?.query !== "__reprocess__" && (
+                    <div
+                      className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-300"
+                      style={{
+                        width: job?.totalEmails
+                          ? `${(job.processedEmails / job.totalEmails) * 100}%`
+                          : "5%",
+                      }}
+                    />
                   )}
-                </span>
-              </Button>
+
+                  <span className="relative z-10">
+                    {job?.status === "processing" &&
+                    job?.query !== "__reprocess__" &&
+                    job.totalEmails ? (
+                      <>
+                        Syncing (<AnimatedNumber value={job.processedEmails} />{" "}
+                        / {job.totalEmails})
+                      </>
+                    ) : job?.status === "completed" &&
+                      job?.query !== "__reprocess__" ? (
+                      "Synced"
+                    ) : (
+                      "Sync"
+                    )}
+                  </span>
+                </Button>
+                <Popover open={syncDateOpen} onOpenChange={setSyncDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      disabled={!statusQuery.data?.connected || isSyncing}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                      <span className="sr-only">Sync options</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-auto p-3">
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Sync from date</p>
+                        <p className="text-xs text-muted-foreground">
+                          Run a one-off sync starting from the selected date.
+                        </p>
+                      </div>
+                      <Calendar
+                        mode="single"
+                        selected={syncFromDate}
+                        onSelect={setSyncFromDate}
+                        disabled={(date) => date > new Date()}
+                        autoFocus
+                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSyncFromDate(undefined)}
+                          disabled={!syncFromDate}
+                        >
+                          Clear
+                        </Button>
+                        <Button size="sm" onClick={handleSyncFromDate}>
+                          {syncFromDate
+                            ? `Sync from ${format(syncFromDate, "MMM d, yyyy")}`
+                            : "Run default sync"}
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <Button
               variant="outline"
