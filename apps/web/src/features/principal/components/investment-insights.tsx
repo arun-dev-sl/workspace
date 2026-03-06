@@ -35,7 +35,10 @@ export function InvestmentInsights({ metrics }: InvestmentInsightsProps) {
       <CardContent>
         <div className="space-y-4">
           {/* Overall Trend */}
-          <div className="flex items-center justify-between rounded-lg border p-3">
+          <div
+            data-slot="badge"
+            className="flex items-center justify-between rounded-lg border p-3"
+          >
             <span className="text-sm font-medium">Overall Trend</span>
             <Badge variant={metrics.trendIncreasing ? "default" : "secondary"}>
               {metrics.trendIncreasing ? "📈 Increasing" : "📉 Decreasing"}
@@ -44,7 +47,10 @@ export function InvestmentInsights({ metrics }: InvestmentInsightsProps) {
 
           {/* Largest Increase */}
           {metrics.largestIncrease && (
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <div
+              data-slot="badge"
+              className="flex items-center justify-between rounded-lg border p-3"
+            >
               <div className="flex items-center gap-2">
                 <ArrowUpRight className="h-4 w-4 text-green-500" />
                 <span className="text-sm font-medium">
@@ -64,7 +70,10 @@ export function InvestmentInsights({ metrics }: InvestmentInsightsProps) {
 
           {/* Largest Drop */}
           {metrics.largestDrop && metrics.largestDrop.change < 0 && (
-            <div className="flex items-center justify-between rounded-lg border p-3">
+            <div
+              data-slot="badge"
+              className="flex items-center justify-between rounded-lg border p-3"
+            >
               <div className="flex items-center gap-2">
                 <ArrowDownRight className="h-4 w-4 text-red-500" />
                 <span className="text-sm font-medium">
@@ -83,7 +92,10 @@ export function InvestmentInsights({ metrics }: InvestmentInsightsProps) {
           )}
 
           {/* Consistency */}
-          <div className="flex items-center justify-between rounded-lg border p-3">
+          <div
+            data-slot="badge"
+            className="flex items-center justify-between rounded-lg border p-3"
+          >
             <span className="text-sm font-medium">Consistency</span>
             <span className="text-sm">
               {metrics.consistencyScore >= 0.7
