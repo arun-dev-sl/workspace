@@ -5,6 +5,8 @@ import {
   profilesTable,
   accountsTable,
   sessionsTable,
+  flightActivitiesTable,
+  flightEmailProcessingTable,
   rawEmailsTable,
   statementsTable,
   transactionsTable,
@@ -33,6 +35,10 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   transactions: many(transactionsTable),
   // 1:N with merchant_category_rules
   merchantCategoryRules: many(merchantCategoryRulesTable),
+  // 1:N with flight_activities
+  flightActivities: many(flightActivitiesTable),
+  // 1:N with flight_email_processing
+  flightEmailProcessing: many(flightEmailProcessingTable),
   // 1:N with webauthn_credentials
   passkeys: many(webauthnCredentialsTable),
 }))
@@ -85,6 +91,10 @@ export const rawEmailsRelations = relations(
     transactions: many(transactionsTable),
     // 1:N with statements
     statements: many(statementsTable),
+    // 1:N with flight_activities
+    flightActivities: many(flightActivitiesTable),
+    // 1:N with flight_email_processing
+    flightEmailProcessing: many(flightEmailProcessingTable),
   }),
 )
 
@@ -143,6 +153,34 @@ export const merchantCategoryRulesRelations = relations(
     user: one(usersTable, {
       fields: [merchantCategoryRulesTable.userId],
       references: [usersTable.id],
+    }),
+  }),
+)
+
+export const flightActivitiesRelations = relations(
+  flightActivitiesTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [flightActivitiesTable.userId],
+      references: [usersTable.id],
+    }),
+    sourceEmail: one(rawEmailsTable, {
+      fields: [flightActivitiesTable.sourceEmailId],
+      references: [rawEmailsTable.id],
+    }),
+  }),
+)
+
+export const flightEmailProcessingRelations = relations(
+  flightEmailProcessingTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [flightEmailProcessingTable.userId],
+      references: [usersTable.id],
+    }),
+    sourceEmail: one(rawEmailsTable, {
+      fields: [flightEmailProcessingTable.sourceEmailId],
+      references: [rawEmailsTable.id],
     }),
   }),
 )

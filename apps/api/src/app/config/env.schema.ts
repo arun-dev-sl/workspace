@@ -102,6 +102,36 @@ export const envSchema = z.object({
   GMAIL_CLIENT_SECRET: z.string().optional(),
   GMAIL_REDIRECT_URI: z.string().url().optional(),
 
+  // Gemini extraction (flights)
+  GEMINI_API_KEY: z.string().optional(),
+  FLIGHTS_LLM_ENABLED: z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((value) => {
+      if (value === undefined) {
+        return Boolean(process.env.GEMINI_API_KEY)
+      }
+      if (typeof value === 'boolean') {
+        return value
+      }
+
+      return value.toLowerCase() === 'true'
+    }),
+  FLIGHTS_LLM_MAX_CALLS_PER_JOB: z
+    .string()
+    .default('25')
+    .transform((value) => Number.parseInt(value, 10))
+    .refine((value) => value >= 0, {
+      message: 'FLIGHTS_LLM_MAX_CALLS_PER_JOB must be 0 or greater',
+    }),
+  FLIGHTS_LLM_MAX_INPUT_CHARS: z
+    .string()
+    .default('12000')
+    .transform((value) => Number.parseInt(value, 10))
+    .refine((value) => value >= 1000, {
+      message: 'FLIGHTS_LLM_MAX_INPUT_CHARS must be at least 1000',
+    }),
+
   // Web app base URL (OAuth redirect target)
   WEB_APP_URL: z.string().url().default('http://localhost:5173'),
 

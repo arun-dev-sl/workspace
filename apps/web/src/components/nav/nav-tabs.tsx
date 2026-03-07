@@ -7,6 +7,7 @@ import {
   Paintbrush,
   Briefcase,
   Banknote,
+  Plane,
   FlaskConical,
 } from "lucide-react";
 
@@ -39,6 +40,11 @@ export const navItems = [
     label: "Dividends",
     href: appPaths.auth.dividends.getHref(),
     icon: Banknote,
+  },
+  {
+    label: "Flights",
+    href: appPaths.auth.flights.getHref(),
+    icon: Plane,
   },
   {
     label: "Emails",

@@ -94,4 +94,28 @@ export default [
       ],
     },
   },
+  // Allow flights module to depend on auth and expenses module plumbing
+  {
+    files: ['src/modules/flights/**/*.ts'],
+    rules: {
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            {
+              from: ['module'],
+              allow: [
+                'app',
+                'shared-kernel',
+                ['module', { moduleName: 'flights' }],
+                ['module', { moduleName: 'auth' }],
+                ['module', { moduleName: 'expenses' }],
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]
