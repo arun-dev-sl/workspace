@@ -4,8 +4,11 @@ import { z } from 'zod'
 import { apiRequest } from '@/lib/api-client'
 import {
   FlightActivitySchema,
+  FlightLlmReviewCandidatesResponseSchema,
   FlightSyncJobStatusSchema,
   RawEmailSchema,
+  ProcessFlightLlmReviewRequestSchema,
+  StartFlightLlmReviewRequestSchema,
   StartFlightSyncJobResponseSchema,
   UpdateFlightActivityInputSchema,
   type UpdateFlightActivityInput,
@@ -33,6 +36,14 @@ export interface StartFlightSyncJobInput {
   fromDate?: string
 }
 
+export interface StartFlightReviewSyncJobInput {
+  fromDate: string
+}
+
+export interface StartFlightLlmReviewProcessJobInput {
+  emailIds: string[]
+}
+
 export const flightKeys = {
   all: ['flights'] as const,
   activities: (params?: ListFlightActivitiesParams) =>
@@ -40,6 +51,8 @@ export const flightKeys = {
   activity: (id: string) => [...flightKeys.all, 'activity', id] as const,
   email: (id: string) => [...flightKeys.all, 'email', id] as const,
   gmailStatus: () => [...flightKeys.all, 'gmail-status'] as const,
+  reviewCandidates: (fromDate: string, limit = 50) =>
+    [...flightKeys.all, 'review-candidates', fromDate, limit] as const,
 }
 
 export async function listFlightActivities(
@@ -93,14 +106,61 @@ export async function updateFlightActivity(params: {
   return FlightActivitySchema.parse(json)
 }
 
-export async function startFlightSyncJob(
-  input?: StartFlightSyncJobInput,
-) {
+export async function startFlightSyncJob(input?: StartFlightSyncJobInput) {
   const json = await apiRequest({
     method: 'POST',
     url: '/api/flights/sync',
     data: input,
     successMessage: 'Flight sync started',
+    toastSuccess: true,
+  })
+
+  return StartFlightSyncJobResponseSchema.parse(json)
+}
+
+export async function startFlightReviewSyncJob(
+  input: StartFlightReviewSyncJobInput,
+) {
+  const json = await apiRequest({
+    method: 'POST',
+    url: '/api/flights/sync/review',
+    data: StartFlightLlmReviewRequestSchema.parse(input),
+    successMessage: 'Reviewed flight sync started',
+    toastSuccess: true,
+  })
+
+  return StartFlightSyncJobResponseSchema.parse(json)
+}
+
+export async function listFlightLlmReviewCandidates(params: {
+  fromDate: string
+  limit?: number
+}) {
+  const searchParams = new URLSearchParams({ fromDate: params.fromDate })
+
+  if (params.limit) {
+    searchParams.set('limit', params.limit.toString())
+  }
+
+  const json = await apiRequest({
+    method: 'GET',
+    url: `/api/flights/sync/review/candidates?${searchParams.toString()}`,
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  return FlightLlmReviewCandidatesResponseSchema.parse(json)
+}
+
+export async function startFlightLlmReviewProcessJob(
+  input: StartFlightLlmReviewProcessJobInput,
+) {
+  const json = await apiRequest({
+    method: 'POST',
+    url: '/api/flights/sync/review/process',
+    data: ProcessFlightLlmReviewRequestSchema.parse(input),
+    successMessage: 'Selected emails queued for LLM review',
     toastSuccess: true,
   })
 
@@ -146,6 +206,27 @@ export function useFlightEmail(id?: string, enabled = true) {
     queryKey: flightKeys.email(id ?? 'unknown'),
     queryFn: () => getFlightEmail(id!),
     enabled: enabled && Boolean(id),
+  })
+}
+
+export function useFlightLlmReviewCandidates(params: {
+  fromDate?: string
+  limit?: number
+  enabled?: boolean
+}) {
+  const enabled = Boolean(params.fromDate) && (params.enabled ?? true)
+
+  return useQuery({
+    queryKey: flightKeys.reviewCandidates(
+      params.fromDate ?? 'unknown',
+      params.limit ?? 50,
+    ),
+    queryFn: () =>
+      listFlightLlmReviewCandidates({
+        fromDate: params.fromDate!,
+        limit: params.limit,
+      }),
+    enabled,
   })
 }
 

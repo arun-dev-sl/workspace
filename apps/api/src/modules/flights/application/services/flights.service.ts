@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
-import { format, isValid, parseISO } from 'date-fns'
+import { format, isValid, parseISO, startOfDay } from 'date-fns'
 
 import {
   RAW_EMAIL_REPOSITORY,
@@ -41,6 +41,7 @@ import type { FlightActivityRepository } from '@/modules/flights/application/por
 import type { FlightEmailProcessingRepository } from '@/modules/flights/application/ports/flight-email-processing.repository.port'
 import type {
   FlightActivity,
+  FlightLlmReviewCandidate,
   FlightSyncJobStatus,
   RawEmail,
   UpdateFlightActivityInput,
@@ -48,6 +49,46 @@ import type {
 
 const FLIGHT_CATEGORY = 'flights'
 const FLIGHT_QUERY_TERMS = 'subject:(flight OR itinerary OR booking OR reservation OR "e-ticket" OR "trip confirmation" OR "travel confirmation") OR "flight number" OR pnr'
+
+interface ProcessEmailBatchOptions {
+  allowLlm: boolean
+  receivedAfter?: Date
+  sourceEmailIds?: string[]
+  trackProgress?: boolean
+  updateTotalEmails?: boolean
+}
+
+interface SelectiveFlightProcessingRepository {
+  listEmailsForProcessing(params: {
+    userId: string
+    limit: number
+    offset?: number
+    forceProcessAll?: boolean
+    receivedAfter?: Date
+  }): Promise<RawEmail[]>
+  listEmailsBySourceEmailIds(params: {
+    userId: string
+    sourceEmailIds: string[]
+  }): Promise<RawEmail[]>
+  listLlmReviewCandidates(params: {
+    userId: string
+    receivedAfter: Date
+    limit: number
+  }): Promise<FlightLlmReviewCandidate[]>
+}
+
+interface FlightEmailSyncRunner {
+  runSyncForExistingJob(
+    jobId: string,
+    params: {
+      userId: string
+      query: string
+      category: string
+      maxResults?: number
+    },
+    options?: { markCompleted?: boolean },
+  ): Promise<void>
+}
 
 @Injectable()
 export class FlightsService {
@@ -109,6 +150,75 @@ export class FlightsService {
     this.runReprocessJob(job.id, params.userId, params.forceProcessAll ?? false).catch(
       async (error) => {
         this.logger.error(`Flight reprocess job ${job.id} failed`, error)
+        await this.syncJobRepository.update(job.id, {
+          status: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'Unexpected error',
+          completedAt: new Date(),
+        })
+      },
+    )
+
+    return { jobId: job.id }
+  }
+
+  async startReviewedSyncJob(params: {
+    userId: string
+    fromDate: string
+  }): Promise<{ jobId: string }> {
+    const query = this.buildSyncQueryFromDate(params.fromDate)
+    const job = await this.syncJobRepository.create({
+      userId: params.userId,
+      category: FLIGHT_CATEGORY,
+      query,
+    })
+
+    this.runReviewedSyncJob(job.id, params.userId, query, params.fromDate).catch(
+      async (error) => {
+        this.logger.error(`Flight reviewed sync job ${job.id} failed`, error)
+        await this.syncJobRepository.update(job.id, {
+          status: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'Unexpected error',
+          completedAt: new Date(),
+        })
+      },
+    )
+
+    return { jobId: job.id }
+  }
+
+  listLlmReviewCandidates(params: {
+    userId: string
+    fromDate: string
+    limit?: number
+  }): Promise<FlightLlmReviewCandidate[]> {
+    const processingRepository
+      = this.flightEmailProcessingRepository as SelectiveFlightProcessingRepository
+
+    return processingRepository.listLlmReviewCandidates({
+      userId: params.userId,
+      receivedAfter: this.parseFromDateOrThrow(params.fromDate),
+      limit: params.limit ?? 50,
+    })
+  }
+
+  async startSelectedLlmProcessingJob(params: {
+    userId: string
+    emailIds: string[]
+  }): Promise<{ jobId: string }> {
+    const sourceEmailIds = [...new Set(params.emailIds)]
+    if (sourceEmailIds.length === 0) {
+      throw new BadRequestException('At least one email must be selected')
+    }
+
+    const job = await this.syncJobRepository.create({
+      userId: params.userId,
+      category: FLIGHT_CATEGORY,
+      query: '__llm_review_process__',
+    })
+
+    this.runSelectedLlmProcessingJob(job.id, params.userId, sourceEmailIds).catch(
+      async (error) => {
+        this.logger.error(`Flight LLM review processing job ${job.id} failed`, error)
         await this.syncJobRepository.update(job.id, {
           status: 'failed',
           errorMessage: error instanceof Error ? error.message : 'Unexpected error',
@@ -196,13 +306,7 @@ export class FlightsService {
   }
 
   private buildSyncQueryFromDate(fromDate: string): string {
-    const parsedDate = parseISO(fromDate)
-
-    if (!isValid(parsedDate)) {
-      throw new BadRequestException('Invalid fromDate. Expected format: YYYY-MM-DD.')
-    }
-
-    return `${FLIGHT_QUERY_TERMS} after:${format(parsedDate, 'yyyy/MM/dd')}`
+    return `${FLIGHT_QUERY_TERMS} after:${format(this.parseFromDateOrThrow(fromDate), 'yyyy/MM/dd')}`
   }
 
   private async runPostSyncProcessing(jobId: string, userId: string): Promise<void> {
@@ -227,7 +331,9 @@ export class FlightsService {
       await this.sleep(POLL_INTERVAL_MS)
     }
 
-    await this.processEmails(jobId, userId, false, false)
+    await this.processEmails(jobId, userId, false, {
+      allowLlm: true,
+    })
   }
 
   private async runReprocessJob(
@@ -240,7 +346,11 @@ export class FlightsService {
       startedAt: new Date(),
     })
 
-    const totalEmails = await this.processEmails(jobId, userId, forceProcessAll, true)
+    const totalEmails = await this.processEmails(jobId, userId, forceProcessAll, {
+      allowLlm: true,
+      trackProgress: true,
+      updateTotalEmails: true,
+    })
 
     await this.syncJobRepository.update(jobId, {
       status: 'completed',
@@ -253,42 +363,55 @@ export class FlightsService {
     jobId: string,
     userId: string,
     forceProcessAll: boolean,
-    shouldUpdateTotalEmails: boolean,
+    options: ProcessEmailBatchOptions,
   ): Promise<number> {
     let totalEmails = 0
     let offset = 0
-    let remainingLlmCalls = this.getLlmMaxCallsPerJob()
+    let remainingLlmCalls = options.allowLlm ? this.getLlmMaxCallsPerJob() : 0
+    const processingRepository
+      = this.flightEmailProcessingRepository as SelectiveFlightProcessingRepository
+    const selectedEmails: RawEmail[] | null = options.sourceEmailIds
+      ? await processingRepository.listEmailsBySourceEmailIds({
+          userId,
+          sourceEmailIds: options.sourceEmailIds,
+        })
+      : null
 
     while (true) {
-      const emails = await this.flightEmailProcessingRepository.listEmailsForProcessing({
-        userId,
-        limit: FlightsService.EMAIL_PROCESS_BATCH_SIZE,
-        ...(forceProcessAll ? { offset } : {}),
-        forceProcessAll,
-      })
+      const emails: RawEmail[] = selectedEmails
+        ? selectedEmails.slice(offset, offset + FlightsService.EMAIL_PROCESS_BATCH_SIZE)
+        : await processingRepository.listEmailsForProcessing({
+            userId,
+            limit: FlightsService.EMAIL_PROCESS_BATCH_SIZE,
+            ...(forceProcessAll ? { offset } : {}),
+            forceProcessAll,
+            receivedAfter: options.receivedAfter,
+          })
 
       if (emails.length === 0) {
         break
       }
 
       totalEmails += emails.length
-      if (shouldUpdateTotalEmails) {
+      if (options.updateTotalEmails) {
         await this.syncJobRepository.update(jobId, { totalEmails })
       }
 
       for (const email of emails) {
-        const result = await this.processSingleEmail(email, remainingLlmCalls)
+        const result = await this.processSingleEmail(email, remainingLlmCalls, {
+          allowLlm: options.allowLlm,
+        })
         remainingLlmCalls -= result.llmCallsUsed
 
-        if (shouldUpdateTotalEmails) {
+        if (options.trackProgress) {
           await this.syncJobRepository.incrementProgress(jobId, 'processedEmails', 1)
-        }
-        if (result.activities > 0) {
-          await this.syncJobRepository.incrementProgress(jobId, 'transactions', result.activities)
+          if (result.activities > 0) {
+            await this.syncJobRepository.incrementProgress(jobId, 'transactions', result.activities)
+          }
         }
       }
 
-      if (forceProcessAll) {
+      if (forceProcessAll || selectedEmails) {
         offset += emails.length
       }
     }
@@ -299,6 +422,7 @@ export class FlightsService {
   private async processSingleEmail(
     email: RawEmail,
     remainingLlmCalls: number,
+    options?: { allowLlm: boolean },
   ): Promise<{ activities: number, llmCallsUsed: number }> {
     const existingProcessing = await this.flightEmailProcessingRepository.findBySourceEmailId({
       userId: email.userId,
@@ -314,7 +438,8 @@ export class FlightsService {
     }
 
     const existingLlmAttempts = existingProcessing?.llmAttempts ?? 0
-    const llmEnabled = this.isLlmEnabled()
+    const allowLlm = options?.allowLlm ?? true
+    const llmEnabled = allowLlm && this.isLlmEnabled()
 
     try {
       const extraction = await this.hybridFlightExtractor.extract(email, {
@@ -402,6 +527,61 @@ export class FlightsService {
 
       return { activities: 0, llmCallsUsed }
     }
+  }
+
+  private async runReviewedSyncJob(
+    jobId: string,
+    userId: string,
+    query: string,
+    fromDate: string,
+  ): Promise<void> {
+    const emailSyncService = this.emailSyncService as FlightEmailSyncRunner
+
+    await emailSyncService.runSyncForExistingJob(
+      jobId,
+      {
+        userId,
+        query,
+        category: FLIGHT_CATEGORY,
+      },
+      { markCompleted: false },
+    )
+
+    await this.processEmails(jobId, userId, false, {
+      allowLlm: false,
+      receivedAfter: this.parseFromDateOrThrow(fromDate),
+    })
+
+    await this.syncJobRepository.update(jobId, {
+      status: 'completed',
+      completedAt: new Date(),
+    })
+  }
+
+  private async runSelectedLlmProcessingJob(
+    jobId: string,
+    userId: string,
+    sourceEmailIds: string[],
+  ): Promise<void> {
+    await this.syncJobRepository.update(jobId, {
+      status: 'processing',
+      startedAt: new Date(),
+      totalEmails: sourceEmailIds.length,
+      processedEmails: 0,
+      transactions: 0,
+    })
+
+    const totalEmails = await this.processEmails(jobId, userId, false, {
+      allowLlm: true,
+      sourceEmailIds,
+      trackProgress: true,
+    })
+
+    await this.syncJobRepository.update(jobId, {
+      status: 'completed',
+      totalEmails,
+      completedAt: new Date(),
+    })
   }
 
   private toFlightActivity(
@@ -600,6 +780,16 @@ export class FlightsService {
     return this.configService.get('FLIGHTS_LLM_MAX_CALLS_PER_JOB', {
       infer: true,
     }) ?? 25
+  }
+
+  private parseFromDateOrThrow(fromDate: string): Date {
+    const parsedDate = parseISO(fromDate)
+
+    if (!isValid(parsedDate)) {
+      throw new BadRequestException('Invalid fromDate. Expected format: YYYY-MM-DD.')
+    }
+
+    return startOfDay(parsedDate)
   }
 
   private sleep(ms: number): Promise<void> {

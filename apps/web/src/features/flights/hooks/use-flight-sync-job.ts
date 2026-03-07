@@ -4,8 +4,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   flightKeys,
   getFlightSyncJobStatus,
+  startFlightLlmReviewProcessJob,
   startFlightReprocessJob,
+  startFlightReviewSyncJob,
   startFlightSyncJob,
+  type StartFlightLlmReviewProcessJobInput,
+  type StartFlightReviewSyncJobInput,
   type StartFlightSyncJobInput,
 } from '@/features/flights/api/flights'
 import type { FlightSyncJobStatus } from '@workspace/domain'
@@ -18,6 +22,8 @@ interface UseFlightSyncJobOptions {
 
 interface UseFlightSyncJobReturn {
   startSync: (input?: StartFlightSyncJobInput) => void
+  startReviewSync: (input: StartFlightReviewSyncJobInput) => void
+  startLlmReviewProcess: (input: StartFlightLlmReviewProcessJobInput) => void
   startReprocess: (forceProcessAll?: boolean) => void
   job: FlightSyncJobStatus | null
   isStarting: boolean
@@ -76,6 +82,18 @@ export function useFlightSyncJob(
 
   const reprocessMutation = useMutation({
     mutationFn: startFlightReprocessJob,
+    onSuccess: onMutationSuccess,
+    onError: onMutationError,
+  })
+
+  const reviewSyncMutation = useMutation({
+    mutationFn: startFlightReviewSyncJob,
+    onSuccess: onMutationSuccess,
+    onError: onMutationError,
+  })
+
+  const llmReviewProcessMutation = useMutation({
+    mutationFn: startFlightLlmReviewProcessJob,
     onSuccess: onMutationSuccess,
     onError: onMutationError,
   })
@@ -177,6 +195,24 @@ export function useFlightSyncJob(
     [reprocessMutation],
   )
 
+  const startReviewSync = useCallback(
+    (input: StartFlightReviewSyncJobInput) => {
+      setError(null)
+      setJob(null)
+      reviewSyncMutation.mutate(input)
+    },
+    [reviewSyncMutation],
+  )
+
+  const startLlmReviewProcess = useCallback(
+    (input: StartFlightLlmReviewProcessJobInput) => {
+      setError(null)
+      setJob(null)
+      llmReviewProcessMutation.mutate(input)
+    },
+    [llmReviewProcessMutation],
+  )
+
   const reset = useCallback(() => {
     setJob(null)
     setIsPolling(false)
@@ -185,11 +221,22 @@ export function useFlightSyncJob(
 
   return {
     startSync,
+    startReviewSync,
+    startLlmReviewProcess,
     startReprocess,
     job,
-    isStarting: startMutation.isPending || reprocessMutation.isPending,
+    isStarting:
+      startMutation.isPending
+      || reprocessMutation.isPending
+      || reviewSyncMutation.isPending
+      || llmReviewProcessMutation.isPending,
     isPolling,
-    isSyncing: startMutation.isPending || reprocessMutation.isPending || isPolling,
+    isSyncing:
+      startMutation.isPending
+      || reprocessMutation.isPending
+      || reviewSyncMutation.isPending
+      || llmReviewProcessMutation.isPending
+      || isPolling,
     progress,
     error,
     reset,

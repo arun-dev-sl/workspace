@@ -1,4 +1,10 @@
-import type { RawEmail, FlightEmailProcessing, FlightExtractionMethod, FlightProcessingStatus } from '@workspace/domain'
+import type {
+  FlightEmailProcessing,
+  FlightExtractionMethod,
+  FlightLlmReviewCandidate,
+  FlightProcessingStatus,
+  RawEmail,
+} from '@workspace/domain'
 
 export interface UpsertFlightEmailProcessingParams {
   userId: string
@@ -22,9 +28,17 @@ export interface FlightEmailProcessingRepository {
     limit: number
     offset?: number
     forceProcessAll?: boolean
+    receivedAfter?: Date
   }): Promise<RawEmail[]>
+  listEmailsBySourceEmailIds(params: {
+    userId: string
+    sourceEmailIds: string[]
+  }): Promise<RawEmail[]>
+  listLlmReviewCandidates(params: {
+    userId: string
+    receivedAfter: Date
+    limit: number
+  }): Promise<FlightLlmReviewCandidate[]>
 }
 
-export const FLIGHT_EMAIL_PROCESSING_REPOSITORY = Symbol(
-  'FLIGHT_EMAIL_PROCESSING_REPOSITORY',
-)
+export const FLIGHT_EMAIL_PROCESSING_REPOSITORY = Symbol('FLIGHT_EMAIL_PROCESSING_REPOSITORY')

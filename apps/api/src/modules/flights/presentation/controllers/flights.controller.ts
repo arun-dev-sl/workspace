@@ -20,17 +20,19 @@ import { JwtAuthGuard } from '@/modules/auth/presentation/guards/jwt-auth.guard'
 import { FlightsService } from '@/modules/flights/application/services/flights.service'
 import { ListFlightActivitiesDto } from '@/modules/flights/presentation/dtos/list-flight-activities.dto'
 import { ListFlightActivitiesQuerySchema } from '@/modules/flights/presentation/dtos/list-flight-activities.schema'
+import { ListFlightLlmReviewCandidatesDto } from '@/modules/flights/presentation/dtos/list-flight-llm-review-candidates.dto'
+import { ListFlightLlmReviewCandidatesQuerySchema } from '@/modules/flights/presentation/dtos/list-flight-llm-review-candidates.schema'
+import { ProcessFlightLlmReviewDto } from '@/modules/flights/presentation/dtos/process-flight-llm-review.dto'
+import { ProcessFlightLlmReviewRequestSchema } from '@/modules/flights/presentation/dtos/process-flight-llm-review.schema'
+import { StartFlightLlmReviewDto } from '@/modules/flights/presentation/dtos/start-flight-llm-review.dto'
+import { StartFlightLlmReviewRequestSchema } from '@/modules/flights/presentation/dtos/start-flight-llm-review.schema'
 import { SyncFlightsDto } from '@/modules/flights/presentation/dtos/sync-flights.dto'
 import { SyncFlightsRequestSchema } from '@/modules/flights/presentation/dtos/sync-flights.schema'
 import { UpdateFlightActivityDto } from '@/modules/flights/presentation/dtos/update-flight-activity.dto'
 import { UpdateFlightActivityRequestSchema } from '@/modules/flights/presentation/dtos/update-flight-activity.schema'
 import { OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
 
-import type {
-  FlightActivity,
-  FlightSyncJobStatus,
-  RawEmail,
-} from '@workspace/domain'
+import type { FlightActivity, FlightSyncJobStatus, RawEmail } from '@workspace/domain'
 import type { FastifyRequest } from 'fastify'
 import type { ZodType } from 'zod'
 
@@ -87,6 +89,66 @@ export class FlightsController {
     return {
       jobId,
       message: `Reprocess job started (${forceProcessAll === 'true' ? 'all emails' : 'failed or unprocessed emails only'}). Poll /flights/sync/:jobId for status.`,
+    }
+  }
+
+  @Post('sync/review')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Start reviewed flight sync without automatic LLM fallback' })
+  async startReviewedFlightSync(
+    @Request() req: FastifyRequest & { user: { id: string } },
+    @Body() dto: StartFlightLlmReviewDto,
+  ): Promise<{ jobId: string, message: string }> {
+    const input = this.parseOrThrow(StartFlightLlmReviewRequestSchema, dto)
+    const { jobId } = await this.flightsService.startReviewedSyncJob({
+      userId: req.user.id,
+      fromDate: input.fromDate,
+    })
+
+    return {
+      jobId,
+      message:
+                'Reviewed sync started. Poll /flights/sync/:jobId for status and then fetch review candidates.',
+    }
+  }
+
+  @Get('sync/review/candidates')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List flight emails eligible for manual LLM review' })
+  async listReviewedFlightCandidates(
+    @Request() req: FastifyRequest & { user: { id: string } },
+    @Query() query: ListFlightLlmReviewCandidatesDto,
+  ): Promise<{ data: Awaited<ReturnType<FlightsService['listLlmReviewCandidates']>> }> {
+    const input = this.parseOrThrow(ListFlightLlmReviewCandidatesQuerySchema, query)
+
+    return {
+      data: await this.flightsService.listLlmReviewCandidates({
+        userId: req.user.id,
+        fromDate: input.fromDate,
+        limit: input.limit,
+      }),
+    }
+  }
+
+  @Post('sync/review/process')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Process selected flight emails with optional LLM fallback' })
+  async processReviewedFlightCandidates(
+    @Request() req: FastifyRequest & { user: { id: string } },
+    @Body() dto: ProcessFlightLlmReviewDto,
+  ): Promise<{ jobId: string, message: string }> {
+    const input = this.parseOrThrow(ProcessFlightLlmReviewRequestSchema, dto)
+    const { jobId } = await this.flightsService.startSelectedLlmProcessingJob({
+      userId: req.user.id,
+      emailIds: input.emailIds,
+    })
+
+    return {
+      jobId,
+      message:
+                'Selected flight emails queued for processing. Poll /flights/sync/:jobId for status.',
     }
   }
 
