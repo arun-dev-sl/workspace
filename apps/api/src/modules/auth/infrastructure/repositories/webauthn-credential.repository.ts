@@ -3,7 +3,6 @@ import { webauthnCredentialsTable } from '@workspace/database'
 import { eq } from 'drizzle-orm'
 
 import { WebauthnCredentialDto } from '@/modules/auth/application/dtos/webauthn-credential.dto'
-import { WEBAUTHN_CREDENTIAL_REPOSITORY } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
 import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
 
 import type { WebauthnCredentialRepository } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
@@ -34,17 +33,15 @@ export class WebauthnCredentialRepositoryImpl implements WebauthnCredentialRepos
       updatedAt: credential.updatedAt,
     }
 
-    if (existing) {
-      await this.db
-        .update(webauthnCredentialsTable)
-        .set(data)
-        .where(eq(webauthnCredentialsTable.id, existing.id))
-    } else {
-      await this.db.insert(webauthnCredentialsTable).values({
-        ...data,
-        createdAt: credential.createdAt,
-      })
-    }
+    await (existing
+      ? this.db
+          .update(webauthnCredentialsTable)
+          .set(data)
+          .where(eq(webauthnCredentialsTable.id, existing.id))
+      : this.db.insert(webauthnCredentialsTable).values({
+          ...data,
+          createdAt: credential.createdAt,
+        }))
   }
 
   async findByUserId(userId: string): Promise<WebauthnCredentialDto[]> {

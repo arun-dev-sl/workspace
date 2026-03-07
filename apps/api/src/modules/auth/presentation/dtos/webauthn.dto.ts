@@ -1,11 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { Type } from 'class-transformer'
 import {
   IsEmail,
-  IsNotEmptyObject,
+  IsObject,
   IsOptional,
   IsString,
-  ValidateNested,
 } from 'class-validator'
 
 import type {
@@ -27,7 +25,7 @@ export class WebauthnRegistrationOptionsDto {
 }
 
 export class WebauthnRegistrationOptionsResponseDto {
-  @ApiProperty({ type: 'object' })
+  @ApiProperty({ type: 'object', additionalProperties: true })
   options: PublicKeyCredentialCreationOptionsJSON
 }
 
@@ -36,10 +34,8 @@ export class WebauthnRegistrationVerifyDto {
   @IsEmail()
   email: string
 
-  @ApiProperty({ type: 'object' })
-  @IsNotEmptyObject()
-  @ValidateNested()
-  @Type(() => Object)
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  @IsObject()
   credential: RegistrationResponseJSON
 }
 
@@ -50,7 +46,7 @@ export class WebauthnLoginOptionsDto {
 }
 
 export class WebauthnLoginOptionsResponseDto {
-  @ApiProperty({ type: 'object' })
+  @ApiProperty({ type: 'object', additionalProperties: true })
   options: PublicKeyCredentialRequestOptionsJSON
 }
 
@@ -59,9 +55,7 @@ export class WebauthnLoginVerifyDto {
   @IsEmail()
   email: string
 
-  @ApiProperty({ type: 'object' })
-  @IsNotEmptyObject()
-  @ValidateNested()
-  @Type(() => Object)
+  @ApiProperty({ type: 'object', additionalProperties: true })
+  @IsObject()
   credential: AuthenticationResponseJSON
 }

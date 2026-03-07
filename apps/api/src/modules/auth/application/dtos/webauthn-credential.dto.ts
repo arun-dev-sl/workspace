@@ -1,4 +1,4 @@
-import type { AuthenticatorDeviceType } from '@simplewebauthn/types'
+import type { CredentialDeviceType } from '@simplewebauthn/types'
 
 interface WebauthnCredentialProps {
   id: string
@@ -7,7 +7,7 @@ interface WebauthnCredentialProps {
   publicKey: string
   counter: number
   transports: string[] | null
-  deviceType: AuthenticatorDeviceType | null
+  deviceType: CredentialDeviceType | null
   backedUp: boolean
   aaguid: string | null
   createdAt: Date
@@ -24,7 +24,7 @@ export class WebauthnCredentialDto {
   publicKey: string
   counter: number
   transports: string[] | null
-  deviceType: AuthenticatorDeviceType | null
+  deviceType: CredentialDeviceType | null
   backedUp: boolean
   aaguid: string | null
   createdAt: Date

@@ -30,9 +30,11 @@ import type { DeviceContext } from '@/modules/auth/application/services/auth.ser
 import type { UserRepository } from '@/shared/application/ports/user.repository.port'
 import type {
   AuthenticationResponseJSON,
+  AuthenticatorTransportFuture,
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
   RegistrationResponseJSON,
+  WebAuthnCredential,
 } from '@simplewebauthn/types'
 
 interface ChallengePayload {
@@ -40,6 +42,16 @@ interface ChallengePayload {
   email: string
   userId: string
   name?: string
+}
+
+function toWebauthnUserId(userId: string): Uint8Array {
+  return new TextEncoder().encode(userId)
+}
+
+function toWebauthnTransports(
+  transports: string[] | null,
+): AuthenticatorTransportFuture[] | undefined {
+  return transports as AuthenticatorTransportFuture[] | undefined
 }
 
 /**
@@ -50,6 +62,7 @@ export class WebauthnService {
   private readonly rpId: string
   private readonly rpName: string
   private readonly origin: string
+  private readonly nodeEnv: Env['NODE_ENV']
 
   constructor(
     @Inject(WEBAUTHN_CREDENTIAL_REPOSITORY)
@@ -65,6 +78,7 @@ export class WebauthnService {
     private readonly authService: AuthService,
     private readonly configService: ConfigService<Env, true>,
   ) {
+    this.nodeEnv = this.configService.get('NODE_ENV', { infer: true })
     const fallbackOrigin = this.configService.get('WEB_APP_URL', { infer: true })
     this.origin = this.configService.get('WEBAUTHN_ORIGIN', { infer: true }) ?? fallbackOrigin
     const derivedHost = new URL(this.origin).hostname
@@ -82,14 +96,17 @@ export class WebauthnService {
     const normalizedEmail = email.toLowerCase()
     const displayName = name ?? normalizedEmail.split('@')[0] ?? normalizedEmail
 
-    const existingIdentity = await this.authIdentityRepo.findByIdentifier(normalizedEmail)
-    const userId = existingIdentity?.userId ?? randomUUID()
+    const [existingIdentity, existingUser] = await Promise.all([
+      this.authIdentityRepo.findByIdentifier(normalizedEmail),
+      this.userRepo.findByEmail(normalizedEmail),
+    ])
+    const userId = existingIdentity?.userId ?? existingUser?.id ?? randomUUID()
     const existingCredentials = await this.credentialRepo.findByUserId(userId)
 
     const options = await generateRegistrationOptions({
       rpID: this.rpId,
       rpName: this.rpName,
-      userID: userId,
+      userID: toWebauthnUserId(userId),
       userName: normalizedEmail,
       userDisplayName: displayName,
       attestationType: 'none',
@@ -98,9 +115,8 @@ export class WebauthnService {
         userVerification: 'preferred',
       },
       excludeCredentials: existingCredentials.map((credential) => ({
-        id: isoBase64URL.toBuffer(credential.credentialId),
-        type: 'public-key',
-        transports: credential.transports ?? undefined,
+        id: credential.credentialId,
+        transports: toWebauthnTransports(credential.transports),
       })),
     })
 
@@ -125,6 +141,7 @@ export class WebauthnService {
     email: string,
     credential: RegistrationResponseJSON,
     deviceContext?: DeviceContext,
+    requestOrigin?: string,
   ) {
     const normalizedEmail = email.toLowerCase()
     const challenge = await this.verifyChallenge('register', normalizedEmail)
@@ -132,7 +149,7 @@ export class WebauthnService {
     const verification = await verifyRegistrationResponse({
       response: credential,
       expectedChallenge: challenge.challenge,
-      expectedOrigin: this.origin,
+      expectedOrigin: this.resolveExpectedOrigin(requestOrigin),
       expectedRPID: this.rpId,
       requireUserVerification: true,
     })
@@ -185,9 +202,9 @@ export class WebauthnService {
       new WebauthnCredentialDto({
         id: randomUUID(),
         userId,
-        credentialId: isoBase64URL.fromBuffer(registrationInfo.credentialID),
-        publicKey: isoBase64URL.fromBuffer(registrationInfo.credentialPublicKey),
-        counter: registrationInfo.counter,
+        credentialId: registrationInfo.credential.id,
+        publicKey: isoBase64URL.fromBuffer(registrationInfo.credential.publicKey),
+        counter: registrationInfo.credential.counter,
         transports: credential.response.transports ?? null,
         deviceType: registrationInfo.credentialDeviceType,
         backedUp: registrationInfo.credentialBackedUp,
@@ -212,31 +229,58 @@ export class WebauthnService {
     email: string,
   ): Promise<{ options: PublicKeyCredentialRequestOptionsJSON }> {
     const normalizedEmail = email.toLowerCase()
-    const identity = await this.authIdentityRepo.findByIdentifier(normalizedEmail)
-    if (!identity) {
+    const webauthnIdentity = await this.authIdentityRepo.findByProviderAndIdentifier(
+      AuthProvider.WEBAUTHN,
+      normalizedEmail,
+    )
+    const user = webauthnIdentity
+      ? null
+      : await this.userRepo.findByEmail(normalizedEmail)
+    const userId = webauthnIdentity?.userId ?? user?.id
+
+    if (!userId) {
       throw new UnauthorizedException('Account not found')
     }
 
-    const credentials = await this.credentialRepo.findByUserId(identity.userId)
+    const credentials = await this.credentialRepo.findByUserId(userId)
     if (credentials.length === 0) {
       throw new UnauthorizedException('No passkeys registered for this user')
+    }
+
+    if (!webauthnIdentity) {
+      const now = new Date()
+      await this.authIdentityRepo.save(
+        new AuthIdentityDto({
+          id: randomUUID(),
+          userId,
+          providerId: AuthProvider.WEBAUTHN,
+          accountId: normalizedEmail,
+          password: null,
+          accessToken: null,
+          refreshToken: null,
+          accessTokenExpiresAt: null,
+          refreshTokenExpiresAt: null,
+          scope: null,
+          createdAt: now,
+          updatedAt: now,
+        }),
+      )
     }
 
     const options = await generateAuthenticationOptions({
       rpID: this.rpId,
       userVerification: 'preferred',
       allowCredentials: credentials.map((credential) => ({
-        id: isoBase64URL.toBuffer(credential.credentialId),
-        type: 'public-key',
-        transports: credential.transports ?? undefined,
+        id: credential.credentialId,
+        transports: toWebauthnTransports(credential.transports),
       })),
     })
 
     await this.verificationTokenRepo.create({
-      identifier: this.challengeKey('login', identity.userId),
+      identifier: this.challengeKey('login', userId),
       value: JSON.stringify({
         challenge: options.challenge,
-        userId: identity.userId,
+        userId,
         email: normalizedEmail,
       } satisfies ChallengePayload),
       expiresAt: addMinutes(new Date(), 10),
@@ -252,6 +296,7 @@ export class WebauthnService {
     email: string,
     credential: AuthenticationResponseJSON,
     deviceContext?: DeviceContext,
+    requestOrigin?: string,
   ) {
     const normalizedEmail = email.toLowerCase()
     const storedCredential = await this.credentialRepo.findByCredentialId(credential.id)
@@ -261,18 +306,20 @@ export class WebauthnService {
 
     const challenge = await this.verifyChallenge('login', storedCredential.userId)
 
+    const authenticator: WebAuthnCredential = {
+      id: storedCredential.credentialId,
+      publicKey: isoBase64URL.toBuffer(storedCredential.publicKey),
+      counter: storedCredential.counter,
+      transports: toWebauthnTransports(storedCredential.transports),
+    }
+
     const verification = await verifyAuthenticationResponse({
       response: credential,
       expectedChallenge: challenge.challenge,
-      expectedOrigin: this.origin,
+      expectedOrigin: this.resolveExpectedOrigin(requestOrigin),
       expectedRPID: this.rpId,
       requireUserVerification: true,
-      authenticator: {
-        credentialID: isoBase64URL.toBuffer(storedCredential.credentialId),
-        credentialPublicKey: isoBase64URL.toBuffer(storedCredential.publicKey),
-        counter: storedCredential.counter,
-        transports: storedCredential.transports ?? undefined,
-      },
+      credential: authenticator,
     })
 
     if (!verification.verified || !verification.authenticationInfo) {
@@ -297,6 +344,39 @@ export class WebauthnService {
 
   private challengeKey(type: 'register' | 'login', key: string): string {
     return `webauthn:${type}:${key}`
+  }
+
+  private resolveExpectedOrigin(requestOrigin?: string): string | string[] {
+    if (!requestOrigin || requestOrigin === this.origin) {
+      return this.origin
+    }
+
+    if (!this.isAllowedDevelopmentOrigin(requestOrigin)) {
+      return this.origin
+    }
+
+    return [this.origin, requestOrigin]
+  }
+
+  private isAllowedDevelopmentOrigin(requestOrigin: string): boolean {
+    if (this.nodeEnv === 'production') {
+      return false
+    }
+
+    try {
+      const configuredOrigin = new URL(this.origin)
+      const runtimeOrigin = new URL(requestOrigin)
+      const localHosts = new Set(['localhost', '127.0.0.1'])
+
+      return (
+        configuredOrigin.protocol === runtimeOrigin.protocol
+        && configuredOrigin.hostname === runtimeOrigin.hostname
+        && localHosts.has(configuredOrigin.hostname)
+        && runtimeOrigin.hostname === this.rpId
+      )
+    } catch {
+      return false
+    }
   }
 
   private async verifyChallenge(type: 'register' | 'login', key: string): Promise<ChallengePayload> {
