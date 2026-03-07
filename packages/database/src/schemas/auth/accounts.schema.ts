@@ -19,6 +19,7 @@ export type AuthProvider
     | 'phone'
     | 'saml'
     | 'oidc'
+    | 'webauthn'
 
 /**
  * Auth Accounts table definition

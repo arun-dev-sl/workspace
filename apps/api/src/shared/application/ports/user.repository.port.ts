@@ -48,6 +48,11 @@ export interface UserRepository {
   create(data: CreateUserData): Promise<User>
 
   /**
+   * Find by email
+   */
+  findByEmail(email: string): Promise<User | null>
+
+  /**
    * Find by ID
    */
   findById(id: string): Promise<User | null>

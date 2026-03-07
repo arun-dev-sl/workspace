@@ -602,6 +602,83 @@
     ) !important;
   }
 
+  :root[data-theme-preset="neumorphism"] [data-slot="calendar"] {
+    color: var(--foreground);
+  }
+
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-nav-button,
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-day-button {
+    border: 0 !important;
+    background: var(--neu-surface-raised, var(--background)) !important;
+    box-shadow: var(
+      --neu-shadow-extruded-sm,
+      5px 5px 10px rgb(163 177 198 / 0.6),
+      -5px -5px 10px rgb(255 255 255 / 0.5)
+    ) !important;
+  }
+
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-day-button:hover,
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-nav-button:hover {
+    box-shadow: var(
+      --neu-shadow-button-hover,
+      8px 8px 16px rgb(151 165 186 / 0.55),
+      -8px -8px 16px rgb(255 255 255 / 0.55)
+    ) !important;
+  }
+
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-range-middle {
+    background: var(--background) !important;
+    box-shadow: var(
+      --neu-shadow-inset-sm,
+      inset 3px 3px 6px rgb(163 177 198 / 0.6),
+      inset -3px -3px 6px rgb(255 255 255 / 0.5)
+    ) !important;
+    color: var(--foreground) !important;
+  }
+
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-day-selected,
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-day-range-start,
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-day-range-end {
+    background: var(--neu-surface-raised, var(--background)) !important;
+    box-shadow: var(
+      --neu-shadow-inset-sm,
+      inset 3px 3px 6px rgb(163 177 198 / 0.6),
+      inset -3px -3px 6px rgb(255 255 255 / 0.5)
+    ) !important;
+    color: var(--foreground) !important;
+  }
+
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-day-today:not(.calendar-day-selected) {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    box-shadow: 0 0 0 1px
+      color-mix(in oklab, var(--foreground) 22%, transparent) inset;
+  }
+
+  :root[data-theme-preset="neumorphism"]
+    [data-slot="calendar"]
+    .calendar-weekday {
+    color: color-mix(in oklab, var(--foreground) 65%, transparent);
+  }
+
   :root[data-theme-preset="neumorphism"] [data-slot="tooltip-content"] {
     border: 0 !important;
     border-radius: var(--radius) !important;

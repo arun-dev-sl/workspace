@@ -37,3 +37,18 @@ export const registerSchema = z
   })
 
 export type RegisterFormData = z.infer<typeof registerSchema>
+
+// Passkey registration schema (email + display name)
+export const passkeyRegistrationSchema = z.object({
+  email: emailSchema,
+  name: nameSchema,
+})
+
+export type PasskeyRegistrationFormData = z.infer<typeof passkeyRegistrationSchema>
+
+// Passkey login schema (email only)
+export const passkeyLoginSchema = z.object({
+  email: emailSchema,
+})
+
+export type PasskeyLoginFormData = z.infer<typeof passkeyLoginSchema>

@@ -24,7 +24,7 @@ import type { UserRepository } from '@/shared/application/ports/user.repository.
 /**
  * Device information interface
  */
-interface DeviceContext {
+export interface DeviceContext {
   ipAddress?: string
   userAgent?: string
 }
@@ -290,6 +290,18 @@ export class AuthService {
 
     // 4. Delete all sessions (enhanced security)
     await this.authSessionRepo.deleteAllByUserId(userId)
+  }
+
+  /**
+     * Issue tokens for an authenticated user (shared by alternate auth flows)
+     */
+  async issueTokens(
+    userId: string,
+    email: string,
+    role: RoleType | null,
+    deviceContext?: DeviceContext,
+  ) {
+    return this.generateTokens(userId, email, role, deviceContext)
   }
 
   /**

@@ -23,9 +23,11 @@ import { appPaths } from "@/config/app-paths";
 import { apiRequest } from "@/lib/api-client";
 import { setStoredTokens } from "@/lib/auth";
 import { Spinner } from "@workspace/ui/components/ui/spinner";
-import { registerSchema, type RegisterFormData } from "../schemas";
+import { registerSchema, type RegisterFormData, passkeyRegistrationSchema, type PasskeyRegistrationFormData } from "../schemas";
+import { registerWithPasskey } from "../lib/passkeys";
 import { useMutation } from "@tanstack/react-query";
 import type { RegisterResponse } from "@/lib/api-types";
+import { Fingerprint } from "lucide-react";
 
 const RegisterForm = () => {
   const navigate = useNavigate();
@@ -50,6 +52,11 @@ const RegisterForm = () => {
       }),
   });
 
+  const { mutateAsync: passkeyMutateAsync, isPending: isPasskeyPending } = useMutation({
+    mutationFn: (payload: PasskeyRegistrationFormData) =>
+      registerWithPasskey(payload.email, payload.name),
+  });
+
   const onSubmit = async (data: RegisterFormData) => {
     const { confirmPassword: _confirmPassword, ...payload } = data;
     try {
@@ -65,6 +72,39 @@ const RegisterForm = () => {
       }
 
       navigate(appPaths.auth.login.getHref());
+    } catch {
+      return;
+    }
+  };
+
+  const onPasskeyRegister = async () => {
+    const parsed = passkeyRegistrationSchema.safeParse({
+      email: form.getValues("email"),
+      name: form.getValues("name"),
+    });
+
+    if (!parsed.success) {
+      parsed.error.issues.forEach((issue) => {
+        if (issue.path[0] === "email" || issue.path[0] === "name") {
+          form.setError(issue.path[0] as "email" | "name", {
+            message: issue.message,
+          });
+        }
+      });
+      return;
+    }
+
+    try {
+      const result = await passkeyMutateAsync(parsed.data);
+
+      if (result?.accessToken && result?.refreshToken) {
+        setStoredTokens({
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+        });
+      }
+
+      navigate(appPaths.auth.dashboard.getHref());
     } catch {
       return;
     }
@@ -150,10 +190,22 @@ const RegisterForm = () => {
       </CardContent>
       <CardFooter className="flex flex-col">
         <Field orientation="responsive">
-          <Button type="submit" form="register-form" disabled={isPending}>
-            {isPending && <Spinner />}
-            Create account
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <Button type="submit" form="register-form" disabled={isPending || isPasskeyPending}>
+              {(isPending || isPasskeyPending) && <Spinner />}
+              Create account
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onPasskeyRegister}
+              disabled={isPending || isPasskeyPending}
+            >
+              {isPasskeyPending && !isPending && <Spinner />}
+              <Fingerprint className="size-4" />
+              Use passkey
+            </Button>
+          </div>
           <FieldDescription className="text-center">
             Already have an account?{" "}
             <Link to={appPaths.auth.login.getHref()}>Login</Link>
