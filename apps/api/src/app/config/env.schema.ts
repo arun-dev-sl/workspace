@@ -104,6 +104,11 @@ export const envSchema = z.object({
 
   // Web app base URL (OAuth redirect target)
   WEB_APP_URL: z.string().url().default('http://localhost:5173'),
+
+  // WebAuthn
+  WEBAUTHN_RP_ID: z.string().optional(),
+  WEBAUTHN_RP_NAME: z.string().default('Workspace App'),
+  WEBAUTHN_ORIGIN: z.string().url().optional(),
 })
 
 /**

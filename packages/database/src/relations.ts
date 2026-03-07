@@ -9,6 +9,7 @@ import {
   statementsTable,
   transactionsTable,
   merchantCategoryRulesTable,
+  webauthnCredentialsTable,
 } from './schemas/index.js'
 
 /**
@@ -32,6 +33,8 @@ export const usersRelations = relations(usersTable, ({ one, many }) => ({
   transactions: many(transactionsTable),
   // 1:N with merchant_category_rules
   merchantCategoryRules: many(merchantCategoryRulesTable),
+  // 1:N with webauthn_credentials
+  passkeys: many(webauthnCredentialsTable),
 }))
 
 /**
@@ -139,6 +142,19 @@ export const merchantCategoryRulesRelations = relations(
     // N:1 with users
     user: one(usersTable, {
       fields: [merchantCategoryRulesTable.userId],
+      references: [usersTable.id],
+    }),
+  }),
+)
+
+/**
+ * WebAuthn credentials relations
+ */
+export const webauthnCredentialsRelations = relations(
+  webauthnCredentialsTable,
+  ({ one }) => ({
+    user: one(usersTable, {
+      fields: [webauthnCredentialsTable.userId],
       references: [usersTable.id],
     }),
   }),

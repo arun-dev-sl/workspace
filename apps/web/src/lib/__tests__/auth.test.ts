@@ -23,7 +23,9 @@ describe("AUTH_WRITE_ROUTES", () => {
     expect(AUTH_WRITE_ROUTES).toContain("/api/auth/logout");
     expect(AUTH_WRITE_ROUTES).toContain("/api/auth/refresh-token");
     expect(AUTH_WRITE_ROUTES).toContain("/api/auth/register");
-    expect(AUTH_WRITE_ROUTES).toHaveLength(4);
+    expect(AUTH_WRITE_ROUTES).toContain("/api/auth/webauthn/register/verify");
+    expect(AUTH_WRITE_ROUTES).toContain("/api/auth/webauthn/login/verify");
+    expect(AUTH_WRITE_ROUTES).toHaveLength(6);
   });
 });
 
