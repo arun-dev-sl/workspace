@@ -7,17 +7,24 @@ import {
 
 import { apiRequest } from "@/lib/api-client";
 
+export interface StartSyncJobInput {
+  fromDate?: string;
+}
+
 /**
  * Start a new sync job (async)
  * Returns immediately with a job ID for polling
  */
-export async function startSyncJob(): Promise<StartSyncJobResponse> {
+export async function startSyncJob(
+  input?: StartSyncJobInput,
+): Promise<StartSyncJobResponse> {
   const json = await apiRequest({
     method: "POST",
     url: "/api/expenses/sync",
     headers: {
       Accept: "application/json",
     },
+    data: input,
     toastSuccess: true,
     successMessage: "Sync started",
   });
@@ -50,8 +57,10 @@ export async function getSyncJobStatus(
  * Legacy function for backwards compatibility
  * @deprecated Use startSyncJob instead
  */
-export async function syncExpenses(): Promise<StartSyncJobResponse> {
-  return startSyncJob();
+export async function syncExpenses(
+  input?: StartSyncJobInput,
+): Promise<StartSyncJobResponse> {
+  return startSyncJob(input);
 }
 
 /**
