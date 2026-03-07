@@ -12,21 +12,22 @@ import { isoBase64URL } from '@simplewebauthn/server/helpers'
 import { addMinutes } from 'date-fns'
 
 import { AuthProvider } from '@/modules/auth/application/constants/auth-provider'
-import { WebauthnCredentialDto } from '@/modules/auth/application/dtos/webauthn-credential.dto'
-import { WEBAUTHN_CREDENTIAL_REPOSITORY } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
-import { AUTH_IDENTITY_REPOSITORY } from '@/modules/auth/application/ports/auth-identity.repository.port'
-import { VERIFICATION_TOKEN_REPOSITORY } from '@/modules/auth/application/ports/verification-token.repository.port'
-import { AuthService, type DeviceContext } from '@/modules/auth/application/services/auth.service'
 import { AuthIdentityDto } from '@/modules/auth/application/dtos/auth-identity.dto'
+import { WebauthnCredentialDto } from '@/modules/auth/application/dtos/webauthn-credential.dto'
+import { AUTH_IDENTITY_REPOSITORY } from '@/modules/auth/application/ports/auth-identity.repository.port'
 import { USER_ROLE_REPOSITORY } from '@/modules/auth/application/ports/user-role.repository.port'
+import { VERIFICATION_TOKEN_REPOSITORY } from '@/modules/auth/application/ports/verification-token.repository.port'
+import { WEBAUTHN_CREDENTIAL_REPOSITORY } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
+import { AuthService } from '@/modules/auth/application/services/auth.service'
 import { USER_REPOSITORY } from '@/shared/application/ports/user.repository.port'
 
 import type { Env } from '@/app/config/env.schema'
 import type { AuthIdentityRepository } from '@/modules/auth/application/ports/auth-identity.repository.port'
+import type { UserRoleRepository } from '@/modules/auth/application/ports/user-role.repository.port'
 import type { VerificationTokenRepository } from '@/modules/auth/application/ports/verification-token.repository.port'
 import type { WebauthnCredentialRepository } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
+import type { DeviceContext } from '@/modules/auth/application/services/auth.service'
 import type { UserRepository } from '@/shared/application/ports/user.repository.port'
-import type { UserRoleRepository } from '@/modules/auth/application/ports/user-role.repository.port'
 import type {
   AuthenticationResponseJSON,
   PublicKeyCredentialCreationOptionsJSON,
