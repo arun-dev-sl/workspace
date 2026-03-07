@@ -13,12 +13,16 @@ import { AuthIdentityRepositoryImpl } from '@/modules/auth/infrastructure/reposi
 import { AuthSessionRepositoryImpl } from '@/modules/auth/infrastructure/repositories/auth-session.repository'
 import { UserRoleRepositoryImpl } from '@/modules/auth/infrastructure/repositories/user-role.repository'
 import { VerificationTokenRepositoryImpl } from '@/modules/auth/infrastructure/repositories/verification-token.repository'
+import { WebauthnCredentialRepositoryImpl } from '@/modules/auth/infrastructure/repositories/webauthn-credential.repository'
 import { BcryptPasswordHasher } from '@/modules/auth/infrastructure/services/bcrypt-password-hasher'
 import { JwtStrategy } from '@/modules/auth/infrastructure/strategies/jwt.strategy'
 import { AuthV2Controller } from '@/modules/auth/presentation/controllers/auth-v2.controller'
 import { AuthController } from '@/modules/auth/presentation/controllers/auth.controller'
+import { WebauthnController } from '@/modules/auth/presentation/controllers/webauthn.controller'
 import { USER_REPOSITORY } from '@/shared/application/ports/user.repository.port'
 import { UserRepositoryImpl } from '@/shared/infrastructure/repositories/user.repository'
+import { WebauthnService } from '@/modules/auth/application/services/webauthn.service'
+import { WEBAUTHN_CREDENTIAL_REPOSITORY } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
 
 import type { Env } from '@/app/config/env.schema'
 
@@ -53,9 +57,11 @@ import type { Env } from '@/app/config/env.schema'
   controllers: [
     AuthController, // v1
     AuthV2Controller, // v2
+    WebauthnController,
   ],
   providers: [
     AuthService,
+    WebauthnService,
     JwtStrategy,
 
     // Repository implementations (DIP)
@@ -82,6 +88,10 @@ import type { Env } from '@/app/config/env.schema'
     {
       provide: USER_REPOSITORY,
       useClass: UserRepositoryImpl,
+    },
+    {
+      provide: WEBAUTHN_CREDENTIAL_REPOSITORY,
+      useClass: WebauthnCredentialRepositoryImpl,
     },
   ],
   exports: [AuthService, USER_ROLE_REPOSITORY, AUTH_IDENTITY_REPOSITORY],

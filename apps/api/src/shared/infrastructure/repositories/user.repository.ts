@@ -43,6 +43,21 @@ export class UserRepositoryImpl implements UserRepository {
     return this.toEntity(result[0]!)
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    const normalizedEmail = email.toLowerCase()
+    const result = await this.db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, normalizedEmail))
+      .limit(1)
+
+    if (result.length === 0) {
+      return null
+    }
+
+    return this.toEntity(result[0]!)
+  }
+
   async findById(id: string): Promise<User | null> {
     const result = await this.db
       .select()

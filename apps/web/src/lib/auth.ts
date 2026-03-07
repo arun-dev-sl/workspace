@@ -11,6 +11,8 @@ export const AUTH_WRITE_ROUTES = [
   '/api/auth/logout',
   '/api/auth/refresh-token',
   '/api/auth/register',
+  '/api/auth/webauthn/register/verify',
+  '/api/auth/webauthn/login/verify',
 ] as const
 
 const ACCESS_TOKEN_KEY = 'access_token'
