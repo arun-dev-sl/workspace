@@ -17,6 +17,7 @@ import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/
 import { SkipThrottle } from '@nestjs/throttler'
 
 import { JwtAuthGuard } from '@/modules/auth/presentation/guards/jwt-auth.guard'
+import { FlightAnalyticsService } from '@/modules/flights/application/services/flight-analytics.service'
 import { FlightsService } from '@/modules/flights/application/services/flights.service'
 import { ListFlightActivitiesDto } from '@/modules/flights/presentation/dtos/list-flight-activities.dto'
 import { ListFlightActivitiesQuerySchema } from '@/modules/flights/presentation/dtos/list-flight-activities.schema'
@@ -32,14 +33,17 @@ import { UpdateFlightActivityDto } from '@/modules/flights/presentation/dtos/upd
 import { UpdateFlightActivityRequestSchema } from '@/modules/flights/presentation/dtos/update-flight-activity.schema'
 import { OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
 
-import type { FlightActivity, FlightSyncJobStatus, RawEmail } from '@workspace/domain'
+import type { FlightActivity, FlightAnalytics, FlightSyncJobStatus, RawEmail } from '@workspace/domain'
 import type { FastifyRequest } from 'fastify'
 import type { ZodType } from 'zod'
 
 @ApiTags('flights')
 @Controller('flights')
 export class FlightsController {
-  constructor(private readonly flightsService: FlightsService) {}
+  constructor(
+    private readonly flightsService: FlightsService,
+    private readonly flightAnalyticsService: FlightAnalyticsService,
+  ) {}
 
   @Post('sync')
   @UseGuards(JwtAuthGuard)
@@ -205,6 +209,15 @@ export class FlightsController {
       total,
       has_more: offset + data.length < total,
     }
+  }
+
+  @Get('analytics')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get travel analytics derived from stored flights' })
+  async getFlightAnalytics(
+    @Request() req: FastifyRequest & { user: { id: string } },
+  ): Promise<FlightAnalytics> {
+    return this.flightAnalyticsService.getAnalytics(req.user.id)
   }
 
   @Get('activities/:id')

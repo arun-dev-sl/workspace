@@ -201,6 +201,107 @@ export type FlightLlmReviewCandidatesResponse = z.infer<
   typeof FlightLlmReviewCandidatesResponseSchema
 >;
 
+export const FlightAnalyticsOverviewSchema = z.object({
+  totalFlights: z.number().int().nonnegative(),
+  totalDistanceKm: z.number().int().nonnegative(),
+  countriesVisited: z.number().int().nonnegative(),
+  citiesVisited: z.number().int().nonnegative(),
+  totalFlightTimeHours: z.number().nonnegative(),
+});
+export type FlightAnalyticsOverview = z.infer<
+  typeof FlightAnalyticsOverviewSchema
+>;
+
+export const FlightAnalyticsAirportCountSchema = z.object({
+  iata: z.string(),
+  count: z.number().int().nonnegative(),
+});
+export type FlightAnalyticsAirportCount = z.infer<
+  typeof FlightAnalyticsAirportCountSchema
+>;
+
+export const FlightAnalyticsRouteCountSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  count: z.number().int().nonnegative(),
+});
+export type FlightAnalyticsRouteCount = z.infer<
+  typeof FlightAnalyticsRouteCountSchema
+>;
+
+export const FlightAnalyticsAirlineCountSchema = z.object({
+  airline: z.string(),
+  count: z.number().int().nonnegative(),
+});
+export type FlightAnalyticsAirlineCount = z.infer<
+  typeof FlightAnalyticsAirlineCountSchema
+>;
+
+export const FlightAnalyticsLongestFlightSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  distanceKm: z.number().int().nonnegative(),
+});
+export type FlightAnalyticsLongestFlight = z.infer<
+  typeof FlightAnalyticsLongestFlightSchema
+>;
+
+export const FlightAnalyticsInsightsSchema = z.object({
+  mostVisitedAirport: FlightAnalyticsAirportCountSchema.nullable(),
+  mostFrequentRoute: FlightAnalyticsRouteCountSchema.nullable(),
+  favoriteAirline: FlightAnalyticsAirlineCountSchema.nullable(),
+  longestFlight: FlightAnalyticsLongestFlightSchema.nullable(),
+  domesticFlights: z.number().int().nonnegative(),
+  internationalFlights: z.number().int().nonnegative(),
+});
+export type FlightAnalyticsInsights = z.infer<
+  typeof FlightAnalyticsInsightsSchema
+>;
+
+export const FlightAnalyticsFlightsByYearItemSchema = z.object({
+  year: z.number().int(),
+  count: z.number().int().nonnegative(),
+});
+export type FlightAnalyticsFlightsByYearItem = z.infer<
+  typeof FlightAnalyticsFlightsByYearItemSchema
+>;
+
+export const FlightAnalyticsAirportFrequencyItemSchema = z.object({
+  airport: z.string(),
+  count: z.number().int().nonnegative(),
+});
+export type FlightAnalyticsAirportFrequencyItem = z.infer<
+  typeof FlightAnalyticsAirportFrequencyItemSchema
+>;
+
+export const FlightAnalyticsBreakdownsSchema = z.object({
+  flightsByYear: z.array(FlightAnalyticsFlightsByYearItemSchema),
+  airlineDistribution: z.array(FlightAnalyticsAirlineCountSchema),
+  airportFrequency: z.array(FlightAnalyticsAirportFrequencyItemSchema),
+});
+export type FlightAnalyticsBreakdowns = z.infer<
+  typeof FlightAnalyticsBreakdownsSchema
+>;
+
+export const FlightAnalyticsTimelineItemSchema = z.object({
+  date: z.string(),
+  fromAirport: z.string(),
+  toAirport: z.string(),
+  airline: z.string(),
+  flightNumber: z.string().nullable(),
+});
+export type FlightAnalyticsTimelineItem = z.infer<
+  typeof FlightAnalyticsTimelineItemSchema
+>;
+
+export const FlightAnalyticsSchema = z.object({
+  overview: FlightAnalyticsOverviewSchema,
+  insights: FlightAnalyticsInsightsSchema,
+  breakdowns: FlightAnalyticsBreakdownsSchema,
+  timeline: z.array(FlightAnalyticsTimelineItemSchema),
+});
+export type FlightAnalytics = z.infer<typeof FlightAnalyticsSchema>;
+
 export const ProcessFlightLlmReviewRequestSchema = z.object({
   emailIds: z.array(z.string().uuid()).min(1).max(100),
 });

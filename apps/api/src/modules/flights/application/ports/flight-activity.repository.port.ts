@@ -3,6 +3,7 @@ import type { FlightActivity } from '@workspace/domain'
 export interface FlightActivityRepository {
   upsertMany(activities: FlightActivity[]): Promise<void>
   update(activity: FlightActivity): Promise<FlightActivity>
+  listAllByUser(userId: string): Promise<FlightActivity[]>
   listByUser(params: {
     userId: string
     limit: number

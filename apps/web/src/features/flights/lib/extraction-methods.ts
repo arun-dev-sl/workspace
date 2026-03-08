@@ -1,6 +1,5 @@
 import type {
   FlightActivityExtractionMethod,
-  FlightProcessingExtractionMethod,
 } from '@workspace/domain'
 
 type FlightRecordedExtractionMethod
@@ -38,6 +37,10 @@ export function formatFlightExtractionMethodHistory(
 export function getLatestFlightExtractionMethod(
   methods: readonly FlightRecordedExtractionMethod[],
 ): FlightRecordedExtractionMethod | null {
+  if (methods.length === 0) {
+    return null
+  }
+  // @ts-ignore
   return methods.at(-1) ?? null
 }
 

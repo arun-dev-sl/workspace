@@ -108,6 +108,19 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
     return this.toDomain(row!)
   }
 
+  async listAllByUser(userId: string): Promise<FlightActivity[]> {
+    const rows = await this.db
+      .select()
+      .from(flightActivitiesTable)
+      .where(eq(flightActivitiesTable.userId, userId))
+      .orderBy(
+        asc(flightActivitiesTable.departureDate),
+        asc(flightActivitiesTable.segmentIndex),
+      )
+
+    return rows.map((row) => this.toDomain(row))
+  }
+
   async listByUser(params: {
     userId: string
     limit: number
