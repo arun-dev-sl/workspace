@@ -210,10 +210,17 @@ function createAirportMarkerElement(visits: number) {
   marker.style.height = `${size}px`;
   marker.style.borderRadius = "9999px";
   marker.style.border = "2px solid rgba(255, 247, 237, 0.95)";
-  marker.style.background =
-    "radial-gradient(circle at 35% 35%, rgba(255,255,255,0.96), rgba(249,115,22,0.95) 45%, rgba(194,65,12,0.98) 100%)";
+  marker.style.background = `
+    radial-gradient(
+    circle at center,
+    rgba(255,255,200,0.25) 0%,
+    rgba(255,160,0,0.35) 30%,
+    rgba(255,90,0,0.28) 60%,
+    rgba(160,30,0,0.12) 100%
+    )
+    `;
   marker.style.boxShadow =
-    "0 0 0 6px rgba(249, 115, 22, 0.18), 0 10px 30px rgba(15, 23, 42, 0.24)";
+    "0 0 8px rgba(0,182,255,0.35), 0 6px 20px rgba(0,0,0,0.25)";
   marker.style.cursor = "pointer";
   marker.style.padding = "0";
 
@@ -817,6 +824,7 @@ export function FlightMapDashboard() {
   const settingsRef = useRef<MapSettings>(DEFAULT_SETTINGS);
 
   const [settings, setSettings] = useState<MapSettings>(loadSettings);
+  const initialStyleRef = useRef(true);
 
   settingsRef.current = settings;
   latestDataRef.current = mapQuery.data ?? null;
@@ -971,6 +979,8 @@ export function FlightMapDashboard() {
       }
 
       requestAnimationFrame(() => map.resize());
+
+      map.triggerRepaint();
     };
 
     if (!map.isStyleLoaded()) {
@@ -1006,6 +1016,12 @@ export function FlightMapDashboard() {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+
+    // Skip on initial mount — the map was already created with this style
+    if (initialStyleRef.current) {
+      initialStyleRef.current = false;
+      return;
+    }
 
     const newStyle = getMapStyle(settings.mapStyle);
     map.setStyle(newStyle);
