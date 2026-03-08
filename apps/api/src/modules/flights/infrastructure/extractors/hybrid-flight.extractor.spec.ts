@@ -61,6 +61,7 @@ describe('hybridFlightExtractor', () => {
     })
 
     expect(result.extractionMethod).toBe('json_ld')
+    expect(result.attemptedMethods).toEqual(['json_ld'])
     expect(result.segments).toHaveLength(1)
     expect(llmExtractor.extract).not.toHaveBeenCalled()
   })
@@ -100,6 +101,7 @@ describe('hybridFlightExtractor', () => {
     )
 
     expect(result.extractionMethod).toBe('llm')
+    expect(result.attemptedMethods).toEqual(['heuristic', 'llm'])
     expect(result.llmAttempted).toBe(true)
     expect(result.segments).toHaveLength(1)
     expect(llmExtractor.extract).toHaveBeenCalledTimes(1)
@@ -135,6 +137,7 @@ describe('hybridFlightExtractor', () => {
     )
 
     expect(result.extractionMethod).toBe('llm')
+    expect(result.attemptedMethods).toEqual(['heuristic', 'llm'])
     expect(result.segments).toHaveLength(0)
   })
 })

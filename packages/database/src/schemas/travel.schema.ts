@@ -9,6 +9,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 import { usersTable } from './auth/users.schema.js'
 import { rawEmailsTable } from './finance.schema.js'
@@ -24,7 +25,10 @@ export const flightActivitiesTable = pgTable(
       .notNull()
       .references(() => rawEmailsTable.id, { onDelete: 'cascade' }),
     activityType: text('activity_type').notNull().default('booking_confirmation'),
-    extractionMethod: text('extraction_method').notNull(),
+    extractionMethod: text('extraction_method')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     canonicalHash: text('canonical_hash').notNull(),
     segmentIndex: integer('segment_index').notNull(),
     pnr: text('pnr'),
@@ -76,7 +80,10 @@ export const flightEmailProcessingTable = pgTable(
       .notNull()
       .references(() => rawEmailsTable.id, { onDelete: 'cascade' }),
     status: text('status').notNull(),
-    extractionMethod: text('extraction_method').notNull().default('none'),
+    extractionMethod: text('extraction_method')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
     matchedActivities: integer('matched_activities').notNull().default(0),
     llmAttempts: integer('llm_attempts').notNull().default(0),
     lastError: text('last_error'),

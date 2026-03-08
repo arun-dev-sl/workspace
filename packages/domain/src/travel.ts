@@ -15,15 +15,25 @@ export type FlightExtractionMethod = z.infer<
   typeof FlightExtractionMethodSchema
 >;
 
-export const FlightActivityExtractionMethodSchema = z.enum([
-  "json_ld",
-  "heuristic",
-  "llm",
-  "manual",
-]);
-export type FlightActivityExtractionMethod = z.infer<
-  typeof FlightActivityExtractionMethodSchema
->;
+export const FlightRecordedExtractionMethodSchema = z.enum([
+  'json_ld',
+  'heuristic',
+  'llm',
+  'manual',
+])
+export type FlightRecordedExtractionMethod = z.infer<
+  typeof FlightRecordedExtractionMethodSchema
+>
+
+export const FlightRecordedExtractionMethodsSchema = z.array(
+  FlightRecordedExtractionMethodSchema,
+)
+
+export const FlightProcessingExtractionMethodSchema = FlightRecordedExtractionMethodSchema
+export type FlightProcessingExtractionMethod = FlightRecordedExtractionMethod
+
+export const FlightActivityExtractionMethodSchema = FlightRecordedExtractionMethodSchema
+export type FlightActivityExtractionMethod = FlightRecordedExtractionMethod
 
 export const FlightProcessingStatusSchema = z.enum([
   "matched",
@@ -39,7 +49,7 @@ export const FlightActivitySchema: ZodType<FlightActivity> = z.object({
   userId: z.string(),
   sourceEmailId: z.string(),
   activityType: FlightActivityTypeSchema,
-  extractionMethod: FlightActivityExtractionMethodSchema,
+  extractionMethod: FlightRecordedExtractionMethodsSchema,
   canonicalHash: z.string(),
   segmentIndex: z.number().int().nonnegative(),
   pnr: z.string().nullable(),
@@ -66,7 +76,7 @@ export interface FlightActivity {
   userId: string;
   sourceEmailId: string;
   activityType: FlightActivityType;
-  extractionMethod: FlightActivityExtractionMethod;
+  extractionMethod: FlightActivityExtractionMethod[];
   canonicalHash: string;
   segmentIndex: number;
   pnr: string | null;
@@ -94,7 +104,7 @@ export const FlightEmailProcessingSchema: ZodType<FlightEmailProcessing> =
     userId: z.string(),
     sourceEmailId: z.string(),
     status: FlightProcessingStatusSchema,
-    extractionMethod: FlightExtractionMethodSchema,
+    extractionMethod: FlightRecordedExtractionMethodsSchema,
     matchedActivities: z.number().int().nonnegative(),
     llmAttempts: z.number().int().nonnegative(),
     lastError: z.string().nullable(),
@@ -108,7 +118,7 @@ export interface FlightEmailProcessing {
   userId: string;
   sourceEmailId: string;
   status: FlightProcessingStatus;
-  extractionMethod: FlightExtractionMethod;
+  extractionMethod: FlightProcessingExtractionMethod[];
   matchedActivities: number;
   llmAttempts: number;
   lastError: string | null;
@@ -164,7 +174,7 @@ export const FlightLlmReviewCandidateSchema: ZodType<FlightLlmReviewCandidate> =
   z.object({
     email: RawEmailSchema,
     status: FlightLlmReviewCandidateStatusSchema,
-    extractionMethod: FlightExtractionMethodSchema,
+    extractionMethod: FlightRecordedExtractionMethodsSchema,
     llmAttempts: z.number().int().nonnegative(),
     lastError: z.string().nullable(),
   });
@@ -172,7 +182,7 @@ export const FlightLlmReviewCandidateSchema: ZodType<FlightLlmReviewCandidate> =
 export interface FlightLlmReviewCandidate {
   email: RawEmail;
   status: FlightLlmReviewCandidateStatus;
-  extractionMethod: FlightExtractionMethod;
+  extractionMethod: FlightProcessingExtractionMethod[];
   llmAttempts: number;
   lastError: string | null;
 }

@@ -1,7 +1,7 @@
 import type {
   FlightEmailProcessing,
-  FlightExtractionMethod,
   FlightLlmReviewCandidate,
+  FlightProcessingExtractionMethod,
   FlightProcessingStatus,
   RawEmail,
 } from '@workspace/domain'
@@ -10,7 +10,7 @@ export interface UpsertFlightEmailProcessingParams {
   userId: string
   sourceEmailId: string
   status: FlightProcessingStatus
-  extractionMethod: FlightExtractionMethod
+  extractionMethod: FlightProcessingExtractionMethod[]
   matchedActivities: number
   llmAttempts: number
   lastError?: string | null

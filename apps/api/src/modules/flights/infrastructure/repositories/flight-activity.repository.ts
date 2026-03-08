@@ -6,7 +6,10 @@ import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
 
 import type { FlightActivityRepository } from '@/modules/flights/application/ports/flight-activity.repository.port'
 import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
-import type { FlightActivity } from '@workspace/domain'
+import type {
+  FlightActivity,
+  FlightActivityExtractionMethod,
+} from '@workspace/domain'
 
 @Injectable()
 export class FlightActivityRepositoryImpl implements FlightActivityRepository {
@@ -33,7 +36,7 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
         continue
       }
 
-      if (existing.extractionMethod === 'manual') {
+      if ((existing.extractionMethod ?? []).includes('manual')) {
         continue
       }
 
@@ -42,7 +45,10 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
         .set({
           sourceEmailId: activity.sourceEmailId,
           activityType: activity.activityType,
-          extractionMethod: activity.extractionMethod,
+          extractionMethod: this.mergeExtractionMethods(
+            this.normalizeExtractionMethods(existing.extractionMethod ?? []),
+            activity.extractionMethod,
+          ),
           segmentIndex: activity.segmentIndex,
           pnr: activity.pnr,
           airlineName: activity.airlineName,
@@ -71,7 +77,7 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
       .set({
         sourceEmailId: activity.sourceEmailId,
         activityType: activity.activityType,
-        extractionMethod: activity.extractionMethod,
+        extractionMethod: this.normalizeExtractionMethods(activity.extractionMethod),
         canonicalHash: activity.canonicalHash,
         segmentIndex: activity.segmentIndex,
         pnr: activity.pnr,
@@ -168,7 +174,7 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
       userId: activity.userId,
       sourceEmailId: activity.sourceEmailId,
       activityType: activity.activityType,
-      extractionMethod: activity.extractionMethod,
+      extractionMethod: this.normalizeExtractionMethods(activity.extractionMethod),
       canonicalHash: activity.canonicalHash,
       segmentIndex: activity.segmentIndex,
       pnr: activity.pnr,
@@ -195,7 +201,7 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
       userId: row.userId,
       sourceEmailId: row.sourceEmailId,
       activityType: row.activityType as FlightActivity['activityType'],
-      extractionMethod: row.extractionMethod as FlightActivity['extractionMethod'],
+      extractionMethod: this.normalizeExtractionMethods(row.extractionMethod ?? []),
       canonicalHash: row.canonicalHash,
       segmentIndex: row.segmentIndex,
       pnr: row.pnr,
@@ -216,5 +222,42 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     }
+  }
+
+  private normalizeExtractionMethods(
+    methods: readonly string[],
+  ): FlightActivityExtractionMethod[] {
+    const uniqueMethods = new Set<FlightActivityExtractionMethod>()
+
+    for (const method of methods) {
+      if (this.isFlightActivityExtractionMethod(method)) {
+        uniqueMethods.add(method)
+      }
+    }
+
+    return [...uniqueMethods]
+  }
+
+  private mergeExtractionMethods(
+    existingMethods: readonly FlightActivityExtractionMethod[],
+    nextMethods: readonly FlightActivityExtractionMethod[],
+  ): FlightActivityExtractionMethod[] {
+    const mergedMethods = new Set<FlightActivityExtractionMethod>()
+
+    for (const method of existingMethods) {
+      mergedMethods.add(method)
+    }
+
+    for (const method of nextMethods) {
+      mergedMethods.add(method)
+    }
+
+    return [...mergedMethods]
+  }
+
+  private isFlightActivityExtractionMethod(
+    method: string,
+  ): method is FlightActivityExtractionMethod {
+    return ['json_ld', 'heuristic', 'llm', 'manual'].includes(method)
   }
 }

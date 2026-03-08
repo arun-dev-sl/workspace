@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns";
 import { Bot, MailSearch } from "lucide-react";
 
+import { formatFlightExtractionMethodHistory } from "@/features/flights/lib/extraction-methods";
 import { Badge } from "@workspace/ui/components/ui/badge";
 import { Button } from "@workspace/ui/components/ui/button";
 import { Checkbox } from "@workspace/ui/components/ui/checkbox";
@@ -186,7 +187,10 @@ export function FlightLlmReviewSheet({
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
                             <MailSearch className="h-3.5 w-3.5" />
-                            Extraction method: {candidate.extractionMethod}
+                            Extraction path:{" "}
+                            {formatFlightExtractionMethodHistory(
+                              candidate.extractionMethod,
+                            )}
                           </span>
                           {candidate.lastError ? (
                             <span>Last error: {candidate.lastError}</span>

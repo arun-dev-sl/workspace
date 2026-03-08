@@ -22,7 +22,7 @@ export class GeminiFlightLlmExtractor implements FlightLlmExtractor {
 
     const client = new GoogleGenAI({ apiKey })
     const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash-lite',
+      model: 'gemini-2.5-flash',
       contents: this.buildPrompt(input),
       config: {
         responseMimeType: 'application/json',

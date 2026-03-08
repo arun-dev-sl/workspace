@@ -48,6 +48,7 @@ export class HybridFlightExtractor {
       return {
         segments: [],
         extractionMethod: 'none',
+        attemptedMethods: [],
         llmAttempted: false,
       }
     }
@@ -70,6 +71,7 @@ export class HybridFlightExtractor {
         return {
           segments: mergedSegments,
           extractionMethod: 'json_ld',
+          attemptedMethods: ['json_ld'],
           llmAttempted: false,
         }
       }
@@ -80,6 +82,7 @@ export class HybridFlightExtractor {
       return {
         segments: heuristicSegments,
         extractionMethod: 'heuristic',
+        attemptedMethods: ['heuristic'],
         llmAttempted: false,
       }
     }
@@ -88,6 +91,7 @@ export class HybridFlightExtractor {
       return {
         segments: [],
         extractionMethod: 'none',
+        attemptedMethods: ['heuristic'],
         llmAttempted: false,
         ...(options.failOnLlmBudgetExhausted
           ? { failureReason: 'llm_budget_exhausted' as const }
@@ -113,6 +117,7 @@ export class HybridFlightExtractor {
     return {
       segments: this.finalizeSegments(llmDrafts),
       extractionMethod: 'llm',
+      attemptedMethods: ['heuristic', 'llm'],
       llmAttempted: true,
     }
   }

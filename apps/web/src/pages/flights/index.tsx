@@ -25,6 +25,11 @@ import { MainLayout } from "@/components/layouts";
 import { FlightActivityEditorSheet } from "@/features/flights/components/flight-activity-editor-sheet";
 import { FlightLlmReviewSheet } from "@/features/flights/components/flight-llm-review-sheet";
 import {
+  formatFlightExtractionMethodHistory,
+  getLatestFlightExtractionMethod,
+  hasFlightExtractionMethod,
+} from "@/features/flights/lib/extraction-methods";
+import {
   flightKeys,
   useFlightActivities,
   useFlightEmail,
@@ -115,7 +120,11 @@ function formatRoute(activity: FlightActivity) {
   return `${activity.fromAirport} -> ${activity.toAirport}`;
 }
 
-function getExtractionBadgeVariant(method: FlightActivity["extractionMethod"]) {
+function getExtractionBadgeVariant(
+  methods: FlightActivity["extractionMethod"],
+) {
+  const method = getLatestFlightExtractionMethod(methods);
+
   switch (method) {
     case "manual": {
       return "default";
@@ -124,29 +133,19 @@ function getExtractionBadgeVariant(method: FlightActivity["extractionMethod"]) {
       return "secondary";
     }
     case "heuristic": {
-      return "outline";
+      return "info";
     }
     case "llm": {
       return "outline";
+    }
+    default: {
+      return "info";
     }
   }
 }
 
-function getExtractionLabel(method: FlightActivity["extractionMethod"]) {
-  switch (method) {
-    case "json_ld": {
-      return "JSON-LD";
-    }
-    case "heuristic": {
-      return "Heuristic";
-    }
-    case "llm": {
-      return "LLM";
-    }
-    case "manual": {
-      return "Manual";
-    }
-  }
+function getExtractionLabel(methods: FlightActivity["extractionMethod"]) {
+  return formatFlightExtractionMethodHistory(methods);
 }
 
 function isUpcoming(activity: FlightActivity) {
@@ -259,7 +258,8 @@ export default function FlightsPage() {
 
     return (activitiesQuery.data?.data ?? []).filter((activity) => {
       const matchesMethod =
-        methodFilter === "all" || activity.extractionMethod === methodFilter;
+        methodFilter === "all" ||
+        hasFlightExtractionMethod(activity.extractionMethod, methodFilter);
 
       if (!matchesMethod) {
         return false;
@@ -294,8 +294,8 @@ export default function FlightsPage() {
     return {
       totalStored: activitiesQuery.data?.total ?? 0,
       loaded: loadedActivities.length,
-      manual: loadedActivities.filter(
-        (activity) => activity.extractionMethod === "manual",
+      manual: loadedActivities.filter((activity) =>
+        hasFlightExtractionMethod(activity.extractionMethod, "manual"),
       ).length,
       nextDeparture,
     };
@@ -413,7 +413,7 @@ export default function FlightsPage() {
                   Manual correction enabled
                 </Badge>
               </div>
-              <p className="max-w-2xl text-sm text-muted-foreground">
+              <p className="max-w-xl text-sm text-muted-foreground">
                 Review extracted itineraries, trigger syncs, and correct flight
                 records when automated extraction needs help.
               </p>
@@ -425,7 +425,7 @@ export default function FlightsPage() {
                 onClick={() => connectMutation.mutate()}
                 disabled={connectMutation.isPending}
               >
-                <MailSearch className="mr-2 h-4 w-4" />
+                <MailSearch className="mr-1 h-4 w-4" />
                 {statusQuery.data?.connected
                   ? "Reconnect Gmail"
                   : "Connect Gmail"}
@@ -437,7 +437,7 @@ export default function FlightsPage() {
                   disconnectMutation.isPending || !statusQuery.data?.connected
                 }
               >
-                <Unplug className="mr-2 h-4 w-4" />
+                <Unplug className="mr-1 h-4 w-4" />
                 Disconnect
               </Button>
               <Button
@@ -452,7 +452,7 @@ export default function FlightsPage() {
                 onClick={() => openStartDialog("standard")}
                 disabled={isSyncing || !statusQuery.data?.connected}
               >
-                <RefreshCcw className="mr-2 h-4 w-4" />
+                <RefreshCcw className="mr-1 h-4 w-4" />
                 Sync Flights
               </Button>
               <DropdownMenu>
@@ -712,14 +712,16 @@ export default function FlightsPage() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <Badge
-                            variant={getExtractionBadgeVariant(
-                              activity.extractionMethod,
-                            )}
-                            className="capitalize"
-                          >
-                            {getExtractionLabel(activity.extractionMethod)}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge
+                              variant={getExtractionBadgeVariant(
+                                activity.extractionMethod,
+                              )}
+                              className="max-w-fit"
+                            >
+                              {getExtractionLabel(activity.extractionMethod)}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <Button

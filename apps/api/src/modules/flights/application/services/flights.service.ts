@@ -41,7 +41,9 @@ import type { FlightActivityRepository } from '@/modules/flights/application/por
 import type { FlightEmailProcessingRepository } from '@/modules/flights/application/ports/flight-email-processing.repository.port'
 import type {
   FlightActivity,
+  FlightActivityExtractionMethod,
   FlightLlmReviewCandidate,
+  FlightProcessingExtractionMethod,
   FlightSyncJobStatus,
   RawEmail,
   UpdateFlightActivityInput,
@@ -293,7 +295,24 @@ export class FlightsService {
     const updated = this.buildUpdatedFlightActivity(existing, params.data)
 
     try {
-      return await this.flightActivityRepository.update(updated)
+      const saved = await this.flightActivityRepository.update(updated)
+      const existingProcessing = await this.flightEmailProcessingRepository.findBySourceEmailId({
+        userId: params.userId,
+        sourceEmailId: existing.sourceEmailId,
+      })
+
+      await this.flightEmailProcessingRepository.upsert({
+        userId: existing.userId,
+        sourceEmailId: existing.sourceEmailId,
+        status: existingProcessing?.status ?? 'matched',
+        extractionMethod: this.toProcessingExtractionMethods(existingProcessing, ['manual']),
+        matchedActivities: existingProcessing?.matchedActivities ?? 1,
+        llmAttempts: existingProcessing?.llmAttempts ?? 0,
+        lastError: existingProcessing?.lastError ?? null,
+        processedAt: new Date(),
+      })
+
+      return saved
     } catch (error) {
       if (this.isUniqueConstraintError(error)) {
         throw new ConflictException(
@@ -433,7 +452,7 @@ export class FlightsService {
       sourceEmailId: email.id,
     })
 
-    if (existingActivities.some((activity) => activity.extractionMethod === 'manual')) {
+    if (existingActivities.some((activity) => activity.extractionMethod.includes('manual'))) {
       return { activities: 0, llmCallsUsed: 0 }
     }
 
@@ -456,7 +475,10 @@ export class FlightsService {
           userId: email.userId,
           sourceEmailId: email.id,
           status: 'failed',
-          extractionMethod: 'none',
+          extractionMethod: this.toProcessingExtractionMethods(
+            existingProcessing,
+            extraction.attemptedMethods,
+          ),
           matchedActivities: 0,
           llmAttempts: existingLlmAttempts,
           lastError: 'llm_budget_exhausted',
@@ -473,7 +495,10 @@ export class FlightsService {
           userId: email.userId,
           sourceEmailId: email.id,
           status: 'no_match',
-          extractionMethod: extraction.extractionMethod,
+          extractionMethod: this.toProcessingExtractionMethods(
+            existingProcessing,
+            extraction.attemptedMethods,
+          ),
           matchedActivities: 0,
           llmAttempts: existingLlmAttempts + llmCallsUsed,
           lastError: null,
@@ -497,7 +522,10 @@ export class FlightsService {
         userId: email.userId,
         sourceEmailId: email.id,
         status: 'matched',
-        extractionMethod: extraction.extractionMethod,
+        extractionMethod: this.toProcessingExtractionMethods(
+          existingProcessing,
+          extraction.attemptedMethods,
+        ),
         matchedActivities: activities.length,
         llmAttempts: existingLlmAttempts + llmCallsUsed,
         lastError: null,
@@ -518,7 +546,10 @@ export class FlightsService {
         userId: email.userId,
         sourceEmailId: email.id,
         status: 'failed',
-        extractionMethod: llmCallsUsed > 0 ? 'llm' : 'none',
+        extractionMethod: this.toProcessingExtractionMethods(
+          existingProcessing,
+          llmCallsUsed > 0 ? ['heuristic', 'llm'] : ['heuristic'],
+        ),
         matchedActivities: 0,
         llmAttempts: existingLlmAttempts + llmCallsUsed,
         lastError: message,
@@ -608,7 +639,7 @@ export class FlightsService {
       userId: email.userId,
       sourceEmailId: email.id,
       activityType: 'booking_confirmation',
-      extractionMethod,
+      extractionMethod: [extractionMethod],
       canonicalHash,
       segmentIndex: segment.segmentIndex,
       pnr: segment.pnr,
@@ -729,7 +760,7 @@ export class FlightsService {
 
     return {
       ...existing,
-      extractionMethod: 'manual',
+      extractionMethod: this.toActivityExtractionMethods(existing, ['manual']),
       canonicalHash,
       pnr: data.pnr === undefined ? existing.pnr : normalizeNullableText(data.pnr),
       airlineName:
@@ -780,6 +811,49 @@ export class FlightsService {
     return this.configService.get('FLIGHTS_LLM_MAX_CALLS_PER_JOB', {
       infer: true,
     }) ?? 25
+  }
+
+  private toProcessingExtractionMethods(
+    existingProcessing: { extractionMethod: FlightProcessingExtractionMethod[] } | null,
+    nextMethods: readonly FlightProcessingExtractionMethod[],
+  ): FlightProcessingExtractionMethod[] {
+    return this.mergeExtractionMethods(
+      existingProcessing?.extractionMethod ?? [],
+      nextMethods,
+    )
+  }
+
+  private toActivityExtractionMethods(
+    existingActivity: { extractionMethod: FlightActivityExtractionMethod[] } | null,
+    nextMethods: readonly FlightActivityExtractionMethod[],
+  ): FlightActivityExtractionMethod[] {
+    return this.mergeExtractionMethods(
+      existingActivity?.extractionMethod ?? [],
+      nextMethods,
+    )
+  }
+
+  private mergeExtractionMethods<T extends string>(
+    existingMethods: readonly T[],
+    nextMethods: readonly T[],
+  ): T[] {
+    const methods = new Set<T>()
+
+    for (const method of existingMethods) {
+      methods.add(method)
+    }
+
+    for (const method of nextMethods) {
+      methods.add(method)
+    }
+
+    const mergedMethods: T[] = []
+
+    for (const method of methods) {
+      mergedMethods.push(method)
+    }
+
+    return mergedMethods
   }
 
   private parseFromDateOrThrow(fromDate: string): Date {

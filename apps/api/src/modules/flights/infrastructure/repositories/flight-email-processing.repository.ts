@@ -13,7 +13,14 @@ import type {
   UpsertFlightEmailProcessingParams,
 } from '@/modules/flights/application/ports/flight-email-processing.repository.port'
 import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
-import type { FlightEmailProcessing, FlightLlmReviewCandidate, RawEmail } from '@workspace/domain'
+import type {
+  FlightEmailProcessing,
+  FlightLlmReviewCandidate,
+  FlightProcessingExtractionMethod,
+  RawEmail,
+} from '@workspace/domain'
+
+type ReviewCandidateStatus = 'failed' | 'no_match' | 'unprocessed'
 
 interface RawEmailRow {
   id: string
@@ -30,6 +37,13 @@ interface RawEmailRow {
   category: string
 }
 
+interface FlightLlmReviewCandidateRow extends RawEmailRow {
+  processingStatus: string | null
+  processingExtractionMethod: string[] | null
+  processingLlmAttempts: number | null
+  processingLastError: string | null
+}
+
 @Injectable()
 export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessingRepository {
   constructor(@Inject(DB_TOKEN) private readonly db: DrizzleDb) {}
@@ -41,12 +55,10 @@ export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessin
     const [row] = await this.db
       .select()
       .from(flightEmailProcessingTable)
-      .where(
-        and(
-          eq(flightEmailProcessingTable.userId, params.userId),
-          eq(flightEmailProcessingTable.sourceEmailId, params.sourceEmailId),
-        ),
-      )
+      .where(and(
+        eq(flightEmailProcessingTable.userId, params.userId),
+        eq(flightEmailProcessingTable.sourceEmailId, params.sourceEmailId),
+      ))
 
     return row ? this.toDomain(row) : null
   }
@@ -58,7 +70,7 @@ export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessin
         userId: params.userId,
         sourceEmailId: params.sourceEmailId,
         status: params.status,
-        extractionMethod: params.extractionMethod,
+        extractionMethod: this.normalizeExtractionMethods(params.extractionMethod),
         matchedActivities: params.matchedActivities,
         llmAttempts: params.llmAttempts,
         lastError: params.lastError ?? null,
@@ -68,7 +80,7 @@ export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessin
         target: [flightEmailProcessingTable.sourceEmailId],
         set: {
           status: params.status,
-          extractionMethod: params.extractionMethod,
+          extractionMethod: this.normalizeExtractionMethods(params.extractionMethod),
           matchedActivities: params.matchedActivities,
           llmAttempts: params.llmAttempts,
           lastError: params.lastError ?? null,
@@ -149,7 +161,7 @@ export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessin
     receivedAfter: Date
     limit: number
   }): Promise<FlightLlmReviewCandidate[]> {
-    const rows = await this.db
+    const rows: FlightLlmReviewCandidateRow[] = await this.db
       .select({
         ...this.rawEmailSelectFields(),
         processingStatus: flightEmailProcessingTable.status,
@@ -183,14 +195,17 @@ export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessin
       .orderBy(desc(rawEmailsTable.receivedAt))
       .limit(params.limit)
 
-    return rows.map((row) => ({
-      email: this.toRawEmail(row),
-      status: (row.processingStatus ?? 'unprocessed') as FlightLlmReviewCandidate['status'],
-      extractionMethod: (row.processingExtractionMethod
-        ?? 'none') as FlightLlmReviewCandidate['extractionMethod'],
-      llmAttempts: row.processingLlmAttempts ?? 0,
-      lastError: row.processingLastError ?? null,
-    }))
+    return rows.map((row) => {
+      const status: ReviewCandidateStatus = this.toReviewCandidateStatus(row.processingStatus)
+
+      return {
+        email: this.toRawEmail(row),
+        status,
+        extractionMethod: this.normalizeExtractionMethods(row.processingExtractionMethod ?? []),
+        llmAttempts: row.processingLlmAttempts ?? 0,
+        lastError: row.processingLastError ?? null,
+      }
+    })
   }
 
   private rawEmailSelectFields() {
@@ -233,7 +248,7 @@ export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessin
       userId: row.userId,
       sourceEmailId: row.sourceEmailId,
       status: row.status as FlightEmailProcessing['status'],
-      extractionMethod: row.extractionMethod as FlightEmailProcessing['extractionMethod'],
+      extractionMethod: this.normalizeExtractionMethods(row.extractionMethod ?? []),
       matchedActivities: row.matchedActivities,
       llmAttempts: row.llmAttempts,
       lastError: row.lastError,
@@ -241,5 +256,41 @@ export class FlightEmailProcessingRepositoryImpl implements FlightEmailProcessin
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     }
+  }
+
+  private normalizeExtractionMethods(
+    methods: readonly string[],
+  ): FlightProcessingExtractionMethod[] {
+    const uniqueMethods = new Set<FlightProcessingExtractionMethod>()
+
+    for (const method of methods) {
+      if (this.isFlightProcessingExtractionMethod(method)) {
+        uniqueMethods.add(method)
+      }
+    }
+
+    const normalizedMethods: FlightProcessingExtractionMethod[] = []
+
+    for (const method of uniqueMethods) {
+      normalizedMethods.push(method)
+    }
+
+    return normalizedMethods
+  }
+
+  private toReviewCandidateStatus(
+    status: string | null,
+  ): ReviewCandidateStatus {
+    if (status === 'failed' || status === 'no_match') {
+      return status
+    }
+
+    return 'unprocessed'
+  }
+
+  private isFlightProcessingExtractionMethod(
+    method: string,
+  ): method is FlightProcessingExtractionMethod {
+    return ['json_ld', 'heuristic', 'llm', 'manual'].includes(method)
   }
 }

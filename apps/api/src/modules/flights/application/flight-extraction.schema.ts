@@ -7,6 +7,15 @@ export type FlightExtractionFailureReason = z.infer<
   typeof FlightExtractionFailureReasonSchema
 >
 
+export const FlightAttemptedExtractionMethodSchema = z.enum([
+  'json_ld',
+  'heuristic',
+  'llm',
+])
+export type FlightAttemptedExtractionMethod = z.infer<
+  typeof FlightAttemptedExtractionMethodSchema
+>
+
 export const FlightSegmentDraftSchema = z.object({
   segmentIndex: z.number().int().nonnegative().optional(),
   pnr: z.string().trim().min(1).nullable().optional(),
@@ -53,6 +62,7 @@ export type FlightLlmResponse = z.infer<typeof FlightLlmResponseSchema>
 export interface FlightExtractionResult {
   segments: FlightSegment[]
   extractionMethod: 'none' | 'json_ld' | 'heuristic' | 'llm'
+  attemptedMethods: FlightAttemptedExtractionMethod[]
   llmAttempted: boolean
   failureReason?: FlightExtractionFailureReason
 }

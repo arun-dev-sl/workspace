@@ -84,6 +84,7 @@ function createService(overrides?: {
         extract: vi.fn().mockResolvedValue({
             segments: [],
             extractionMethod: "none",
+            attemptedMethods: ["heuristic"],
             llmAttempted: false,
         }),
         ...overrides?.hybridExtract,
@@ -140,7 +141,7 @@ describe("flightsService", () => {
                     userId: "user-1",
                     sourceEmailId: "email-1",
                     status: "no_match",
-                    extractionMethod: "llm",
+                    extractionMethod: ["llm"],
                     matchedActivities: 0,
                     llmAttempts: 1,
                     lastError: null,
@@ -153,6 +154,7 @@ describe("flightsService", () => {
                 extract: vi.fn().mockResolvedValue({
                     segments: [],
                     extractionMethod: "none",
+                    attemptedMethods: ["heuristic"],
                     llmAttempted: false,
                 }),
             },
@@ -185,6 +187,7 @@ describe("flightsService", () => {
                 extract: vi.fn().mockResolvedValue({
                     segments: [],
                     extractionMethod: "none",
+                    attemptedMethods: ["heuristic"],
                     llmAttempted: false,
                     failureReason: "llm_budget_exhausted",
                 }),
@@ -215,7 +218,7 @@ describe("flightsService", () => {
                         userId: "user-1",
                         sourceEmailId: "email-1",
                         activityType: "booking_confirmation",
-                        extractionMethod: "manual",
+                        extractionMethod: ["manual"],
                         canonicalHash: "hash-1",
                         segmentIndex: 0,
                         pnr: "ABC123",
@@ -261,7 +264,7 @@ describe("flightsService", () => {
             userId: "user-1",
             sourceEmailId: "email-1",
             activityType: "booking_confirmation",
-            extractionMethod: "heuristic" as const,
+            extractionMethod: ["heuristic"] as const,
             canonicalHash: "hash-1",
             segmentIndex: 0,
             pnr: null,
@@ -283,7 +286,7 @@ describe("flightsService", () => {
             updatedAt: "2025-10-20T08:00:00.000Z",
         };
 
-        const { service, flightActivityRepository } = createService({
+        const { service, flightActivityRepository, flightEmailProcessingRepository } = createService({
             activityRepo: {
                 findById: vi.fn().mockResolvedValue(existingActivity),
                 update: vi
@@ -291,6 +294,21 @@ describe("flightsService", () => {
                     .mockImplementation((activity: typeof existingActivity) =>
                         Promise.resolve(activity),
                     ),
+            },
+            processingRepo: {
+                findBySourceEmailId: vi.fn().mockResolvedValue({
+                    id: "processing-1",
+                    userId: "user-1",
+                    sourceEmailId: "email-1",
+                    status: "matched",
+                    extractionMethod: ["llm"],
+                    matchedActivities: 1,
+                    llmAttempts: 1,
+                    lastError: null,
+                    processedAt: "2025-10-20T08:00:00.000Z",
+                    createdAt: "2025-10-20T08:00:00.000Z",
+                    updatedAt: "2025-10-20T08:00:00.000Z",
+                }),
             },
         });
 
@@ -311,7 +329,7 @@ describe("flightsService", () => {
         expect(flightActivityRepository.update).toHaveBeenCalledWith(
             expect.objectContaining({
                 id: "activity-1",
-                extractionMethod: "manual",
+                extractionMethod: ["heuristic", "manual"],
                 pnr: "h5ltyz",
                 flightNumber: "IX1086",
                 fromAirport: "BLR",
@@ -322,7 +340,12 @@ describe("flightsService", () => {
                 confidence: 1,
             }),
         );
-        expect(updated.extractionMethod).toBe("manual");
+        expect(updated.extractionMethod).toEqual(["heuristic", "manual"]);
         expect(updated.flightNumber).toBe("IX1086");
+        expect(flightEmailProcessingRepository.upsert).toHaveBeenCalledWith(
+            expect.objectContaining({
+                extractionMethod: ["llm", "manual"],
+            }),
+        );
     });
 });
