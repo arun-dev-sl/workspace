@@ -5,6 +5,7 @@ import { apiRequest } from '@/lib/api-client'
 import {
   FlightActivitySchema,
   FlightAnalyticsSchema,
+  FlightMapSchema,
   FlightLlmReviewCandidatesResponseSchema,
   FlightSyncJobStatusSchema,
   RawEmailSchema,
@@ -46,12 +47,14 @@ export interface StartFlightLlmReviewProcessJobInput {
 }
 
 export type FlightAnalyticsResponse = z.infer<typeof FlightAnalyticsSchema>
+export type FlightMapResponse = z.infer<typeof FlightMapSchema>
 
 export const flightKeys = {
   all: ['flights'] as const,
   activities: (params?: ListFlightActivitiesParams) =>
     [...flightKeys.all, 'activities', params] as const,
   analytics: () => [...flightKeys.all, 'analytics'] as const,
+  map: () => [...flightKeys.all, 'map'] as const,
   activity: (id: string) => [...flightKeys.all, 'activity', id] as const,
   email: (id: string) => [...flightKeys.all, 'email', id] as const,
   gmailStatus: () => [...flightKeys.all, 'gmail-status'] as const,
@@ -105,6 +108,18 @@ export async function getFlightAnalytics(): Promise<FlightAnalyticsResponse> {
   })
 
   return FlightAnalyticsSchema.parse(json)
+}
+
+export async function getFlightMap(): Promise<FlightMapResponse> {
+  const json = await apiRequest({
+    method: 'GET',
+    url: '/api/flights/map',
+    headers: {
+      Accept: 'application/json',
+    },
+  })
+
+  return FlightMapSchema.parse(json)
 }
 
 export async function updateFlightActivity(params: {
@@ -221,6 +236,13 @@ export function useFlightAnalytics() {
   return useQuery({
     queryKey: flightKeys.analytics(),
     queryFn: getFlightAnalytics,
+  })
+}
+
+export function useFlightMap() {
+  return useQuery({
+    queryKey: flightKeys.map(),
+    queryFn: getFlightMap,
   })
 }
 

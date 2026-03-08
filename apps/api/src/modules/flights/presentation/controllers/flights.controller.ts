@@ -18,6 +18,7 @@ import { SkipThrottle } from '@nestjs/throttler'
 
 import { JwtAuthGuard } from '@/modules/auth/presentation/guards/jwt-auth.guard'
 import { FlightAnalyticsService } from '@/modules/flights/application/services/flight-analytics.service'
+import { FlightMapService } from '@/modules/flights/application/services/flight-map.service'
 import { FlightsService } from '@/modules/flights/application/services/flights.service'
 import { ListFlightActivitiesDto } from '@/modules/flights/presentation/dtos/list-flight-activities.dto'
 import { ListFlightActivitiesQuerySchema } from '@/modules/flights/presentation/dtos/list-flight-activities.schema'
@@ -33,7 +34,7 @@ import { UpdateFlightActivityDto } from '@/modules/flights/presentation/dtos/upd
 import { UpdateFlightActivityRequestSchema } from '@/modules/flights/presentation/dtos/update-flight-activity.schema'
 import { OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
 
-import type { FlightActivity, FlightAnalytics, FlightSyncJobStatus, RawEmail } from '@workspace/domain'
+import type { FlightActivity, FlightAnalytics, FlightMap, FlightSyncJobStatus, RawEmail } from '@workspace/domain'
 import type { FastifyRequest } from 'fastify'
 import type { ZodType } from 'zod'
 
@@ -43,6 +44,7 @@ export class FlightsController {
   constructor(
     private readonly flightsService: FlightsService,
     private readonly flightAnalyticsService: FlightAnalyticsService,
+    private readonly flightMapService: FlightMapService,
   ) {}
 
   @Post('sync')
@@ -218,6 +220,15 @@ export class FlightsController {
     @Request() req: FastifyRequest & { user: { id: string } },
   ): Promise<FlightAnalytics> {
     return this.flightAnalyticsService.getAnalytics(req.user.id)
+  }
+
+  @Get('map')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get flight map data derived from stored flights' })
+  async getFlightMap(
+    @Request() req: FastifyRequest & { user: { id: string } },
+  ): Promise<FlightMap> {
+    return this.flightMapService.getMap(req.user.id)
   }
 
   @Get('activities/:id')

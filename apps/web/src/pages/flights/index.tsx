@@ -23,6 +23,7 @@ import {
 import { MainLayout } from "@/components/layouts";
 import { FlightActivityEditorSheet } from "@/features/flights/components/flight-activity-editor-sheet";
 import { FlightAnalyticsDashboard } from "@/features/flights/components/flight-analytics-dashboard";
+import { FlightMapDashboard } from "@/features/flights/components/flight-map-dashboard";
 import { FlightLlmReviewSheet } from "@/features/flights/components/flight-llm-review-sheet";
 import {
   formatFlightExtractionMethodHistory,
@@ -488,6 +489,7 @@ export default function FlightsPage() {
           <TabsList className="w-full overflow-x-auto">
             <TabsTrigger value="flights">Flights</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="map">Map</TabsTrigger>
           </TabsList>
 
           <TabsContent value="flights" className="mt-4 space-y-6">
@@ -799,6 +801,10 @@ export default function FlightsPage() {
 
           <TabsContent value="analytics" className="mt-4">
             <FlightAnalyticsDashboard />
+          </TabsContent>
+
+          <TabsContent value="map" className="mt-4">
+            {activeTab === "map" ? <FlightMapDashboard /> : null}
           </TabsContent>
         </Tabs>
 

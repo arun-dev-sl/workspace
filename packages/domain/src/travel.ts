@@ -302,6 +302,61 @@ export const FlightAnalyticsSchema = z.object({
 });
 export type FlightAnalytics = z.infer<typeof FlightAnalyticsSchema>;
 
+export const FlightMapAirportSchema = z.object({
+  iata: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  city: z.string().nullable(),
+  country: z.string().nullable(),
+  timezone: z.string().nullable(),
+  visits: z.number().int().nonnegative(),
+});
+export type FlightMapAirport = z.infer<typeof FlightMapAirportSchema>;
+
+export const FlightMapPathPointSchema = z.tuple([z.number(), z.number()]);
+export type FlightMapPathPoint = z.infer<typeof FlightMapPathPointSchema>;
+
+export const FlightMapRouteSchema = z.object({
+  from: z.string(),
+  to: z.string(),
+  fromLat: z.number(),
+  fromLng: z.number(),
+  toLat: z.number(),
+  toLng: z.number(),
+  count: z.number().int().nonnegative(),
+  path: z.array(FlightMapPathPointSchema).min(2),
+});
+export type FlightMapRoute = z.infer<typeof FlightMapRouteSchema>;
+
+export const FlightMapFlightSchema = z.object({
+  date: z.string(),
+  from: z.string(),
+  to: z.string(),
+  fromLat: z.number(),
+  fromLng: z.number(),
+  toLat: z.number(),
+  toLng: z.number(),
+  airline: z.string(),
+  flightNumber: z.string().nullable(),
+});
+export type FlightMapFlight = z.infer<typeof FlightMapFlightSchema>;
+
+export const FlightMapSummarySchema = z.object({
+  totalFlights: z.number().int().nonnegative(),
+  totalDistanceKm: z.number().int().nonnegative(),
+  citiesVisited: z.number().int().nonnegative(),
+  countriesVisited: z.number().int().nonnegative(),
+});
+export type FlightMapSummary = z.infer<typeof FlightMapSummarySchema>;
+
+export const FlightMapSchema = z.object({
+  airports: z.array(FlightMapAirportSchema),
+  routes: z.array(FlightMapRouteSchema),
+  flights: z.array(FlightMapFlightSchema),
+  summary: FlightMapSummarySchema,
+});
+export type FlightMap = z.infer<typeof FlightMapSchema>;
+
 export const ProcessFlightLlmReviewRequestSchema = z.object({
   emailIds: z.array(z.string().uuid()).min(1).max(100),
 });

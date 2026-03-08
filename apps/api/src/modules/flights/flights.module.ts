@@ -11,6 +11,7 @@ import {
   FLIGHT_LLM_EXTRACTOR,
 } from '@/modules/flights/application/ports/flight-llm-extractor.port'
 import { FlightAnalyticsService } from '@/modules/flights/application/services/flight-analytics.service'
+import { FlightMapService } from '@/modules/flights/application/services/flight-map.service'
 import { FlightsService } from '@/modules/flights/application/services/flights.service'
 import { GeminiFlightLlmExtractor } from '@/modules/flights/infrastructure/extractors/gemini-flight-llm.extractor'
 import { HeuristicFlightExtractor } from '@/modules/flights/infrastructure/extractors/heuristic-flight.extractor'
@@ -28,6 +29,7 @@ import { SharedEmailSyncModule } from '@/shared/shared-email-sync.module'
   providers: [
     FlightsService,
     FlightAnalyticsService,
+    FlightMapService,
     FlightAirportCatalogService,
     JsonLdFlightExtractor,
     HeuristicFlightExtractor,
