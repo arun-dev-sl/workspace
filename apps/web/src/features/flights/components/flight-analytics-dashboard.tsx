@@ -352,7 +352,7 @@ function BreakdownSection({ data }: { data: FlightAnalytics }) {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="grid gap-4 lg:grid-cols-1">
               <ChartContainer
                 config={airportChartConfig}
                 chartType="pie"
@@ -383,11 +383,12 @@ function BreakdownSection({ data }: { data: FlightAnalytics }) {
                 </PieChart>
               </ChartContainer>
 
-              <div className="space-y-3">
+              <div className="space-y-3 grid grid-cols-2 gap-4">
                 {data.breakdowns.airportFrequency
                   .slice(0, 8)
                   .map((entry, index) => (
                     <div
+                      data-slot="badge"
                       key={entry.airport}
                       className="flex items-center justify-between rounded-xl border border-border/60 px-3 py-3"
                     >
@@ -453,7 +454,10 @@ function BreakdownSection({ data }: { data: FlightAnalytics }) {
 
             <Separator />
 
-            <div className="space-y-3 text-sm text-muted-foreground">
+            <div
+              data-slot="badge"
+              className="space-y-3 text-sm text-muted-foreground p-4 border rounded-md"
+            >
               <div className="flex items-center justify-between">
                 <span>Years with travel</span>
                 <span className="font-medium text-foreground">
@@ -531,6 +535,7 @@ function TimelineSection({ data }: { data: FlightAnalytics }) {
                     <div className="space-y-3">
                       {groupedTimeline[year].map((entry, index) => (
                         <div
+                          data-slot="badge"
                           key={`${year}-${entry.date}-${entry.fromAirport}-${entry.toAirport}-${index}`}
                           className="rounded-xl border border-border/60 px-4 py-4"
                         >

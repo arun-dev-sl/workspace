@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
+import maplibregl from "maplibre-gl/dist/maplibre-gl-csp";
+import maplibreglWorkerUrl from "maplibre-gl/dist/maplibre-gl-csp-worker.js?url";
 import {
   Globe2,
   MapPinned,
@@ -10,6 +11,30 @@ import {
 } from "lucide-react";
 
 import { useFlightMap } from "@/features/flights/api/flights";
+import {
+  AIRPORT_MIN_ZOOM,
+  FLIGHT_SCENE_LAYER_ID,
+  FlightMap3DLayerController,
+} from "@/features/flights/components/flight-map-dashboard.3d";
+import {
+  DEFAULT_SETTINGS,
+  MAP_STYLE_OPTIONS,
+  ROUTE_COLOR_PRESETS,
+  SATELLITE_LABEL_LAYER_ID,
+  STORAGE_KEY,
+  TERRAIN_HILLSHADE_LAYER_ID,
+  buildAirportFeatureCollection,
+  buildRouteFeatureCollection,
+  getBaseLabelLayerIds,
+  getMapStyle,
+  getOverlayAnchorId,
+  loadSettings,
+  sanitizeSettings,
+  saveSettings,
+  supportsTerrain,
+  type MapSettings,
+  type MapStyleName,
+} from "@/features/flights/components/flight-map-dashboard.lib";
 import { Badge } from "@workspace/ui/components/ui/badge";
 import { Button } from "@workspace/ui/components/ui/button";
 import {
@@ -41,194 +66,36 @@ import {
 } from "@workspace/ui/components/ui/toggle-group";
 
 import type { FlightMap } from "@workspace/domain";
+import type { LayerSpecification } from "maplibre-gl";
 
-// ---------------------------------------------------------------------------
-// Map settings types & defaults
-// ---------------------------------------------------------------------------
-
-type MapStyleName = "satellite" | "light" | "dark" | "voyager";
-
-interface MapSettings {
-  mapStyle: MapStyleName;
-  showHeatmap: boolean;
-  showRoutes: boolean;
-  showMarkers: boolean;
-  showLabels: boolean;
-  routeColor: string;
-  heatmapIntensity: number;
-}
-
-const ROUTE_COLOR_PRESETS = [
-  { value: "#ef4444", label: "Red" },
-  { value: "#06b6d4", label: "Cyan" },
-  { value: "#eab308", label: "Gold" },
-  { value: "#84cc16", label: "Lime" },
-  { value: "#a855f7", label: "Purple" },
-] as const;
-
-const MAP_STYLE_OPTIONS: { value: MapStyleName; label: string }[] = [
-  { value: "satellite", label: "Satellite" },
-  { value: "light", label: "Light" },
-  { value: "dark", label: "Dark" },
-  { value: "voyager", label: "Voyager" },
-];
-
-const DEFAULT_SETTINGS: MapSettings = {
-  mapStyle: "satellite",
-  showHeatmap: true,
-  showRoutes: true,
-  showMarkers: true,
-  showLabels: true,
-  routeColor: "#ef4444",
-  heatmapIntensity: 1.0,
-};
-
-const STORAGE_KEY = "flight-map-settings";
-
-function loadSettings(): MapSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as MapSettings;
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
-function saveSettings(settings: MapSettings) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  } catch {
-    // Silently ignore storage errors
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Map style specs — all public, no API key
-// ---------------------------------------------------------------------------
-
-function getMapStyle(
-  name: MapStyleName,
-): maplibregl.StyleSpecification | string {
-  switch (name) {
-    case "satellite":
-      return {
-        version: 8,
-        sources: {
-          satellite: {
-            type: "raster",
-            tiles: [
-              "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            ],
-            tileSize: 256,
-            attribution:
-              "&copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics",
-          },
-          labels: {
-            type: "vector",
-            url: "https://demotiles.maplibre.org/tiles/tiles.json",
-          },
-        },
-        layers: [
-          {
-            id: "satellite-layer",
-            type: "raster",
-            source: "satellite",
-            paint: {
-              "raster-brightness-max": 0.85,
-              "raster-saturation": -0.2,
-              "raster-contrast": 0.1,
-            },
-          },
-          {
-            id: "country-label",
-            type: "symbol",
-            source: "labels",
-            "source-layer": "country",
-            layout: {
-              "text-field": ["get", "name_en"],
-              "text-size": 14,
-            },
-            paint: {
-              "text-color": "#ffffff",
-              "text-halo-color": "#000000",
-              "text-halo-width": 1,
-            },
-          },
-          {
-            id: "city-label",
-            type: "symbol",
-            source: "labels",
-            "source-layer": "place",
-            layout: {
-              "text-field": ["get", "name"],
-              "text-size": 12,
-            },
-            paint: {
-              "text-color": "#ffffff",
-              "text-halo-color": "#000000",
-              "text-halo-width": 1,
-            },
-          },
-        ],
-      };
-    case "light":
-      return "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
-    case "dark":
-      return "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
-    case "voyager":
-      return "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json";
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+maplibregl.setWorkerUrl(maplibreglWorkerUrl);
 
 const AIRPORT_SOURCE_ID = "flight-map-airports";
 const ROUTE_SOURCE_ID = "flight-map-routes";
 const HEATMAP_LAYER_ID = "flight-map-heatmap";
-const AIRPORT_LAYER_ID = "flight-map-airports-circle";
-const ROUTE_GLOW_LAYER_ID = "flight-map-routes-glow";
-const ROUTE_LINE_LAYER_ID = "flight-map-routes-line";
-
-function lightenColor(hex: string): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  const lighten = (c: number) => Math.min(255, c + Math.round((255 - c) * 0.5));
-  return `rgba(${lighten(r)}, ${lighten(g)}, ${lighten(b)}, 0.55)`;
-}
-
-function createAirportMarkerElement(visits: number) {
-  const marker = document.createElement("button");
-  const size = Math.max(18, Math.min(34, 14 + visits * 2));
-
-  marker.type = "button";
-  marker.setAttribute("aria-label", `Airport marker with ${visits} visits`);
-  marker.style.width = `${size}px`;
-  marker.style.height = `${size}px`;
-  marker.style.borderRadius = "9999px";
-  marker.style.border = "2px solid rgba(255, 247, 237, 0.95)";
-  marker.style.background = `
-    radial-gradient(
-    circle at center,
-    rgba(255,255,200,0.25) 0%,
-    rgba(255,160,0,0.35) 30%,
-    rgba(255,90,0,0.28) 60%,
-    rgba(160,30,0,0.12) 100%
-    )
-    `;
-  marker.style.boxShadow =
-    "0 0 8px rgba(0,182,255,0.35), 0 6px 20px rgba(0,0,0,0.25)";
-  marker.style.cursor = "pointer";
-  marker.style.padding = "0";
-
-  return marker;
-}
+const AIRPORT_OVERVIEW_LAYER_ID = "flight-map-airports-overview";
+const AIRPORT_HIT_LAYER_ID = "flight-map-airports-hit";
+const AIRPORT_LABEL_LAYER_ID = "flight-map-airports-labels";
+const AIRPORT_LAYER_ID = AIRPORT_OVERVIEW_LAYER_ID;
+const ROUTE_GLOW_LAYER_ID = FLIGHT_SCENE_LAYER_ID;
+const ROUTE_LINE_LAYER_ID = FLIGHT_SCENE_LAYER_ID;
+const DEFAULT_MAP_PITCH = 54;
+const DEFAULT_MAP_BEARING = -18;
+const CUSTOM_LAYER_IDS = [
+  HEATMAP_LAYER_ID,
+  AIRPORT_OVERVIEW_LAYER_ID,
+  AIRPORT_HIT_LAYER_ID,
+  AIRPORT_LABEL_LAYER_ID,
+  FLIGHT_SCENE_LAYER_ID,
+];
 
 function formatDistance(value: number) {
   return `${value.toLocaleString()} km`;
+}
+
+function hasVisibleSize(element: HTMLElement) {
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0;
 }
 
 function MapSkeleton() {
@@ -244,44 +111,12 @@ function MapSkeleton() {
   );
 }
 
-function buildAirportFeatureCollection(data: FlightMap) {
-  return {
-    type: "FeatureCollection" as const,
-    features: data.airports.map((airport) => ({
-      type: "Feature" as const,
-      geometry: {
-        type: "Point" as const,
-        coordinates: [airport.lng, airport.lat],
-      },
-      properties: {
-        iata: airport.iata,
-        city: airport.city ?? "Unknown city",
-        country: airport.country ?? "Unknown country",
-        visits: airport.visits,
-      },
-    })),
-  };
+function getOverlayBeforeId(map: maplibregl.Map): string | undefined {
+  const layers = map.getStyle().layers as LayerSpecification[] | undefined;
+  return getOverlayAnchorId(layers, CUSTOM_LAYER_IDS);
 }
 
-function buildRouteFeatureCollection(data: FlightMap) {
-  return {
-    type: "FeatureCollection" as const,
-    features: data.routes.map((route) => ({
-      type: "Feature" as const,
-      geometry: {
-        type: "LineString" as const,
-        coordinates: route.path,
-      },
-      properties: {
-        from: route.from,
-        to: route.to,
-        count: route.count,
-      },
-    })),
-  };
-}
-
-function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
+function ensureMapSources(map: maplibregl.Map) {
   if (!map.getSource(AIRPORT_SOURCE_ID)) {
     map.addSource(AIRPORT_SOURCE_ID, {
       type: "geojson",
@@ -295,42 +130,60 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
       data: { type: "FeatureCollection", features: [] },
     });
   }
+}
 
-  if (!map.getLayer(HEATMAP_LAYER_ID)) {
-    map.addLayer({
+function addLayerIfMissing(
+  map: maplibregl.Map,
+  layer: LayerSpecification,
+  beforeId?: string,
+) {
+  if (map.getLayer(layer.id)) {
+    return;
+  }
+
+  map.addLayer(layer, beforeId);
+}
+
+function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
+  ensureMapSources(map);
+
+  const beforeId = getOverlayBeforeId(map);
+
+  addLayerIfMissing(
+    map,
+    {
       id: HEATMAP_LAYER_ID,
       type: "heatmap",
       source: AIRPORT_SOURCE_ID,
-      maxzoom: 6,
-      layout: { visibility: settings.showHeatmap ? "visible" : "none" },
+      maxzoom: 7,
       paint: {
         "heatmap-weight": [
           "interpolate",
           ["linear"],
           ["get", "visits"],
           1,
-          0.4,
+          0.35,
           12,
-          1.4,
+          1.45,
         ],
         "heatmap-intensity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           0,
-          1.1 * settings.heatmapIntensity,
+          1.5 * settings.heatmapIntensity,
           7,
-          2.2 * settings.heatmapIntensity,
+          3 * settings.heatmapIntensity,
         ],
-        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 22, 7, 48],
+        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 28, 7, 64],
         "heatmap-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           0,
-          0.82,
+          0.92,
           8,
-          0.2,
+          0.32,
         ],
         "heatmap-color": [
           "interpolate",
@@ -339,78 +192,27 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
           0,
           "rgba(29, 78, 216, 0.08)",
           0.2,
-          "rgba(59, 130, 246, 0.52)",
+          "rgba(59, 130, 246, 0.5)",
           0.45,
-          "rgba(14, 165, 233, 0.7)",
+          "rgba(14, 165, 233, 0.72)",
           0.7,
           "rgba(34, 197, 94, 0.82)",
           1,
-          "rgba(249, 115, 22, 0.96)",
+          "rgba(249, 115, 22, 0.95)",
         ],
       },
-    });
-  }
+    },
+    beforeId,
+  );
 
-  if (!map.getLayer(ROUTE_GLOW_LAYER_ID)) {
-    map.addLayer({
-      id: ROUTE_GLOW_LAYER_ID,
-      type: "line",
-      source: ROUTE_SOURCE_ID,
-      layout: {
-        "line-cap": "round",
-        "line-join": "round",
-        visibility: settings.showRoutes ? "visible" : "none",
-      },
-      paint: {
-        "line-color": lightenColor(settings.routeColor),
-        "line-opacity": 0.55,
-        "line-blur": 6,
-        "line-width": [
-          "interpolate",
-          ["linear"],
-          ["get", "count"],
-          1,
-          6,
-          6,
-          16,
-        ],
-      },
-    });
-  }
-
-  if (!map.getLayer(ROUTE_LINE_LAYER_ID)) {
-    map.addLayer({
-      id: ROUTE_LINE_LAYER_ID,
-      type: "line",
-      source: ROUTE_SOURCE_ID,
-      layout: {
-        "line-cap": "round",
-        "line-join": "round",
-        visibility: settings.showRoutes ? "visible" : "none",
-      },
-      paint: {
-        "line-color": settings.routeColor,
-        "line-opacity": 0.96,
-        "line-width": [
-          "interpolate",
-          ["linear"],
-          ["get", "count"],
-          1,
-          2.5,
-          6,
-          7,
-        ],
-      },
-    });
-  }
-
-  if (!map.getLayer(AIRPORT_LAYER_ID)) {
-    map.addLayer({
-      id: AIRPORT_LAYER_ID,
+  addLayerIfMissing(
+    map,
+    {
+      id: AIRPORT_OVERVIEW_LAYER_ID,
       type: "circle",
       source: AIRPORT_SOURCE_ID,
       minzoom: 2,
-      layout: { visibility: settings.showMarkers ? "visible" : "none" },
+      maxzoom: AIRPORT_MIN_ZOOM + 0.2,
       paint: {
         "circle-radius": [
           "interpolate",
@@ -426,11 +228,85 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
         "circle-stroke-color": "#fff7ed",
         "circle-stroke-width": 2,
       },
-    });
-  }
+    },
+    beforeId,
+  );
+
+  addLayerIfMissing(
+    map,
+    {
+      id: AIRPORT_HIT_LAYER_ID,
+      type: "circle",
+      source: AIRPORT_SOURCE_ID,
+      minzoom: 2,
+      paint: {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["get", "visits"],
+          1,
+          14,
+          12,
+          30,
+        ],
+        "circle-color": "#f8fafc",
+        "circle-opacity": 0,
+        "circle-stroke-opacity": 0,
+      },
+    },
+    beforeId,
+  );
+
+  addLayerIfMissing(
+    map,
+    {
+      id: AIRPORT_LABEL_LAYER_ID,
+      type: "symbol",
+      source: AIRPORT_SOURCE_ID,
+      minzoom: Math.max(0, AIRPORT_MIN_ZOOM - 0.2),
+      layout: {
+        "text-field": [
+          "format",
+          ["get", "iata"],
+          { "font-scale": 1 },
+          "\n",
+          {},
+          ["get", "city"],
+          { "font-scale": 0.82 },
+        ],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 11, 8, 13],
+        "text-line-height": 1.1,
+        "text-letter-spacing": 0.04,
+        "text-offset": [0, 1.2],
+        "text-anchor": "top",
+        "text-font": ["Open Sans Semibold", "Arial Unicode MS Regular"],
+      },
+      paint: {
+        "text-color": "#f8fafc",
+        "text-halo-color": "rgba(15, 23, 42, 0.94)",
+        "text-halo-width": 1.35,
+      },
+    },
+    beforeId,
+  );
 }
 
-function updateMapData(map: maplibregl.Map, data: FlightMap) {
+function ensureFlightSceneLayer(
+  map: maplibregl.Map,
+  sceneController: FlightMap3DLayerController,
+) {
+  if (map.getLayer(FLIGHT_SCENE_LAYER_ID)) {
+    return;
+  }
+
+  map.addLayer(sceneController.layer, getOverlayBeforeId(map));
+}
+
+function updateMapData(
+  map: maplibregl.Map,
+  data: FlightMap,
+  sceneController: FlightMap3DLayerController,
+) {
   const airportSource = map.getSource(AIRPORT_SOURCE_ID) as
     | maplibregl.GeoJSONSource
     | undefined;
@@ -440,32 +316,7 @@ function updateMapData(map: maplibregl.Map, data: FlightMap) {
 
   airportSource?.setData(buildAirportFeatureCollection(data));
   routeSource?.setData(buildRouteFeatureCollection(data));
-}
-
-function syncAirportMarkers(
-  map: maplibregl.Map,
-  data: FlightMap,
-  markerRefs: { current: maplibregl.Marker[] },
-) {
-  for (const marker of markerRefs.current) {
-    marker.remove();
-  }
-
-  markerRefs.current = data.airports.map((airport) => {
-    const popup = new maplibregl.Popup({
-      offset: 18,
-      closeButton: false,
-    }).setHTML(
-      `<div><div style="font-weight:600;font-size:13px;">${airport.iata}</div><div style="font-size:12px;opacity:0.78;">${airport.city ?? "Unknown city"}, ${airport.country ?? "Unknown country"}</div><div style="font-size:12px;font-weight:600;margin-top:2px;">Visits: ${airport.visits}</div></div>`,
-    );
-
-    return new maplibregl.Marker({
-      element: createAirportMarkerElement(airport.visits),
-    })
-      .setLngLat([airport.lng, airport.lat])
-      .setPopup(popup)
-      .addTo(map);
-  });
+  sceneController.setData(data);
 }
 
 function fitMapToAirports(map: maplibregl.Map, data: FlightMap) {
@@ -477,6 +328,8 @@ function fitMapToAirports(map: maplibregl.Map, data: FlightMap) {
     map.flyTo({
       center: [data.airports[0].lng, data.airports[0].lat],
       zoom: 4,
+      pitch: DEFAULT_MAP_PITCH,
+      bearing: DEFAULT_MAP_BEARING,
       essential: true,
     });
     return;
@@ -490,15 +343,17 @@ function fitMapToAirports(map: maplibregl.Map, data: FlightMap) {
   map.fitBounds(bounds, {
     padding: 72,
     duration: 1200,
+    pitch: DEFAULT_MAP_PITCH,
+    bearing: DEFAULT_MAP_BEARING,
     essential: true,
   });
 }
 
-// ---------------------------------------------------------------------------
-// Apply settings to a live map instance
-// ---------------------------------------------------------------------------
-
-function applySettingsToMap(map: maplibregl.Map, settings: MapSettings) {
+function applySettingsToMap(
+  map: maplibregl.Map,
+  settings: MapSettings,
+  sceneController: FlightMap3DLayerController,
+) {
   const setVis = (id: string, visible: boolean) => {
     if (map.getLayer(id)) {
       map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
@@ -506,25 +361,17 @@ function applySettingsToMap(map: maplibregl.Map, settings: MapSettings) {
   };
 
   setVis(HEATMAP_LAYER_ID, settings.showHeatmap);
-  setVis(ROUTE_GLOW_LAYER_ID, settings.showRoutes);
-  setVis(ROUTE_LINE_LAYER_ID, settings.showRoutes);
-  setVis(AIRPORT_LAYER_ID, settings.showMarkers);
-  setVis("country-label", settings.showLabels);
-  setVis("city-label", settings.showLabels);
+  setVis(AIRPORT_OVERVIEW_LAYER_ID, true);
+  setVis(AIRPORT_HIT_LAYER_ID, true);
+  setVis(AIRPORT_LABEL_LAYER_ID, settings.showLabels);
 
-  if (map.getLayer(ROUTE_LINE_LAYER_ID)) {
-    map.setPaintProperty(
-      ROUTE_LINE_LAYER_ID,
-      "line-color",
-      settings.routeColor,
-    );
-  }
-  if (map.getLayer(ROUTE_GLOW_LAYER_ID)) {
-    map.setPaintProperty(
-      ROUTE_GLOW_LAYER_ID,
-      "line-color",
-      lightenColor(settings.routeColor),
-    );
+  const labelLayerIds = getBaseLabelLayerIds(
+    map.getStyle().layers as LayerSpecification[] | undefined,
+    CUSTOM_LAYER_IDS,
+  );
+
+  for (const layerId of labelLayerIds) {
+    setVis(layerId, settings.showLabels);
   }
 
   if (map.getLayer(HEATMAP_LAYER_ID)) {
@@ -533,16 +380,53 @@ function applySettingsToMap(map: maplibregl.Map, settings: MapSettings) {
       ["linear"],
       ["zoom"],
       0,
-      1.1 * settings.heatmapIntensity,
+      1.5 * settings.heatmapIntensity,
       7,
-      2.2 * settings.heatmapIntensity,
+      3 * settings.heatmapIntensity,
     ]);
   }
-}
 
-// ---------------------------------------------------------------------------
-// MapControls — inline (desktop)
-// ---------------------------------------------------------------------------
+  map.setProjection({ type: settings.projection });
+
+  if (supportsTerrain(settings.mapStyle) && settings.terrainEnabled) {
+    if (map.getSource("terrainDem")) {
+      map.setTerrain({ source: "terrainDem", exaggeration: 1.18 });
+    }
+    if (map.getLayer(TERRAIN_HILLSHADE_LAYER_ID)) {
+      map.setLayoutProperty(
+        TERRAIN_HILLSHADE_LAYER_ID,
+        "visibility",
+        "visible",
+      );
+    }
+  } else {
+    map.setTerrain(null);
+    if (map.getLayer(TERRAIN_HILLSHADE_LAYER_ID)) {
+      map.setLayoutProperty(TERRAIN_HILLSHADE_LAYER_ID, "visibility", "none");
+    }
+  }
+  sceneController.setSettings({
+    showMarkers: settings.showMarkers,
+    showRoutes: settings.showRoutes,
+    glowTint: settings.routeColor,
+  });
+
+  if (settings.terrainEnabled && map.getPitch() < 45) {
+    map.easeTo({
+      pitch: DEFAULT_MAP_PITCH,
+      bearing: DEFAULT_MAP_BEARING,
+      duration: 900,
+      essential: true,
+    });
+  } else if (!settings.terrainEnabled && map.getPitch() < 30) {
+    map.easeTo({
+      pitch: DEFAULT_MAP_PITCH,
+      bearing: DEFAULT_MAP_BEARING,
+      duration: 900,
+      essential: true,
+    });
+  }
+}
 
 function MapControlsInline({
   settings,
@@ -553,14 +437,15 @@ function MapControlsInline({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-      {/* Map style */}
       <div className="flex items-center gap-2">
         <Label className="text-xs text-muted-foreground whitespace-nowrap">
           Style
         </Label>
         <Select
           value={settings.mapStyle}
-          onValueChange={(v) => onChange({ mapStyle: v as MapStyleName })}
+          onValueChange={(value) =>
+            onChange({ mapStyle: value as MapStyleName })
+          }
         >
           <SelectTrigger className="h-7 w-[110px] text-xs">
             <SelectValue />
@@ -577,13 +462,37 @@ function MapControlsInline({
 
       <Separator orientation="vertical" className="hidden h-5 lg:block" />
 
-      {/* Layer toggles */}
+      <div className="flex items-center gap-2">
+        <Label className="text-xs text-muted-foreground whitespace-nowrap">
+          Projection
+        </Label>
+        <ToggleGroup
+          type="single"
+          value={settings.projection}
+          onValueChange={(value) => {
+            if (value === "mercator" || value === "globe") {
+              onChange({ projection: value });
+            }
+          }}
+          className="gap-1"
+        >
+          <ToggleGroupItem value="mercator" className="h-7 px-2.5 text-xs">
+            Flat
+          </ToggleGroupItem>
+          <ToggleGroupItem value="globe" className="h-7 px-2.5 text-xs">
+            Globe
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      <Separator orientation="vertical" className="hidden h-5 lg:block" />
+
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1.5">
           <Switch
             id="toggle-heatmap"
             checked={settings.showHeatmap}
-            onCheckedChange={(v) => onChange({ showHeatmap: v })}
+            onCheckedChange={(value) => onChange({ showHeatmap: value })}
             className="scale-75"
           />
           <Label htmlFor="toggle-heatmap" className="text-xs cursor-pointer">
@@ -594,7 +503,7 @@ function MapControlsInline({
           <Switch
             id="toggle-routes"
             checked={settings.showRoutes}
-            onCheckedChange={(v) => onChange({ showRoutes: v })}
+            onCheckedChange={(value) => onChange({ showRoutes: value })}
             className="scale-75"
           />
           <Label htmlFor="toggle-routes" className="text-xs cursor-pointer">
@@ -605,31 +514,44 @@ function MapControlsInline({
           <Switch
             id="toggle-markers"
             checked={settings.showMarkers}
-            onCheckedChange={(v) => onChange({ showMarkers: v })}
+            onCheckedChange={(value) => onChange({ showMarkers: value })}
             className="scale-75"
           />
           <Label htmlFor="toggle-markers" className="text-xs cursor-pointer">
             Markers
           </Label>
         </div>
-        {settings.mapStyle === "satellite" && (
-          <div className="flex items-center gap-1.5">
-            <Switch
-              id="toggle-labels"
-              checked={settings.showLabels}
-              onCheckedChange={(v) => onChange({ showLabels: v })}
-              className="scale-75"
-            />
-            <Label htmlFor="toggle-labels" className="text-xs cursor-pointer">
-              Labels
-            </Label>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5">
+          <Switch
+            id="toggle-labels"
+            checked={settings.showLabels}
+            onCheckedChange={(value) => onChange({ showLabels: value })}
+            className="scale-75"
+          />
+          <Label htmlFor="toggle-labels" className="text-xs cursor-pointer">
+            Labels
+          </Label>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Switch
+            id="toggle-terrain"
+            checked={settings.terrainEnabled}
+            onCheckedChange={(value) => onChange({ terrainEnabled: value })}
+            disabled={!supportsTerrain(settings.mapStyle)}
+            className="scale-75"
+          />
+          <Label
+            htmlFor="toggle-terrain"
+            className="text-xs cursor-pointer data-[disabled=true]:cursor-not-allowed"
+            data-disabled={!supportsTerrain(settings.mapStyle)}
+          >
+            Terrain
+          </Label>
+        </div>
       </div>
 
       <Separator orientation="vertical" className="hidden h-5 lg:block" />
 
-      {/* Route color presets */}
       <div className="flex items-center gap-2">
         <Label className="text-xs text-muted-foreground whitespace-nowrap">
           <Palette className="inline h-3 w-3 mr-1" />
@@ -638,8 +560,10 @@ function MapControlsInline({
         <ToggleGroup
           type="single"
           value={settings.routeColor}
-          onValueChange={(v) => {
-            if (v) onChange({ routeColor: v });
+          onValueChange={(value) => {
+            if (value) {
+              onChange({ routeColor: value });
+            }
           }}
           className="gap-1"
         >
@@ -655,8 +579,7 @@ function MapControlsInline({
         </ToggleGroup>
       </div>
 
-      {/* Heatmap intensity slider */}
-      {settings.showHeatmap && (
+      {settings.showHeatmap ? (
         <>
           <Separator orientation="vertical" className="hidden h-5 lg:block" />
           <div className="flex items-center gap-2">
@@ -668,7 +591,7 @@ function MapControlsInline({
               max={2.0}
               step={0.1}
               value={[settings.heatmapIntensity]}
-              onValueChange={([v]) => onChange({ heatmapIntensity: v })}
+              onValueChange={([value]) => onChange({ heatmapIntensity: value })}
               className="w-20"
             />
             <span className="text-xs tabular-nums text-muted-foreground w-7">
@@ -676,14 +599,10 @@ function MapControlsInline({
             </span>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// MapControls — popover (mobile)
-// ---------------------------------------------------------------------------
 
 function MapControlsPopover({
   settings,
@@ -702,12 +621,13 @@ function MapControlsPopover({
       <PopoverContent className="w-72 space-y-4" align="end">
         <p className="text-sm font-medium">Map Settings</p>
 
-        {/* Map style */}
         <div className="space-y-1.5">
           <Label className="text-xs">Base Map</Label>
           <Select
             value={settings.mapStyle}
-            onValueChange={(v) => onChange({ mapStyle: v as MapStyleName })}
+            onValueChange={(value) =>
+              onChange({ mapStyle: value as MapStyleName })
+            }
           >
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />
@@ -728,7 +648,29 @@ function MapControlsPopover({
 
         <Separator />
 
-        {/* Layer toggles */}
+        <div className="space-y-1.5">
+          <Label className="text-xs">Projection</Label>
+          <ToggleGroup
+            type="single"
+            value={settings.projection}
+            onValueChange={(value) => {
+              if (value === "mercator" || value === "globe") {
+                onChange({ projection: value });
+              }
+            }}
+            className="justify-start gap-1.5"
+          >
+            <ToggleGroupItem value="mercator" className="h-8 px-3 text-xs">
+              Flat
+            </ToggleGroupItem>
+            <ToggleGroupItem value="globe" className="h-8 px-3 text-xs">
+              Globe
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        <Separator />
+
         <div className="space-y-2">
           <Label className="text-xs">Layers</Label>
           {(
@@ -736,9 +678,8 @@ function MapControlsPopover({
               { key: "showHeatmap", label: "Heatmap" },
               { key: "showRoutes", label: "Routes" },
               { key: "showMarkers", label: "Markers" },
-              ...(settings.mapStyle === "satellite"
-                ? [{ key: "showLabels", label: "Labels" }]
-                : []),
+              { key: "showLabels", label: "Labels" },
+              { key: "terrainEnabled", label: "Terrain" },
             ] as { key: keyof MapSettings; label: string }[]
           ).map((item) => (
             <div key={item.key} className="flex items-center justify-between">
@@ -751,7 +692,11 @@ function MapControlsPopover({
               <Switch
                 id={`pop-${item.key}`}
                 checked={settings[item.key] as boolean}
-                onCheckedChange={(v) => onChange({ [item.key]: v })}
+                onCheckedChange={(value) => onChange({ [item.key]: value })}
+                disabled={
+                  item.key === "terrainEnabled" &&
+                  !supportsTerrain(settings.mapStyle)
+                }
                 className="scale-75"
               />
             </div>
@@ -760,14 +705,15 @@ function MapControlsPopover({
 
         <Separator />
 
-        {/* Route color */}
         <div className="space-y-1.5">
           <Label className="text-xs">Route Color</Label>
           <ToggleGroup
             type="single"
             value={settings.routeColor}
-            onValueChange={(v) => {
-              if (v) onChange({ routeColor: v });
+            onValueChange={(value) => {
+              if (value) {
+                onChange({ routeColor: value });
+              }
             }}
             className="gap-1.5 justify-start"
           >
@@ -783,8 +729,7 @@ function MapControlsPopover({
           </ToggleGroup>
         </div>
 
-        {/* Heatmap intensity */}
-        {settings.showHeatmap && (
+        {settings.showHeatmap ? (
           <>
             <Separator />
             <div className="space-y-1.5">
@@ -799,46 +744,89 @@ function MapControlsPopover({
                 max={2.0}
                 step={0.1}
                 value={[settings.heatmapIntensity]}
-                onValueChange={([v]) => onChange({ heatmapIntensity: v })}
+                onValueChange={([value]) =>
+                  onChange({ heatmapIntensity: value })
+                }
               />
             </div>
           </>
-        )}
+        ) : null}
       </PopoverContent>
     </Popover>
   );
 }
 
-// ---------------------------------------------------------------------------
-// FlightMapDashboard
-// ---------------------------------------------------------------------------
+export interface FlightMapDashboardProps {
+  isActive: boolean;
+}
 
-export function FlightMapDashboard() {
+export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
   const mapQuery = useFlightMap();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
-  const markerRefs = useRef<maplibregl.Marker[]>([]);
+  const sceneControllerRef = useRef<FlightMap3DLayerController | null>(null);
   const hasFittedRef = useRef(false);
   const latestDataRef = useRef<FlightMap | null>(null);
   const settingsRef = useRef<MapSettings>(DEFAULT_SETTINGS);
+  const baseStyleKeyRef = useRef<string | null>(null);
 
   const [settings, setSettings] = useState<MapSettings>(loadSettings);
-  const initialStyleRef = useRef(true);
 
   settingsRef.current = settings;
   latestDataRef.current = mapQuery.data ?? null;
 
+  const baseStyleKey = `${settings.mapStyle}:${settings.terrainEnabled ? "terrain" : "flat"}`;
+
   const handleSettingsChange = useCallback((patch: Partial<MapSettings>) => {
-    setSettings((prev) => {
-      const next = { ...prev, ...patch };
+    setSettings((previous) => {
+      const next = sanitizeSettings({ ...previous, ...patch });
       saveSettings(next);
       return next;
     });
   }, []);
 
+  const syncMapPresentation = useCallback(
+    (fitToData: boolean) => {
+      const map = mapRef.current;
+      const data = latestDataRef.current;
+
+      if (!map || !map.isStyleLoaded()) {
+        return;
+      }
+
+      const currentSettings = settingsRef.current;
+      ensureMapLayers(map, currentSettings);
+      if (!sceneControllerRef.current) {
+        sceneControllerRef.current = new FlightMap3DLayerController();
+      }
+      ensureFlightSceneLayer(map, sceneControllerRef.current);
+      applySettingsToMap(map, currentSettings, sceneControllerRef.current);
+
+      if (!data) {
+        return;
+      }
+
+      updateMapData(map, data, sceneControllerRef.current);
+      applySettingsToMap(map, currentSettings, sceneControllerRef.current);
+
+      if (fitToData && !hasFittedRef.current && isActive) {
+        fitMapToAirports(map, data);
+        hasFittedRef.current = true;
+      }
+
+      requestAnimationFrame(() => {
+        map.resize();
+        map.triggerRepaint();
+      });
+    },
+    [isActive, mapQuery.data],
+  );
+
   const summaryCards = useMemo(() => {
-    if (!mapQuery.data) return [];
+    if (!mapQuery.data) {
+      return [];
+    }
 
     return [
       {
@@ -862,19 +850,50 @@ export function FlightMapDashboard() {
     ];
   }, [mapQuery.data]);
 
-  // --- Initialize map ---
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
 
+    const updateReadyState = () => {
+      if (hasVisibleSize(container) && mapRef.current) {
+        requestAnimationFrame(() => mapRef.current?.resize());
+      }
+    };
+
+    updateReadyState();
+
+    const observer = new ResizeObserver(updateReadyState);
+    observer.observe(container);
+    window.addEventListener("resize", updateReadyState);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateReadyState);
+    };
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive || !containerRef.current || mapRef.current) {
+      return;
+    }
+
+    const initialSettings = settingsRef.current;
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: getMapStyle(settingsRef.current.mapStyle),
+      style: getMapStyle(initialSettings),
       center: [78.9629, 20.5937],
       zoom: 2.2,
+      pitch: DEFAULT_MAP_PITCH,
+      bearing: DEFAULT_MAP_BEARING,
       cooperativeGestures: true,
+      maxPitch: 85,
     });
 
+    baseStyleKeyRef.current = baseStyleKey;
     mapRef.current = map;
+    sceneControllerRef.current = new FlightMap3DLayerController();
     popupRef.current = new maplibregl.Popup({
       closeButton: false,
       closeOnClick: false,
@@ -887,122 +906,111 @@ export function FlightMapDashboard() {
       "top-right",
     );
 
+    const handleStyleLoad = () => {
+      syncMapPresentation(true);
+    };
+
+    map.on("style.load", handleStyleLoad);
     map.on("load", () => {
-      const s = settingsRef.current;
-      ensureMapLayers(map, s);
-
-      if (latestDataRef.current) {
-        updateMapData(map, latestDataRef.current);
-        syncAirportMarkers(map, latestDataRef.current, markerRefs);
-        applySettingsToMap(map, s);
-
-        for (const m of markerRefs.current) {
-          m.getElement().style.display = s.showMarkers ? "" : "none";
+      requestAnimationFrame(() => {
+        if (mapRef.current !== map) {
+          return;
         }
 
-        if (!hasFittedRef.current) {
-          fitMapToAirports(map, latestDataRef.current);
-          hasFittedRef.current = true;
-        }
+        map.resize();
+        syncMapPresentation(true);
+      });
+    });
+
+    requestAnimationFrame(() => {
+      if (mapRef.current !== map) {
+        return;
+      }
+
+      if (map.isStyleLoaded()) {
+        syncMapPresentation(true);
       }
     });
 
-    map.on("mouseenter", AIRPORT_LAYER_ID, (event) => {
-      map.getCanvas().style.cursor = "pointer";
-      const feature = event.features?.[0];
-      if (!feature || feature.geometry.type !== "Point") return;
+    map.on(
+      "mouseenter",
+      AIRPORT_HIT_LAYER_ID,
+      (event: maplibregl.MapLayerMouseEvent) => {
+        map.getCanvas().style.cursor = "pointer";
+        const feature = event.features?.[0];
+        if (!feature || feature.geometry.type !== "Point") {
+          return;
+        }
 
-      const coordinates = [...feature.geometry.coordinates] as [number, number];
-      const properties = feature.properties as
-        | {
-            city?: string;
-            country?: string;
-            iata?: string;
-            visits?: number | string;
-          }
-        | undefined;
+        const coordinates = [...feature.geometry.coordinates] as [
+          number,
+          number,
+        ];
+        const properties = feature.properties as
+          | {
+              city?: string;
+              country?: string;
+              iata?: string;
+              visits?: number | string;
+            }
+          | undefined;
 
-      popupRef.current
-        ?.setLngLat(coordinates)
-        .setHTML(
-          `<div class="space-y-1"><div class="text-sm font-semibold">${properties?.iata ?? "Unknown"}</div><div class="text-xs text-muted-foreground">${properties?.city ?? "Unknown city"}, ${properties?.country ?? "Unknown country"}</div><div class="text-xs font-medium">Visits: ${properties?.visits ?? 0}</div></div>`,
-        )
-        .addTo(map);
-    });
+        popupRef.current
+          ?.setLngLat(coordinates)
+          .setHTML(
+            `<div class="space-y-1"><div class="text-sm font-semibold">${properties?.iata ?? "Unknown"}</div><div class="text-xs text-muted-foreground">${properties?.city ?? "Unknown city"}, ${properties?.country ?? "Unknown country"}</div><div class="text-xs font-medium">Visits: ${properties?.visits ?? 0}</div></div>`,
+          )
+          .addTo(map);
+      },
+    );
 
-    map.on("mouseleave", AIRPORT_LAYER_ID, () => {
+    map.on("mouseleave", AIRPORT_HIT_LAYER_ID, () => {
       map.getCanvas().style.cursor = "";
       popupRef.current?.remove();
     });
 
     return () => {
-      for (const marker of markerRefs.current) marker.remove();
-      markerRefs.current = [];
+      sceneControllerRef.current?.destroy();
+      sceneControllerRef.current = null;
       popupRef.current?.remove();
       popupRef.current = null;
       map.remove();
       mapRef.current = null;
       hasFittedRef.current = false;
+      baseStyleKeyRef.current = null;
     };
-  }, []);
+  }, [isActive, mapQuery.data, syncMapPresentation]);
 
-  // --- ResizeObserver ---
   useEffect(() => {
-    const map = mapRef.current;
-    const container = containerRef.current;
-    if (!map || !container) return;
-
-    const observer = new ResizeObserver(() => map.resize());
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [mapQuery.data]);
-
-  // --- Sync data onto map ---
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !mapQuery.data) return;
-
-    const applyLatestData = () => {
-      const s = settingsRef.current;
-      ensureMapLayers(map, s);
-      updateMapData(map, mapQuery.data);
-      syncAirportMarkers(map, mapQuery.data, markerRefs);
-      applySettingsToMap(map, s);
-
-      for (const m of markerRefs.current) {
-        m.getElement().style.display = s.showMarkers ? "" : "none";
-      }
-
-      if (!hasFittedRef.current) {
-        fitMapToAirports(map, mapQuery.data);
-        hasFittedRef.current = true;
-      }
-
-      requestAnimationFrame(() => map.resize());
-
-      map.triggerRepaint();
-    };
-
-    if (!map.isStyleLoaded()) {
-      map.once("idle", applyLatestData);
-      return () => {
-        map.off("idle", applyLatestData);
-      };
+    if (!isActive || !mapRef.current) {
+      return;
     }
 
-    applyLatestData();
-  }, [mapQuery.data]);
+    requestAnimationFrame(() => {
+      mapRef.current?.resize();
+      syncMapPresentation(true);
+    });
+  }, [isActive, syncMapPresentation]);
 
-  // --- React to settings changes (layer visibility, colors, intensity) ---
+  useEffect(() => {
+    if (!mapQuery.data || !mapRef.current || !mapRef.current.isStyleLoaded()) {
+      return;
+    }
+
+    syncMapPresentation(true);
+  }, [mapQuery.data, syncMapPresentation]);
+
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-
-    applySettingsToMap(map, settings);
-
-    for (const m of markerRefs.current) {
-      m.getElement().style.display = settings.showMarkers ? "" : "none";
+    if (!map || !map.isStyleLoaded()) {
+      return;
     }
+
+    if (!sceneControllerRef.current) {
+      return;
+    }
+
+    applySettingsToMap(map, settings, sceneControllerRef.current);
   }, [
     settings.showHeatmap,
     settings.showRoutes,
@@ -1010,48 +1018,26 @@ export function FlightMapDashboard() {
     settings.showLabels,
     settings.routeColor,
     settings.heatmapIntensity,
+    settings.projection,
   ]);
 
-  // --- React to map style change (full style swap) ---
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-
-    // Skip on initial mount — the map was already created with this style
-    if (initialStyleRef.current) {
-      initialStyleRef.current = false;
+    if (!map) {
       return;
     }
 
-    const newStyle = getMapStyle(settings.mapStyle);
-    map.setStyle(newStyle);
+    if (baseStyleKeyRef.current === baseStyleKey) {
+      return;
+    }
 
-    const reapply = () => {
-      const s = settingsRef.current;
-      ensureMapLayers(map, s);
+    baseStyleKeyRef.current = baseStyleKey;
+    map.setStyle(getMapStyle(settings));
+  }, [baseStyleKey, settings]);
 
-      if (latestDataRef.current) {
-        updateMapData(map, latestDataRef.current);
-        syncAirportMarkers(map, latestDataRef.current, markerRefs);
-
-        for (const m of markerRefs.current) {
-          m.getElement().style.display = s.showMarkers ? "" : "none";
-        }
-      }
-
-      applySettingsToMap(map, s);
-    };
-
-    map.once("idle", reapply);
-    return () => {
-      map.off("idle", reapply);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.mapStyle]);
-
-  // --- Render ---
-
-  if (mapQuery.isLoading) return <MapSkeleton />;
+  if (mapQuery.isLoading) {
+    return <MapSkeleton />;
+  }
 
   if (mapQuery.isError || !mapQuery.data) {
     return (
@@ -1127,13 +1113,14 @@ export function FlightMapDashboard() {
       </div>
 
       <Card className="overflow-hidden border-border/60">
-        <CardHeader className="border-b border-border/60 bg-card/90">
+        <CardHeader className="border-b border-border/60">
           <div className="flex flex-col gap-3">
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle>Travel Map</CardTitle>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Customize layers, colors, and base map to your preference.
+                  Switch between flat and globe projection, enable terrain on
+                  satellite, and control overlays without losing route state.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -1143,7 +1130,14 @@ export function FlightMapDashboard() {
                 <Badge variant="outline" className="text-xs">
                   {mapQuery.data.routes.length} routes
                 </Badge>
-                {/* Mobile: popover */}
+                <Badge variant="outline" className="text-xs">
+                  {settings.projection === "globe" ? "Globe" : "Flat"}
+                </Badge>
+                {settings.terrainEnabled ? (
+                  <Badge variant="outline" className="text-xs">
+                    Terrain
+                  </Badge>
+                ) : null}
                 <div className="lg:hidden">
                   <MapControlsPopover
                     settings={settings}
@@ -1152,7 +1146,6 @@ export function FlightMapDashboard() {
                 </div>
               </div>
             </div>
-            {/* Desktop: inline controls */}
             <div className="hidden lg:block">
               <MapControlsInline
                 settings={settings}
@@ -1162,9 +1155,25 @@ export function FlightMapDashboard() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div ref={containerRef} className="h-[560px] w-full" />
+          <div
+            ref={containerRef}
+            className="h-[560px] w-full"
+            data-map-active={isActive ? "true" : "false"}
+          />
         </CardContent>
       </Card>
     </div>
   );
 }
+
+export {
+  AIRPORT_LAYER_ID,
+  AIRPORT_HIT_LAYER_ID,
+  AIRPORT_LABEL_LAYER_ID,
+  AIRPORT_OVERVIEW_LAYER_ID,
+  HEATMAP_LAYER_ID,
+  ROUTE_GLOW_LAYER_ID,
+  ROUTE_LINE_LAYER_ID,
+  STORAGE_KEY,
+  SATELLITE_LABEL_LAYER_ID,
+};

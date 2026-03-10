@@ -23,11 +23,13 @@ export function InvestmentInsights({ metrics }: InvestmentInsightsProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {metrics.trendIncreasing ? (
-            <TrendingUp className="h-5 w-5 text-green-500" />
-          ) : (
-            <TrendingDown className="h-5 w-5 text-red-500" />
-          )}
+          <span data-slot="badge">
+            {metrics.trendIncreasing ? (
+              <TrendingUp className="h-5 w-5 text-green-500" />
+            ) : (
+              <TrendingDown className="h-5 w-5 text-red-500" />
+            )}
+          </span>
           Investment Insights
         </CardTitle>
         <CardDescription>Key observations from your data</CardDescription>

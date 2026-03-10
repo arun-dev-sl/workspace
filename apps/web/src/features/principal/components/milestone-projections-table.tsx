@@ -41,7 +41,9 @@ export function MilestoneProjectionsTable({
     <Card className="gap-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Target className="h-5 w-5" />
+          <span data-slot="badge">
+            <Target className="h-5 w-5" />
+          </span>
           Wealth Milestone Projections
         </CardTitle>
         <CardDescription>

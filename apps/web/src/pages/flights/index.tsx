@@ -804,7 +804,7 @@ export default function FlightsPage() {
           </TabsContent>
 
           <TabsContent value="map" className="mt-4">
-            {activeTab === "map" ? <FlightMapDashboard /> : null}
+            <FlightMapDashboard isActive={activeTab === "map"} />
           </TabsContent>
         </Tabs>
 
