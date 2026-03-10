@@ -1,5 +1,5 @@
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { TrendingUp } from "lucide-react";
+import { Sigma } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -32,7 +32,9 @@ export function CumulativeInvestmentChart({
     <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-5 w-5" />
+          <span data-slot="badge">
+            <Sigma className="h-5 w-5" />
+          </span>
           Cumulative Investment
         </CardTitle>
         <CardDescription>

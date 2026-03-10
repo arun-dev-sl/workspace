@@ -1571,7 +1571,7 @@ function SummaryCard({
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        {icon}
+        <span data-slot="badge">{icon}</span>
       </CardHeader>
       <CardContent>
         {loading ? (

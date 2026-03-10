@@ -1,0 +1,1141 @@
+import maplibregl from 'maplibre-gl/dist/maplibre-gl-csp'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import * as THREE from 'three'
+
+import type { FlightMap } from '@workspace/domain'
+import type {
+  CustomLayerInterface,
+  CustomRenderMethodInput,
+  Map as MapLibreMap,
+  MapMouseEvent,
+} from 'maplibre-gl'
+
+const EARTH_RADIUS_METERS = 6_371_008.8
+const ARC_POINT_COUNT = 40
+export const AIRPORT_MIN_ZOOM = 6
+const ANIMATION_INTERVAL_MS = 1000 / 30
+const MODEL_ASSET_PATH = '/models/airplane.glb'
+const MIN_PLANE_SCALE_METERS = 2000
+const MAX_PLANE_SCALE_METERS = 10_000
+const MIN_PLANE_LIFT_METERS = 30_000
+const MAX_PLANE_LIFT_METERS = 110_000
+const GLOW_RADIUS_MULTIPLIER = 0
+const PICKABLE_PLANE_RADIUS_PX = 40
+const DEFAULT_MODEL_FORWARD_AXIS = new THREE.Vector3(0, 0, 1)
+const MODEL_UP_AXIS = new THREE.Vector3(0, 1, 0)
+const MERCATOR_UP_AXIS = new THREE.Vector3(0, 0, 1)
+const PLANE_AURA_COLOR = '#fb923c'
+
+export const FLIGHT_SCENE_LAYER_ID = 'flight-map-3d-scene'
+
+type ProjectionName = 'mercator' | 'globe'
+type PlaneState = 'idle' | 'flying' | 'landed'
+
+export interface FlightArcPoint {
+  lng: number
+  lat: number
+  altitudeMeters: number
+  progress: number
+}
+
+interface SceneRoute {
+  id: string
+  count: number
+  distanceMeters: number
+  arc: FlightArcPoint[]
+}
+
+interface ScenePlane {
+  id: string
+  routeId: string
+  distanceMeters: number
+  arc: FlightArcPoint[]
+  state: PlaneState
+  parkedProgress: number
+  progress: number
+  speedPerSecond: number
+}
+
+interface FlightSceneData {
+  routes: SceneRoute[]
+  planes: ScenePlane[]
+}
+
+interface SceneSettings {
+  showMarkers: boolean
+  showRoutes: boolean
+}
+
+interface SceneNode {
+  dispose(): void
+}
+
+type RouteMeshEntry = SceneNode & {
+  main: THREE.Mesh
+  glow: THREE.Mesh
+}
+
+type PlaneMeshEntry = SceneNode & {
+  mesh: THREE.Group
+  plane: ScenePlane
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function lerp(start: number, end: number, progress: number) {
+  return start + (end - start) * progress
+}
+
+function hashCode(value: string) {
+  let hash = 0
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0
+  }
+
+  return hash
+}
+
+function toUnitSphereVector(lng: number, lat: number) {
+  const lngRadians = THREE.MathUtils.degToRad(lng)
+  const latRadians = THREE.MathUtils.degToRad(lat)
+  const cosLat = Math.cos(latRadians)
+
+  return new THREE.Vector3(
+    cosLat * Math.sin(lngRadians),
+    Math.sin(latRadians),
+    cosLat * Math.cos(lngRadians),
+  ).normalize()
+}
+
+function vectorToLngLat(vector: THREE.Vector3) {
+  const normalized = vector.clone().normalize()
+  const lat = THREE.MathUtils.radToDeg(Math.asin(clamp(normalized.y, -1, 1)))
+  const lng = THREE.MathUtils.radToDeg(Math.atan2(normalized.x, normalized.z))
+
+  return { lng, lat }
+}
+
+function greatCirclePoint(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  progress: number,
+) {
+  const dot = clamp(start.dot(end), -1, 1)
+  const omega = Math.acos(dot)
+
+  if (omega < 1e-6) {
+    return start.clone().lerp(end, progress).normalize()
+  }
+
+  const sinOmega = Math.sin(omega)
+  const startScale = Math.sin((1 - progress) * omega) / sinOmega
+  const endScale = Math.sin(progress * omega) / sinOmega
+
+  return start
+    .clone()
+    .multiplyScalar(startScale)
+    .add(end.clone().multiplyScalar(endScale))
+    .normalize()
+}
+
+function distanceMetersBetween(
+  startLng: number,
+  startLat: number,
+  endLng: number,
+  endLat: number,
+) {
+  const start = new maplibregl.LngLat(startLng, startLat)
+  const end = new maplibregl.LngLat(endLng, endLat)
+
+  return start.distanceTo(end)
+}
+
+function altitudeForDistance(distanceMeters: number, progress: number) {
+  const maxHeight = clamp(distanceMeters * 0.18, 220_000, 1_500_000)
+  return Math.sin(progress * Math.PI) * maxHeight
+}
+
+function getProjectionName(map: MapLibreMap): ProjectionName {
+  return map.getProjection().type === 'globe' ? 'globe' : 'mercator'
+}
+
+function worldScaleForMeters(
+  lng: number,
+  lat: number,
+  meters: number,
+  projection: ProjectionName,
+) {
+  if (projection === 'globe') {
+    return meters / EARTH_RADIUS_METERS
+  }
+
+  return (
+    maplibregl.MercatorCoordinate.fromLngLat([lng, lat]).meterInMercatorCoordinateUnits()
+    * meters
+  )
+}
+
+function worldPointFromArcPoint(
+  point: FlightArcPoint,
+  projection: ProjectionName,
+) {
+  if (projection === 'globe') {
+    return toUnitSphereVector(point.lng, point.lat).multiplyScalar(
+      1 + point.altitudeMeters / EARTH_RADIUS_METERS,
+    )
+  }
+
+  const coordinate = maplibregl.MercatorCoordinate.fromLngLat(
+    [point.lng, point.lat],
+    point.altitudeMeters,
+  )
+
+  return new THREE.Vector3(coordinate.x, coordinate.y, coordinate.z)
+}
+
+function sampleArcPoint(arc: FlightArcPoint[], progress: number) {
+  if (arc.length === 0) {
+    return {
+      lng: 0,
+      lat: 0,
+      altitudeMeters: 0,
+      progress: 0,
+    } satisfies FlightArcPoint
+  }
+
+  if (progress <= 0) {
+    return arc[0]
+  }
+
+  if (progress >= 1) {
+    return arc.at(-1) ?? arc[0]
+  }
+
+  const scaledIndex = progress * (arc.length - 1)
+  const startIndex = Math.floor(scaledIndex)
+  const endIndex = Math.min(startIndex + 1, arc.length - 1)
+  const localProgress = scaledIndex - startIndex
+  const start = arc[startIndex]
+  const end = arc[endIndex]
+
+  return {
+    lng: lerp(start.lng, end.lng, localProgress),
+    lat: lerp(start.lat, end.lat, localProgress),
+    altitudeMeters: lerp(start.altitudeMeters, end.altitudeMeters, localProgress),
+    progress,
+  } satisfies FlightArcPoint
+}
+
+export function generateFlightArc(
+  startLng: number,
+  startLat: number,
+  endLng: number,
+  endLat: number,
+) {
+  const start = toUnitSphereVector(startLng, startLat)
+  const end = toUnitSphereVector(endLng, endLat)
+  const distanceMeters = distanceMetersBetween(startLng, startLat, endLng, endLat)
+  const arc: FlightArcPoint[] = []
+
+  for (let index = 0; index < ARC_POINT_COUNT; index += 1) {
+    const progress = index / (ARC_POINT_COUNT - 1)
+    const point = greatCirclePoint(start, end, progress)
+    const lngLat = vectorToLngLat(point)
+
+    arc.push({
+      lng: lngLat.lng,
+      lat: lngLat.lat,
+      altitudeMeters: altitudeForDistance(distanceMeters, progress),
+      progress,
+    })
+  }
+
+  return {
+    arc,
+    distanceMeters,
+  }
+}
+
+function buildSceneData(data: FlightMap): FlightSceneData {
+  const routes = data.routes.map((route) => {
+    const generated = generateFlightArc(
+      route.fromLng,
+      route.fromLat,
+      route.toLng,
+      route.toLat,
+    )
+
+    return {
+      id: `${route.from}:${route.to}`,
+      count: route.count,
+      distanceMeters: generated.distanceMeters,
+      arc: generated.arc,
+    } satisfies SceneRoute
+  })
+
+  const planes = routes.map((route) => {
+    const parkedProgress = lerp(0.28, 0.72, (hashCode(route.id) % 100) / 100)
+
+    return {
+      id: `plane:${route.id}`,
+      routeId: route.id,
+      distanceMeters: route.distanceMeters,
+      arc: route.arc,
+      state: 'idle',
+      parkedProgress,
+      progress: parkedProgress,
+      speedPerSecond: clamp(route.distanceMeters / 1_900_000, 0.05, 0.16),
+    } satisfies ScenePlane
+  })
+
+  return {
+    routes,
+    planes,
+  }
+}
+
+function interpolatePlaneScaleMeters(distanceMeters: number) {
+  return clamp(distanceMeters * 0.0016, MIN_PLANE_SCALE_METERS, MAX_PLANE_SCALE_METERS)
+}
+
+function interpolatePlaneLiftMeters(distanceMeters: number) {
+  return clamp(distanceMeters * 0.008, MIN_PLANE_LIFT_METERS, MAX_PLANE_LIFT_METERS)
+}
+
+function getPlaneLiftMeters(distanceMeters: number, progress: number) {
+  return interpolatePlaneLiftMeters(distanceMeters) * Math.sin(progress * Math.PI)
+}
+
+function getPlaneVisualProgress(plane: ScenePlane) {
+  if (plane.state === 'idle') {
+    return plane.parkedProgress
+  }
+
+  if (plane.state === 'landed') {
+    return 1
+  }
+
+  return plane.progress
+}
+
+function applyTubeGradient(geometry: THREE.TubeGeometry) {
+  const positionAttribute = geometry.getAttribute('position')
+  const vertexCount = positionAttribute.count
+  const colors = new Float32Array(vertexCount * 3)
+  const color = new THREE.Color()
+
+  for (let index = 0; index < vertexCount; index += 1) {
+    const segmentProgress
+      = (Math.floor(index / (geometry.parameters.radialSegments + 1))
+        / geometry.parameters.tubularSegments) || 0
+
+    if (segmentProgress <= 0.5) {
+      color.setRGB(
+        lerp(0.2, 0.2, segmentProgress / 0.5),
+        lerp(0.54, 0.86, segmentProgress / 0.5),
+        lerp(0.99, 0.2, segmentProgress / 0.5),
+      )
+    } else {
+      color.setRGB(
+        lerp(0.2, 1, (segmentProgress - 0.5) / 0.5),
+        lerp(0.86, 0.56, (segmentProgress - 0.5) / 0.5),
+        lerp(0.2, 0.12, (segmentProgress - 0.5) / 0.5),
+      )
+    }
+
+    colors[index * 3] = color.r
+    colors[index * 3 + 1] = color.g
+    colors[index * 3 + 2] = color.b
+  }
+
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+}
+
+function createRouteMesh(
+  route: SceneRoute,
+  projection: ProjectionName,
+  glowTint: string,
+) {
+  const worldPoints = route.arc.map((point) =>
+    worldPointFromArcPoint(point, projection),
+  )
+  const curve = new THREE.CatmullRomCurve3(worldPoints, false, 'catmullrom', 0.18)
+  const midpoint = route.arc[Math.floor(route.arc.length / 2)] ?? route.arc[0]
+  const radius = worldScaleForMeters(
+    midpoint.lng,
+    midpoint.lat,
+    clamp(route.distanceMeters * 0.004, 8000, 20_000),
+    projection,
+  )
+  const geometry = new THREE.TubeGeometry(
+    curve,
+    Math.max(32, worldPoints.length * 2),
+    radius,
+    6,
+    false,
+  )
+
+  applyTubeGradient(geometry)
+
+  const mainMaterial = new THREE.MeshBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.92,
+    depthWrite: false,
+  })
+  const glowGeometry = geometry.clone()
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(glowTint),
+    transparent: true,
+    opacity: 0.16,
+    depthWrite: false,
+  })
+
+  glowGeometry.scale(
+    GLOW_RADIUS_MULTIPLIER,
+    GLOW_RADIUS_MULTIPLIER,
+    GLOW_RADIUS_MULTIPLIER,
+  )
+
+  const main = new THREE.Mesh(geometry, mainMaterial)
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial)
+
+  main.renderOrder = 8
+  glow.renderOrder = 7
+
+  return {
+    main,
+    glow,
+    dispose() {
+      geometry.dispose()
+      glowGeometry.dispose()
+      mainMaterial.dispose()
+      glowMaterial.dispose()
+    },
+  } satisfies RouteMeshEntry
+}
+
+function createFallbackModel() {
+  const group = new THREE.Group()
+  const body = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 0.16, 1.3, 12),
+    new THREE.MeshStandardMaterial({
+      color: '#e2e8f0',
+      metalness: 0.2,
+      roughness: 0.42,
+    }),
+  )
+  const wings = new THREE.Mesh(
+    new THREE.BoxGeometry(1.25, 0.06, 0.24),
+    new THREE.MeshStandardMaterial({
+      color: '#38bdf8',
+      metalness: 0.18,
+      roughness: 0.44,
+    }),
+  )
+  const tail = new THREE.Mesh(
+    new THREE.BoxGeometry(0.36, 0.18, 0.06),
+    new THREE.MeshStandardMaterial({
+      color: '#f59e0b',
+      metalness: 0.18,
+      roughness: 0.44,
+    }),
+  )
+  const fin = new THREE.Mesh(
+    new THREE.BoxGeometry(0.05, 0.22, 0.18),
+    new THREE.MeshStandardMaterial({
+      color: '#0f766e',
+      metalness: 0.18,
+      roughness: 0.44,
+    }),
+  )
+
+  body.rotation.z = Math.PI / 2
+  tail.position.set(-0.45, 0.12, 0)
+  fin.position.set(-0.46, 0.2, 0)
+  group.add(body, wings, tail, fin)
+  group.userData.modelForwardAxis = [1, 0, 0]
+  group.userData.isFallbackModel = true
+
+  return group
+}
+
+function hasRenderableMesh(object: THREE.Object3D) {
+  let hasMesh = false
+
+  object.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      hasMesh = true
+    }
+  })
+
+  return hasMesh
+}
+
+function disposeMaterial(material: THREE.Material | THREE.Material[]) {
+  if (Array.isArray(material)) {
+    for (const nestedMaterial of material) {
+      disposeMaterial(nestedMaterial)
+    }
+    return
+  }
+
+  material.dispose()
+}
+
+function cloneMaterial(material: THREE.Material | THREE.Material[]) {
+  if (Array.isArray(material)) {
+    return material.map((nestedMaterial) => nestedMaterial.clone())
+  }
+
+  return material.clone()
+}
+
+function tuneMaterial(
+  material: THREE.Material | THREE.Material[],
+): THREE.Material | THREE.Material[] {
+  if (Array.isArray(material)) {
+    return material.map((nestedMaterial) =>
+      tuneMaterial(nestedMaterial) as THREE.Material,
+    )
+  }
+
+  material.depthWrite = true
+  material.depthTest = true
+  material.side = THREE.FrontSide
+
+  if ('transparent' in material) {
+    material.transparent = false
+  }
+
+  if ('opacity' in material) {
+    material.opacity = 1
+  }
+
+  material.needsUpdate = true
+  return material
+}
+
+function inferModelForwardAxis(size: THREE.Vector3) {
+  if (size.x >= size.y && size.x >= size.z) {
+    return new THREE.Vector3(1, 0, 0)
+  }
+
+  if (size.z >= size.x && size.z >= size.y) {
+    return new THREE.Vector3(0, 0, 1)
+  }
+
+  return DEFAULT_MODEL_FORWARD_AXIS.clone()
+}
+
+function normalizeModelTemplate(object: THREE.Object3D) {
+  const root = object.clone(true)
+
+  if (!hasRenderableMesh(root)) {
+    return createFallbackModel()
+  }
+
+  root.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) {
+      return
+    }
+
+    child.material = tuneMaterial(cloneMaterial(child.material))
+    child.castShadow = false
+    child.receiveShadow = false
+    child.frustumCulled = false
+    child.renderOrder = 28
+  })
+
+  const bounds = new THREE.Box3().setFromObject(root)
+  const size = bounds.getSize(new THREE.Vector3())
+  const center = bounds.getCenter(new THREE.Vector3())
+  const maxDimension = Math.max(size.x, size.y, size.z)
+
+  if (!Number.isFinite(maxDimension) || maxDimension <= 0.0001) {
+    return createFallbackModel()
+  }
+
+  root.position.sub(center)
+  root.scale.setScalar(1 / maxDimension)
+  root.userData.modelForwardAxis = inferModelForwardAxis(size).toArray()
+  root.userData.isFallbackModel = false
+  root.updateMatrixWorld(true)
+
+  return root
+}
+
+function cloneModelTemplate(template: THREE.Object3D) {
+  const clone = template.clone(true)
+
+  clone.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) {
+      return
+    }
+
+    child.material = tuneMaterial(cloneMaterial(child.material))
+    child.castShadow = false
+    child.receiveShadow = false
+    child.frustumCulled = false
+    child.renderOrder = 28
+  })
+
+  return clone
+}
+
+function createPlaneAura() {
+  const group = new THREE.Group()
+  const aura = new THREE.Mesh(
+    new THREE.SphereGeometry(0.34, 18, 18),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color(PLANE_AURA_COLOR),
+      transparent: true,
+      opacity: 0.1,
+      depthWrite: false,
+      depthTest: false,
+    }),
+  )
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.32, 0.56, 32),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fdba74'),
+      transparent: true,
+      opacity: 0.22,
+      depthWrite: false,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    }),
+  )
+  const beacon = new THREE.Mesh(
+    new THREE.SphereGeometry(0.075, 14, 14),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fff7ed'),
+      transparent: true,
+      opacity: 0.96,
+      depthWrite: false,
+      depthTest: false,
+    }),
+  )
+
+  aura.renderOrder = 22
+  ring.renderOrder = 23
+  beacon.renderOrder = 24
+  ring.rotation.x = Math.PI / 2
+  group.add(aura, ring, beacon)
+
+  return group
+}
+
+function createPlaneGuideModel() {
+  const guide = createFallbackModel()
+
+  guide.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) {
+      return
+    }
+
+    child.material = new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#fff7ed'),
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    })
+    child.renderOrder = 27
+    child.frustumCulled = false
+  })
+
+  guide.scale.setScalar(1.18)
+  return guide
+}
+
+function createRoutePlaneMesh(template: THREE.Object3D, planeId: string) {
+  const group = new THREE.Group()
+  const visual = new THREE.Group()
+  const model = cloneModelTemplate(template)
+  const guide
+    = template.userData.isFallbackModel === true ? createPlaneGuideModel() : null
+  const aura = createPlaneAura()
+
+  group.matrixAutoUpdate = true
+  group.frustumCulled = false
+  visual.frustumCulled = false
+  model.frustumCulled = false
+  if (guide) {
+    guide.frustumCulled = false
+  }
+  aura.frustumCulled = false
+  model.scale.setScalar(3.25)
+  model.position.set(0, 0.1, 0)
+  if (guide) {
+    guide.position.set(0, -0.02, 0)
+  }
+  visual.rotation.z = Math.PI / 18
+
+  assignPlaneId(group, planeId)
+  if (guide) {
+    visual.add(guide)
+  }
+  visual.add(model)
+  group.add(aura, visual)
+
+  return group
+}
+
+function disposeObject3D(object: THREE.Object3D) {
+  object.traverse((child) => {
+    if (!(child instanceof THREE.Mesh)) {
+      return
+    }
+
+    child.geometry.dispose()
+    disposeMaterial(child.material)
+  })
+}
+
+function assignPlaneId(object: THREE.Object3D, planeId: string) {
+  object.userData.routePlaneId = planeId
+  object.traverse((child) => {
+    child.userData.routePlaneId = planeId
+  })
+}
+
+export class FlightMap3DLayerController {
+  readonly layer: CustomLayerInterface
+
+  private map: MapLibreMap | null = null
+  private renderer: THREE.WebGLRenderer | null = null
+  private camera = new THREE.PerspectiveCamera()
+  private scene = new THREE.Scene()
+  private routeGroup = new THREE.Group()
+  private planeGroup = new THREE.Group()
+  private ambientLight = new THREE.AmbientLight('#ffffff', 1)
+  private directionalLight = new THREE.DirectionalLight('#f8fafc', 1.3)
+  private modelLoader = new GLTFLoader()
+  private modelTemplate: THREE.Object3D | null = null
+  private modelLoadPromise: Promise<THREE.Object3D> | null = null
+  private sceneData: FlightSceneData | null = null
+  private settings: SceneSettings = {
+    showMarkers: true,
+    showRoutes: true,
+  }
+
+  private projection: ProjectionName | null = null
+  private routeGlowTint = '#38bdf8'
+  private routeMeshes: RouteMeshEntry[] = []
+  private planeMeshes: PlaneMeshEntry[] = []
+  private modelForwardAxis = DEFAULT_MODEL_FORWARD_AXIS.clone()
+  private lastAnimationTime = 0
+  private handleMapClick = (event: MapMouseEvent) => {
+    this.startPlaneAnimation(event)
+  }
+
+  constructor() {
+    this.directionalLight.position.set(0.4, 0.8, 1.2)
+    this.scene.add(
+      this.ambientLight,
+      this.directionalLight,
+      this.routeGroup,
+      this.planeGroup,
+    )
+
+    this.layer = {
+      id: FLIGHT_SCENE_LAYER_ID,
+      type: 'custom',
+      renderingMode: '3d',
+      onAdd: (map, gl) => {
+        this.map = map
+
+        if (!this.renderer) {
+          this.renderer = new THREE.WebGLRenderer({
+            canvas: map.getCanvas(),
+            context: gl,
+            antialias: true,
+            alpha: true,
+          })
+          this.renderer.autoClear = false
+          this.renderer.sortObjects = false
+        }
+
+        map.on('click', this.handleMapClick)
+
+        void this.ensureModelTemplate().then(() => {
+          this.rebuildScene()
+          this.map?.triggerRepaint()
+        })
+      },
+      onRemove: () => {
+        this.map?.off('click', this.handleMapClick)
+        this.clearScene()
+        this.renderer = null
+      },
+      render: (_gl, options) => {
+        this.renderScene(options)
+      },
+    }
+  }
+
+  setData(data: FlightMap | null) {
+    this.sceneData = data ? buildSceneData(data) : null
+    this.rebuildScene()
+    this.map?.triggerRepaint()
+  }
+
+  setSettings(settings: SceneSettings & { glowTint?: string }) {
+    this.settings = settings
+    this.routeGlowTint = settings.glowTint ?? this.routeGlowTint
+    this.updateVisibility()
+    this.map?.triggerRepaint()
+  }
+
+  destroy() {
+    this.map?.off('click', this.handleMapClick)
+    this.clearScene()
+    this.renderer?.dispose()
+    this.renderer = null
+    this.modelTemplate = null
+    this.modelLoadPromise = null
+    this.map = null
+  }
+
+  private async ensureModelTemplate() {
+    if (this.modelTemplate) {
+      return this.modelTemplate
+    }
+
+    if (!this.modelLoadPromise) {
+      this.modelLoadPromise = this.modelLoader
+        .loadAsync(MODEL_ASSET_PATH)
+        .then((gltf) => {
+          this.modelTemplate = normalizeModelTemplate(gltf.scene)
+          if (Array.isArray(this.modelTemplate.userData.modelForwardAxis)) {
+            this.modelForwardAxis = new THREE.Vector3().fromArray(
+              this.modelTemplate.userData.modelForwardAxis,
+            )
+          }
+          return this.modelTemplate
+        })
+        .catch(() => {
+          this.modelTemplate = createFallbackModel()
+          this.modelForwardAxis = DEFAULT_MODEL_FORWARD_AXIS.clone()
+          return this.modelTemplate
+        })
+    }
+
+    return this.modelLoadPromise
+  }
+
+  private clearScene() {
+    for (const mesh of this.routeMeshes) {
+      this.routeGroup.remove(mesh.main)
+      this.routeGroup.remove(mesh.glow)
+      mesh.dispose()
+    }
+
+    for (const mesh of this.planeMeshes) {
+      this.planeGroup.remove(mesh.mesh)
+      mesh.dispose()
+    }
+
+    this.routeMeshes = []
+    this.planeMeshes = []
+  }
+
+  private rebuildScene() {
+    if (!this.map || !this.sceneData) {
+      this.clearScene()
+      return
+    }
+
+    const projection = getProjectionName(this.map)
+
+    this.clearScene()
+    this.projection = projection
+
+    for (const route of this.sceneData.routes) {
+      const mesh = createRouteMesh(route, projection, this.routeGlowTint)
+      this.routeMeshes.push(mesh)
+      this.routeGroup.add(mesh.glow, mesh.main)
+    }
+
+    void this.ensureModelTemplate().then((template) => {
+      if (!this.map || !this.sceneData || this.projection !== projection) {
+        return
+      }
+
+      for (const plane of this.sceneData.planes) {
+        const mesh = createRoutePlaneMesh(template, plane.id)
+        this.planeGroup.add(mesh)
+        this.planeMeshes.push({
+          mesh,
+          plane,
+          dispose() {
+            disposeObject3D(mesh)
+          },
+        })
+      }
+
+      this.syncPlaneTransforms()
+      this.updateVisibility()
+      this.map?.triggerRepaint()
+    })
+
+    this.updateVisibility()
+  }
+
+  private syncPlaneTransforms() {
+    if (!this.map || !this.projection) {
+      return
+    }
+
+    for (const entry of this.planeMeshes) {
+      const visualProgress = getPlaneVisualProgress(entry.plane)
+      const point = sampleArcPoint(entry.plane.arc, visualProgress)
+      const previousPoint = sampleArcPoint(
+        entry.plane.arc,
+        Math.max(0, visualProgress - 0.015),
+      )
+      const nextPoint = sampleArcPoint(
+        entry.plane.arc,
+        Math.min(1, visualProgress + 0.015),
+      )
+      const liftMeters = getPlaneLiftMeters(
+        entry.plane.distanceMeters,
+        visualProgress,
+      )
+      const liftedPoint = {
+        ...point,
+        altitudeMeters: point.altitudeMeters + liftMeters,
+      } satisfies FlightArcPoint
+      const liftedPreviousPoint = {
+        ...previousPoint,
+        altitudeMeters:
+          previousPoint.altitudeMeters
+          + getPlaneLiftMeters(entry.plane.distanceMeters, previousPoint.progress),
+      } satisfies FlightArcPoint
+      const liftedNextPoint = {
+        ...nextPoint,
+        altitudeMeters:
+          nextPoint.altitudeMeters
+          + getPlaneLiftMeters(entry.plane.distanceMeters, nextPoint.progress),
+      } satisfies FlightArcPoint
+      const worldPoint = worldPointFromArcPoint(liftedPoint, this.projection)
+      const previousWorldPoint = worldPointFromArcPoint(
+        liftedPreviousPoint,
+        this.projection,
+      )
+      const nextWorldPoint = worldPointFromArcPoint(
+        liftedNextPoint,
+        this.projection,
+      )
+      const tangent = nextWorldPoint.clone().sub(previousWorldPoint)
+
+      if (tangent.lengthSq() <= 1e-10) {
+        continue
+      }
+
+      tangent.normalize()
+      const worldUp
+        = this.projection === 'globe'
+          ? worldPoint.clone().normalize()
+          : MERCATOR_UP_AXIS.clone()
+      const headingQuaternion = new THREE.Quaternion().setFromUnitVectors(
+        this.modelForwardAxis,
+        tangent,
+      )
+      const bankQuaternion = new THREE.Quaternion().setFromAxisAngle(
+        tangent,
+        entry.plane.state === 'flying' ? Math.PI / 10 : Math.PI / 18,
+      )
+      const upAlignmentQuaternion = new THREE.Quaternion().setFromUnitVectors(
+        MODEL_UP_AXIS.clone().applyQuaternion(headingQuaternion),
+        worldUp,
+      )
+      const pitchQuaternion = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        entry.plane.state === 'flying'
+          ? Math.PI / 18
+          : (entry.plane.state === 'landed' ? 0 : Math.PI / 28),
+      )
+      const scaleWorld = worldScaleForMeters(
+        point.lng,
+        point.lat,
+        interpolatePlaneScaleMeters(entry.plane.distanceMeters),
+        this.projection,
+      )
+
+      entry.mesh.visible = true
+      entry.mesh.position.copy(worldPoint)
+      entry.mesh.quaternion
+        .copy(headingQuaternion)
+        .premultiply(upAlignmentQuaternion)
+        .multiply(bankQuaternion)
+        .multiply(pitchQuaternion)
+      entry.mesh.scale.setScalar(scaleWorld)
+      entry.mesh.updateMatrix()
+      entry.mesh.updateMatrixWorld(true)
+    }
+  }
+
+  private updatePlaneAnimations(deltaSeconds: number) {
+    let hasActiveAnimation = false
+
+    for (const entry of this.planeMeshes) {
+      if (entry.plane.state !== 'flying') {
+        continue
+      }
+
+      hasActiveAnimation = true
+      entry.plane.progress = Math.min(
+        1,
+        entry.plane.progress + deltaSeconds * entry.plane.speedPerSecond,
+      )
+
+      if (entry.plane.progress >= 1) {
+        entry.plane.state = 'landed'
+        entry.plane.progress = 1
+      }
+    }
+
+    this.syncPlaneTransforms()
+
+    if (hasActiveAnimation) {
+      this.map?.triggerRepaint()
+    }
+  }
+
+  private updateVisibility() {
+    this.routeGroup.visible = this.settings.showRoutes
+
+    for (const entry of this.planeMeshes) {
+      entry.mesh.visible = this.settings.showMarkers
+    }
+  }
+
+  private projectWorldPointToScreen(worldPoint: THREE.Vector3) {
+    if (!this.map) {
+      return null
+    }
+
+    const canvas = this.map.getCanvas()
+    const width = canvas.clientWidth || canvas.width
+    const height = canvas.clientHeight || canvas.height
+
+    if (width === 0 || height === 0) {
+      return null
+    }
+
+    const clipPoint = new THREE.Vector4(
+      worldPoint.x,
+      worldPoint.y,
+      worldPoint.z,
+      1,
+    ).applyMatrix4(this.camera.projectionMatrix)
+
+    if (Math.abs(clipPoint.w) <= 1e-6) {
+      return null
+    }
+
+    const ndcX = clipPoint.x / clipPoint.w
+    const ndcY = clipPoint.y / clipPoint.w
+    const ndcZ = clipPoint.z / clipPoint.w
+
+    if (
+      !Number.isFinite(ndcX)
+      || !Number.isFinite(ndcY)
+      || !Number.isFinite(ndcZ)
+      || ndcZ < -1.25
+      || ndcZ > 1.25
+    ) {
+      return null
+    }
+
+    return {
+      x: (ndcX * 0.5 + 0.5) * width,
+      y: (1 - (ndcY * 0.5 + 0.5)) * height,
+    }
+  }
+
+  private startPlaneAnimation(event: MapMouseEvent) {
+    if (!this.map || !this.settings.showMarkers || this.planeMeshes.length === 0) {
+      return
+    }
+
+    let closestEntry: PlaneMeshEntry | null = null
+    let closestDistanceSquared = PICKABLE_PLANE_RADIUS_PX ** 2
+
+    for (const entry of this.planeMeshes) {
+      if (entry.plane.state !== 'idle') {
+        continue
+      }
+
+      const projectedPoint = this.projectWorldPointToScreen(entry.mesh.position)
+
+      if (!projectedPoint) {
+        continue
+      }
+
+      const dx = projectedPoint.x - event.point.x
+      const dy = projectedPoint.y - event.point.y
+      const distanceSquared = dx * dx + dy * dy
+
+      if (distanceSquared > closestDistanceSquared) {
+        continue
+      }
+
+      closestEntry = entry
+      closestDistanceSquared = distanceSquared
+    }
+
+    if (!closestEntry) {
+      return
+    }
+
+    closestEntry.plane.state = 'flying'
+    closestEntry.plane.progress = closestEntry.plane.parkedProgress
+    this.syncPlaneTransforms()
+    this.map.triggerRepaint()
+  }
+
+  private renderScene(options: CustomRenderMethodInput) {
+    if (!this.renderer || !this.map) {
+      return
+    }
+
+    const nextProjection = getProjectionName(this.map)
+    if (nextProjection !== this.projection) {
+      this.rebuildScene()
+    }
+
+    this.updateVisibility()
+
+    const now = performance.now()
+    if (now - this.lastAnimationTime >= ANIMATION_INTERVAL_MS) {
+      const deltaSeconds
+        = this.lastAnimationTime === 0
+          ? 0
+          : (now - this.lastAnimationTime) / 1000
+
+      this.lastAnimationTime = now
+      if (!document.hidden && this.settings.showMarkers) {
+        this.updatePlaneAnimations(deltaSeconds)
+      }
+    }
+
+    this.camera.matrixWorld.identity()
+    this.camera.matrixWorldInverse.identity()
+    this.camera.projectionMatrix.fromArray(
+      options.defaultProjectionData.mainMatrix as unknown as number[],
+    )
+    this.camera.projectionMatrixInverse
+      .copy(this.camera.projectionMatrix)
+      .invert()
+
+    this.renderer.resetState()
+    this.renderer.render(this.scene, this.camera)
+  }
+}

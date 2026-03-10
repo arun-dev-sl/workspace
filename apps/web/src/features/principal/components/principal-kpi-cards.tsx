@@ -35,7 +35,9 @@ export function PrincipalKpiCards({ metrics }: PrincipalKpiCardsProps) {
           <CardTitle className="text-sm font-medium">
             Total Principal Invested
           </CardTitle>
-          <IndianRupee className="text-muted-foreground h-4 w-4" />
+          <span data-slot="badge">
+            <IndianRupee className="text-primary h-4 w-4" />
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -54,11 +56,13 @@ export function PrincipalKpiCards({ metrics }: PrincipalKpiCardsProps) {
           <CardTitle className="text-sm font-medium">
             Avg Monthly Contribution
           </CardTitle>
-          {metrics.trendIncreasing ? (
-            <TrendingUp className="text-muted-foreground h-4 w-4" />
-          ) : (
-            <TrendingDown className="text-muted-foreground h-4 w-4" />
-          )}
+          <span data-slot="badge">
+            {metrics.trendIncreasing ? (
+              <TrendingUp className="text-primary h-4 w-4" />
+            ) : (
+              <TrendingDown className="text-primary h-4 w-4" />
+            )}
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -74,7 +78,9 @@ export function PrincipalKpiCards({ metrics }: PrincipalKpiCardsProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Best Month</CardTitle>
-          <Award className="text-muted-foreground h-4 w-4" />
+          <span data-slot="badge">
+            <Award className="text-primary h-4 w-4" />
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -93,7 +99,9 @@ export function PrincipalKpiCards({ metrics }: PrincipalKpiCardsProps) {
           <CardTitle className="text-sm font-medium">
             Consistency Score
           </CardTitle>
-          <Activity className="text-muted-foreground h-4 w-4" />
+          <span data-slot="badge">
+            <Activity className="text-primary h-4 w-4" />
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">

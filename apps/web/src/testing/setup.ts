@@ -5,11 +5,11 @@ import { afterEach, beforeEach, vi } from "vitest";
 // Setup before each test
 beforeEach(() => {
   // Mock ResizeObserver
-  const ResizeObserverMock = vi.fn(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  }));
+  class ResizeObserverMock {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  }
   vi.stubGlobal("ResizeObserver", ResizeObserverMock);
 
   // Base64 polyfill for Node environment

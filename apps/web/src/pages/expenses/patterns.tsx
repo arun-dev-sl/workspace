@@ -123,7 +123,9 @@ function SummaryCards({ data }: { data: BusAnalytics }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
-          <IndianRupee className="text-muted-foreground h-4 w-4" />
+          <span data-slot="badge">
+            <IndianRupee className="text-primary h-4 w-4" />
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
@@ -138,7 +140,9 @@ function SummaryCards({ data }: { data: BusAnalytics }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Avg Fare</CardTitle>
-          <TrendingUp className="text-muted-foreground h-4 w-4" />
+          <span data-slot="badge">
+            <TrendingUp className="text-primary h-4 w-4" />
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{fmtCurrency(data.avgFare)}</div>
@@ -149,7 +153,9 @@ function SummaryCards({ data }: { data: BusAnalytics }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Unique Buses</CardTitle>
-          <Bus className="text-muted-foreground h-4 w-4" />
+          <span data-slot="badge">
+            <Bus className="text-primary h-4 w-4" />
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{data.uniqueBuses}</div>
@@ -160,7 +166,9 @@ function SummaryCards({ data }: { data: BusAnalytics }) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Trip Range</CardTitle>
-          <Calendar className="text-muted-foreground h-4 w-4" />
+          <span data-slot="badge">
+            <Calendar className="text-primary h-4 w-4" />
+          </span>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">

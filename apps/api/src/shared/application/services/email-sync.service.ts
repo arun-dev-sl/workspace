@@ -1,18 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 
-import {
-  GMAIL_PROVIDER,
-} from '@/modules/expenses/application/ports/gmail-provider.port'
-import {
-  RAW_EMAIL_REPOSITORY,
-} from '@/modules/expenses/application/ports/raw-email.repository.port'
-import {
-  SYNC_JOB_REPOSITORY,
-} from '@/modules/expenses/application/ports/sync-job.repository.port'
+import { GMAIL_PROVIDER } from '@/modules/expenses/application/ports/gmail-provider.port'
+import { RAW_EMAIL_REPOSITORY } from '@/modules/expenses/application/ports/raw-email.repository.port'
+import { SYNC_JOB_REPOSITORY } from '@/modules/expenses/application/ports/sync-job.repository.port'
 
 import type { GmailProvider } from '@/modules/expenses/application/ports/gmail-provider.port'
 import type { RawEmailRepository } from '@/modules/expenses/application/ports/raw-email.repository.port'
-import type { SyncJobRepository, SyncJob } from '@/modules/expenses/application/ports/sync-job.repository.port'
+import type {
+  SyncJobRepository,
+  SyncJob,
+} from '@/modules/expenses/application/ports/sync-job.repository.port'
 import type { RawEmail } from '@workspace/domain'
 
 export interface StartSyncParams {
@@ -23,6 +20,10 @@ export interface StartSyncParams {
   category: string
   /** Max emails to fetch from Gmail. Default 1000. */
   maxResults?: number
+}
+
+export interface RunSyncOptions {
+  markCompleted?: boolean
 }
 
 export interface SyncResult {
@@ -56,9 +57,9 @@ export class EmailSyncService {
   ) {}
 
   /**
-   * Start an async email sync job.
-   * Returns immediately with a job ID that can be polled for status.
-   */
+     * Start an async email sync job.
+     * Returns immediately with a job ID that can be polled for status.
+     */
   async startSync(params: StartSyncParams): Promise<SyncResult> {
     const job = await this.syncJobRepository.create({
       userId: params.userId,
@@ -67,7 +68,7 @@ export class EmailSyncService {
     })
 
     // Run the sync in the background
-    this.runSync(job.id, params).catch(async (error) => {
+    this.runSyncForExistingJob(job.id, params).catch(async (error) => {
       this.logger.error(`Sync job ${job.id} failed unexpectedly outside try-catch`, error)
       try {
         await this.syncJobRepository.update(job.id, {
@@ -86,65 +87,13 @@ export class EmailSyncService {
     return { jobId: job.id }
   }
 
-  /**
-   * Build the default incremental query for a category.
-   * Uses the last completed sync time for that category to do incremental fetching.
-   */
-  async buildIncrementalQuery(
-    userId: string,
-    category: string,
-    baseQueryTerms: string,
-  ): Promise<string> {
-    const lastSync = await this.syncJobRepository.findLastCompletedByUserId(userId, category)
+  async runSyncForExistingJob(
+    jobId: string,
+    params: StartSyncParams,
+    options: RunSyncOptions = {},
+  ): Promise<void> {
+    const { markCompleted = true } = options
 
-    if (lastSync?.completedAt) {
-      const afterDate = this.formatGmailAfterTimestamp(lastSync.completedAt)
-      return `${baseQueryTerms} after:${afterDate}`
-    }
-
-    // First sync — fetch last 180 days
-    return `${baseQueryTerms} newer_than:180d`
-  }
-
-  /**
-   * Get the status of a sync job.
-   */
-  async getSyncJobStatus(jobId: string): Promise<SyncJob | null> {
-    return this.syncJobRepository.findById(jobId)
-  }
-
-  /**
-   * Get recent sync jobs for a user, optionally filtered by category.
-   */
-  async getUserSyncJobs(userId: string, limit = 10, category?: string): Promise<SyncJob[]> {
-    return this.syncJobRepository.findByUserId(userId, limit, category)
-  }
-
-  /**
-   * Fetch emails from Gmail for preview/playground use cases.
-   * This does NOT persist emails and does NOT create sync jobs.
-   */
-  async fetchPreviewEmails(params: FetchPreviewEmailsParams): Promise<RawEmail[]> {
-    const emailRefs = await this.gmailProvider.listExpenseEmails({
-      userId: params.userId,
-      query: params.query,
-      maxResults: params.maxResults,
-    })
-
-    if (emailRefs.length === 0) {
-      return []
-    }
-
-    return this.gmailProvider.fetchEmailContentBatch({
-      userId: params.userId,
-      emailIds: emailRefs.map((ref) => ref.id),
-      category: params.category,
-    })
-  }
-
-  // ── Internal sync loop ──
-
-  private async runSync(jobId: string, params: StartSyncParams): Promise<void> {
     try {
       await this.syncJobRepository.update(jobId, {
         status: 'processing',
@@ -162,7 +111,9 @@ export class EmailSyncService {
         totalEmails: emailRefs.length,
       })
 
-      this.logger.log(`Sync job ${jobId} [${params.category}]: Found ${emailRefs.length} emails to process`)
+      this.logger.log(
+        `Sync job ${jobId} [${params.category}]: Found ${emailRefs.length} emails to process`,
+      )
 
       // Process emails in batches
       const BATCH_SIZE = 100
@@ -183,10 +134,12 @@ export class EmailSyncService {
 
           for (const rawEmail of rawEmails) {
             try {
-              // Email already has the correct category from the provider
               const { isNew } = await this.rawEmailRepository.upsert(rawEmail)
 
-              await this.syncJobRepository.incrementProgress(jobId, 'processedEmails')
+              await this.syncJobRepository.incrementProgress(
+                jobId,
+                'processedEmails',
+              )
 
               if (isNew) {
                 await this.syncJobRepository.incrementProgress(jobId, 'newEmails')
@@ -206,10 +159,12 @@ export class EmailSyncService {
         }
       }
 
-      await this.syncJobRepository.update(jobId, {
-        status: 'completed',
-        completedAt: new Date(),
-      })
+      if (markCompleted) {
+        await this.syncJobRepository.update(jobId, {
+          status: 'completed',
+          completedAt: new Date(),
+        })
+      }
 
       this.logger.log(`Sync job ${jobId} [${params.category}] completed`)
     } catch (error) {
@@ -218,17 +173,71 @@ export class EmailSyncService {
       try {
         await this.syncJobRepository.update(jobId, {
           status: 'failed',
-          errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          errorMessage: error instanceof Error ? error.message : 'Unknown sync error',
           completedAt: new Date(),
         })
       } catch (updateError) {
-        this.logger.error(
-          `Critical: Failed to update job ${jobId} status to failed`,
-          updateError,
-        )
-        throw error
+        this.logger.error(`Failed to update sync job ${jobId} after error`, updateError)
       }
+
+      throw error
     }
+  }
+
+  /**
+     * Build the default incremental query for a category.
+     * Uses the last completed sync time for that category to do incremental fetching.
+     */
+  async buildIncrementalQuery(
+    userId: string,
+    category: string,
+    baseQueryTerms: string,
+  ): Promise<string> {
+    const lastSync = await this.syncJobRepository.findLastCompletedByUserId(userId, category)
+
+    if (lastSync?.completedAt) {
+      const afterDate = this.formatGmailAfterTimestamp(lastSync.completedAt)
+      return `${baseQueryTerms} after:${afterDate}`
+    }
+
+    // First sync — fetch last 180 days
+    return `${baseQueryTerms} newer_than:180d`
+  }
+
+  /**
+     * Get the status of a sync job.
+     */
+  async getSyncJobStatus(jobId: string): Promise<SyncJob | null> {
+    return this.syncJobRepository.findById(jobId)
+  }
+
+  /**
+     * Get recent sync jobs for a user, optionally filtered by category.
+     */
+  async getUserSyncJobs(userId: string, limit = 10, category?: string): Promise<SyncJob[]> {
+    return this.syncJobRepository.findByUserId(userId, limit, category)
+  }
+
+  /**
+     * Fetch emails from Gmail for preview/playground use cases.
+     * This does NOT persist emails and does NOT create sync jobs.
+     */
+  async fetchPreviewEmails(params: FetchPreviewEmailsParams): Promise<RawEmail[]> {
+    const emailRefs = await this.gmailProvider.listExpenseEmails({
+      userId: params.userId,
+      query: params.query,
+      maxResults: params.maxResults,
+    })
+
+    if (emailRefs.length === 0) {
+      return []
+    }
+
+    return this.gmailProvider.fetchEmailContentBatch({
+      userId: params.userId,
+      emailIds: emailRefs.map((ref) => ref.id),
+      category: params.category,
+    })
   }
 
   /**

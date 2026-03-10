@@ -31,6 +31,9 @@ export const appPaths = {
     dividends: {
       getHref: () => '/dividends',
     },
+    flights: {
+      getHref: () => '/flights',
+    },
     playground: {
       getHref: () => '/playground',
     },
