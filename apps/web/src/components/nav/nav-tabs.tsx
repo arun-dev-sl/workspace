@@ -8,7 +8,6 @@ import {
   Briefcase,
   Banknote,
   Plane,
-  Hotel,
   FlaskConical,
 } from "lucide-react";
 

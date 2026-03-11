@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl/dist/maplibre-gl-csp'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import * as THREE from 'three'
 
-import type { FlightMap, FlightMapAirport } from '@workspace/domain'
+import type { FlightMap, FlightMapAirport, HotelStay } from '@workspace/domain'
 import type {
   CustomLayerInterface,
   CustomRenderMethodInput,
@@ -27,8 +27,8 @@ const PLANE_AURA_COLOR = '#fb923c'
 const ROUTE_PULSE_SPEED = 1.8
 const ROUTE_MAIN_OPACITY_MIN = 0.72
 const ROUTE_MAIN_OPACITY_MAX = 0.96
-const ROUTE_GLOW_OPACITY_MIN = 0.16
-const ROUTE_GLOW_OPACITY_MAX = 0.3
+const ROUTE_GLOW_OPACITY_MIN = 0
+const ROUTE_GLOW_OPACITY_MAX = 0
 const ORIENTATION_SAMPLE_DELTA = 0.012
 const MAX_PLANES_PER_ROUTE = 3
 const PLANE_LANE_OFFSET_METERS = 18_000
@@ -75,6 +75,7 @@ interface SceneSettings {
   showMarkers: boolean
   showRoutes: boolean
   showHeatmap3d: boolean
+  showSelectedHotelMarker: boolean
 }
 
 interface SceneNode {
@@ -98,6 +99,8 @@ type PlaneMeshEntry = SceneNode & {
   plane: ScenePlane
   screenPos: { x: number, y: number } | null
 }
+
+type SelectedHotelMarker = Pick<HotelStay, 'id' | 'hotelName' | 'lat' | 'lng'>
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -230,7 +233,7 @@ function sampleArcPoint(arc: FlightArcPoint[], progress: number) {
   }
 
   if (progress >= 1) {
-    return arc[arc.length - 1] ?? arc[0]
+    return arc.at(-1) ?? arc[0]
   }
 
   const scaledIndex = progress * (arc.length - 1)
@@ -695,6 +698,67 @@ function createPlaneGuideModel() {
   return guide
 }
 
+function createSelectedHotelMarkerMesh() {
+  const group = new THREE.Group()
+
+  const stem = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.05, 0.05, 0.9, 16),
+    new THREE.MeshStandardMaterial({
+      color: '#e0f2fe',
+      metalness: 0.18,
+      roughness: 0.42,
+    }),
+  )
+  const beacon = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 20, 20),
+    new THREE.MeshStandardMaterial({
+      color: '#38bdf8',
+      emissive: new THREE.Color('#0ea5e9'),
+      emissiveIntensity: 0.75,
+      metalness: 0.08,
+      roughness: 0.32,
+    }),
+  )
+  const halo = new THREE.Mesh(
+    new THREE.SphereGeometry(0.56, 18, 18),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#38bdf8'),
+      transparent: true,
+      opacity: 0.1,
+      depthWrite: false,
+      depthTest: false,
+    }),
+  )
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.34, 0.62, 40),
+    new THREE.MeshBasicMaterial({
+      color: new THREE.Color('#bae6fd'),
+      transparent: true,
+      opacity: 0.45,
+      depthWrite: false,
+      depthTest: false,
+      side: THREE.DoubleSide,
+    }),
+  )
+
+  stem.position.set(0, 0.42, 0)
+  beacon.position.set(0, 0.92, 0)
+  halo.position.set(0, 0.92, 0)
+  ring.position.set(0, 0.08, 0)
+  ring.rotation.x = Math.PI / 2
+
+  halo.renderOrder = 31
+  ring.renderOrder = 32
+  stem.renderOrder = 33
+  beacon.renderOrder = 34
+
+  group.add(stem, halo, ring, beacon)
+  group.userData.halo = halo
+  group.userData.ring = ring
+
+  return group
+}
+
 function createRoutePlaneMesh(template: THREE.Object3D, planeId: string) {
   const group = new THREE.Group()
   const visual = new THREE.Group()
@@ -755,6 +819,7 @@ export class FlightMap3DLayerController {
   private scene = new THREE.Scene()
   private routeGroup = new THREE.Group()
   private planeGroup = new THREE.Group()
+  private hotelMarkerGroup = new THREE.Group()
   private ambientLight = new THREE.AmbientLight('#ffffff', 1)
   private directionalLight = new THREE.DirectionalLight('#f8fafc', 1.3)
   private modelLoader = new GLTFLoader()
@@ -765,6 +830,7 @@ export class FlightMap3DLayerController {
     showMarkers: true,
     showRoutes: true,
     showHeatmap3d: false,
+    showSelectedHotelMarker: true,
   }
 
   private projection: ProjectionName | null = null
@@ -774,6 +840,8 @@ export class FlightMap3DLayerController {
   private heatmapBarGroup = new THREE.Group()
   private heatmapBarMeshes: THREE.Mesh[] = []
   private heatmapAirports: FlightMapAirport[] = []
+  private selectedHotel: SelectedHotelMarker | null = null
+  private selectedHotelMarker: THREE.Group | null = null
   private modelForwardAxis = DEFAULT_MODEL_FORWARD_AXIS.clone()
   private lastAnimationTime = 0
   private routeRevealStartedAt = 0
@@ -793,6 +861,7 @@ export class FlightMap3DLayerController {
       this.directionalLight,
       this.heatmapBarGroup,
       this.routeGroup,
+      this.hotelMarkerGroup,
       this.planeGroup,
     )
 
@@ -867,6 +936,13 @@ export class FlightMap3DLayerController {
     if (settings.showHeatmap3d !== prev3d) {
       this.buildHeatmapBars()
     }
+    this.updateVisibility()
+    this.map?.triggerRepaint()
+  }
+
+  setSelectedHotel(hotel: SelectedHotelMarker | null) {
+    this.selectedHotel = hotel
+    this.rebuildSelectedHotelMarker()
     this.updateVisibility()
     this.map?.triggerRepaint()
   }
@@ -1008,6 +1084,8 @@ export class FlightMap3DLayerController {
     }
     this.heatmapBarMeshes = []
 
+    this.clearSelectedHotelMarker()
+
     this.routeMeshes = []
     this.planeMeshes = []
   }
@@ -1029,6 +1107,8 @@ export class FlightMap3DLayerController {
     if (this.settings.showHeatmap3d) {
       this.buildHeatmapBars()
     }
+
+    this.rebuildSelectedHotelMarker()
 
     for (const [index, route] of this.sceneData.routes.entries()) {
       const mesh = createRouteMesh(
@@ -1066,6 +1146,49 @@ export class FlightMap3DLayerController {
     })
 
     this.updateVisibility()
+  }
+
+  private clearSelectedHotelMarker() {
+    if (!this.selectedHotelMarker) {
+      return
+    }
+
+    this.hotelMarkerGroup.remove(this.selectedHotelMarker)
+    disposeObject3D(this.selectedHotelMarker)
+    this.selectedHotelMarker = null
+  }
+
+  private rebuildSelectedHotelMarker() {
+    this.clearSelectedHotelMarker()
+
+    if (!this.map || !this.projection || !this.selectedHotel) {
+      return
+    }
+
+    const { lat, lng } = this.selectedHotel
+    if (lat === null || lng === null) {
+      return
+    }
+
+    const marker = createSelectedHotelMarkerMesh()
+    const worldPoint = worldPointFromArcPoint(
+      {
+        lng,
+        lat,
+        altitudeMeters: 1800,
+        progress: 0,
+      },
+      this.projection,
+    )
+    const scale = worldScaleForMeters(lng, lat, 22_000, this.projection)
+
+    marker.position.copy(worldPoint)
+    marker.scale.setScalar(scale)
+    marker.updateMatrix()
+    marker.updateMatrixWorld(true)
+
+    this.selectedHotelMarker = marker
+    this.hotelMarkerGroup.add(marker)
   }
 
   private buildHeatmapBars() {
@@ -1390,10 +1513,35 @@ export class FlightMap3DLayerController {
   private updateVisibility() {
     this.routeGroup.visible = this.settings.showRoutes
     this.heatmapBarGroup.visible = this.settings.showHeatmap3d
+    this.hotelMarkerGroup.visible = this.settings.showSelectedHotelMarker
+      && this.selectedHotelMarker !== null
     for (const entry of this.planeMeshes) {
       if (entry.plane.state !== 'flying') {
         entry.mesh.visible = this.settings.showMarkers && entry.plane.state !== 'landed'
       }
+    }
+  }
+
+  private animateSelectedHotelMarker(elapsedSeconds: number) {
+    if (!this.selectedHotelMarker) {
+      return
+    }
+
+    const halo = this.selectedHotelMarker.userData.halo as THREE.Mesh | undefined
+    const ring = this.selectedHotelMarker.userData.ring as THREE.Mesh | undefined
+    const pulse = 0.5 + 0.5 * Math.sin(elapsedSeconds * 2.2)
+
+    this.selectedHotelMarker.rotation.y += 0.0035
+
+    if (halo?.material instanceof THREE.MeshBasicMaterial) {
+      halo.material.opacity = lerp(0.08, 0.18, pulse)
+      halo.scale.setScalar(lerp(0.9, 1.25, pulse))
+    }
+
+    if (ring?.material instanceof THREE.MeshBasicMaterial) {
+      ring.material.opacity = lerp(0.28, 0.55, pulse)
+      ring.scale.setScalar(lerp(0.95, 1.2, 1 - pulse))
+      ring.rotation.z += 0.01
     }
   }
 
@@ -1486,6 +1634,11 @@ export class FlightMap3DLayerController {
       if (this.settings.showMarkers) {
         this.updatePlaneAnimations(deltaSeconds)
       }
+      this.map.triggerRepaint()
+    }
+
+    if (this.settings.showSelectedHotelMarker && this.selectedHotelMarker) {
+      this.animateSelectedHotelMarker(now / 1000)
       this.map.triggerRepaint()
     }
 

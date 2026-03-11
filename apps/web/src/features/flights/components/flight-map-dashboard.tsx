@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { format, parseISO } from "date-fns";
+import {
+  endOfDay,
+  format,
+  isAfter,
+  isBefore,
+  parseISO,
+  startOfDay,
+} from "date-fns";
 import maplibregl from "maplibre-gl/dist/maplibre-gl-csp";
 import maplibreglWorkerUrl from "maplibre-gl/dist/maplibre-gl-csp-worker.js?url";
 import {
@@ -49,6 +56,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/ui/card";
 import { Label } from "@workspace/ui/components/ui/label";
+import { Input } from "@workspace/ui/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -107,6 +115,7 @@ const CUSTOM_LAYER_IDS = [
 ];
 
 type RouteScope = "all" | "domestic" | "international";
+type HotelStayScope = "active" | "archived" | "all";
 
 interface AirportHoverStat {
   airlines: string[];
@@ -136,6 +145,7 @@ interface HotelHoverStat {
   checkOutDate: string | null;
   pricingCurrency: string | null;
   pricingTotal: number | null;
+  archivedAt: string | null;
 }
 
 function formatDistance(value: number) {
@@ -162,11 +172,54 @@ function formatStayDate(value: string | null) {
   }
 }
 
+function formatHotelPricing(stay: Pick<HotelStay, "pricing">) {
+  if (stay.pricing.total === null || stay.pricing.total === undefined) {
+    return "Pricing not captured";
+  }
+
+  return `${stay.pricing.currency ?? "Currency unknown"} ${stay.pricing.total}`;
+}
+
+function matchesHotelDateWindow(
+  stay: Pick<HotelStay, "checkInDate" | "checkOutDate">,
+  startDate: string,
+  endDate: string,
+) {
+  if (!startDate && !endDate) {
+    return true;
+  }
+
+  const normalizedStart = stay.checkInDate ?? stay.checkOutDate;
+  const normalizedEnd = stay.checkOutDate ?? stay.checkInDate;
+
+  if (!normalizedStart || !normalizedEnd) {
+    return false;
+  }
+
+  const stayStart = startOfDay(parseISO(normalizedStart));
+  const stayEnd = endOfDay(parseISO(normalizedEnd));
+  const windowStart = startDate ? startOfDay(parseISO(startDate)) : null;
+  const windowEnd = endDate ? endOfDay(parseISO(endDate)) : null;
+
+  if (windowStart && isBefore(stayEnd, windowStart)) {
+    return false;
+  }
+
+  if (windowEnd && isAfter(stayStart, windowEnd)) {
+    return false;
+  }
+
+  return true;
+}
+
 function createEmptyFeatureCollection() {
   return { type: "FeatureCollection" as const, features: [] };
 }
 
-function buildHotelFeatureCollection(hotels: HotelStay[]) {
+function buildHotelFeatureCollection(
+  hotels: HotelStay[],
+  selectedHotelId: string | null,
+) {
   return {
     type: "FeatureCollection" as const,
     features: hotels
@@ -185,6 +238,8 @@ function buildHotelFeatureCollection(hotels: HotelStay[]) {
           hotelName: hotel.hotelName,
           city: hotel.city ?? "Unknown city",
           country: hotel.country ?? "Unknown country",
+          archived: hotel.archivedAt !== null,
+          selected: hotel.id === selectedHotelId,
           checkInDate: hotel.checkInDate,
           checkOutDate: hotel.checkOutDate,
           nights: hotel.nights,
@@ -729,23 +784,40 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
       id: HOTEL_LAYER_ID,
       type: "circle",
       source: HOTEL_SOURCE_ID,
-      minzoom: 2,
+      minzoom: 5,
       paint: {
         "circle-radius": [
           "interpolate",
           ["linear"],
           ["zoom"],
           2,
-          5,
+          ["case", ["boolean", ["get", "selected"], false], 4, 2],
           6,
-          7,
+          ["case", ["boolean", ["get", "selected"], false], 6, 3.5],
           10,
-          10,
+          ["case", ["boolean", ["get", "selected"], false], 8, 5],
         ],
-        "circle-color": "#f97316",
-        "circle-opacity": 0.95,
-        "circle-stroke-color": "#fff7ed",
-        "circle-stroke-width": 1.5,
+        "circle-color": [
+          "case",
+          ["boolean", ["get", "selected"], false],
+          "#0f766e",
+          ["boolean", ["get", "archived"], false],
+          "#94a3b8",
+          "#2dd4bf",
+        ],
+        "circle-opacity": 0.85,
+        "circle-stroke-color": [
+          "case",
+          ["boolean", ["get", "selected"], false],
+          "#ccfbf1",
+          "#ffffff",
+        ],
+        "circle-stroke-width": [
+          "case",
+          ["boolean", ["get", "selected"], false],
+          2,
+          1,
+        ],
       },
     },
     beforeId,
@@ -770,7 +842,7 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
           10,
           24,
         ],
-        "circle-color": "#f97316",
+        "circle-color": "#14b8a6",
         "circle-opacity": 0,
         "circle-stroke-opacity": 0,
       },
@@ -795,8 +867,8 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
         "text-font": ["Open Sans Semibold", "Arial Unicode MS Regular"],
       },
       paint: {
-        "text-color": "#fff7ed",
-        "text-halo-color": "rgba(67, 20, 7, 0.92)",
+        "text-color": "#ecfeff",
+        "text-halo-color": "rgba(8, 47, 73, 0.92)",
         "text-halo-width": 1.2,
       },
     },
@@ -819,6 +891,7 @@ function updateMapData(
   map: maplibregl.Map,
   data: FlightMap,
   hotels: HotelStay[],
+  selectedHotelId: string | null,
   activeFlight: FlightMap["flights"][number] | null,
   routeStats: Map<string, RouteHoverStat>,
   sceneController: FlightMap3DLayerController,
@@ -840,7 +913,7 @@ function updateMapData(
   routeSource?.setData(
     buildInteractiveRouteFeatureCollection(data, routeStats),
   );
-  hotelSource?.setData(buildHotelFeatureCollection(hotels));
+  hotelSource?.setData(buildHotelFeatureCollection(hotels, selectedHotelId));
   activeRouteSource?.setData(
     buildActiveRouteFeatureCollection(activeFlight, data),
   );
@@ -911,9 +984,9 @@ function applySettingsToMap(
   setVis(AIRPORT_OVERVIEW_LAYER_ID, true);
   setVis(AIRPORT_HIT_LAYER_ID, true);
   setVis(AIRPORT_LABEL_LAYER_ID, settings.showLabels);
-  setVis(HOTEL_LAYER_ID, settings.showHotels);
-  setVis(HOTEL_HIT_LAYER_ID, settings.showHotels);
-  setVis(HOTEL_LABEL_LAYER_ID, settings.showHotels && settings.showLabels);
+  setVis(HOTEL_LAYER_ID, settings.showMarkers);
+  setVis(HOTEL_HIT_LAYER_ID, settings.showMarkers);
+  setVis(HOTEL_LABEL_LAYER_ID, settings.showMarkers && settings.showLabels);
   setVis(ROUTE_HIT_LAYER_ID, settings.showRoutes);
   setVis(
     ACTIVE_ROUTE_LAYER_ID,
@@ -964,6 +1037,7 @@ function applySettingsToMap(
     showMarkers: settings.showMarkers,
     showRoutes: settings.showRoutes,
     showHeatmap3d: settings.heatmap3d,
+    showSelectedHotelMarker: false,
     glowTint: settings.routeColor,
   });
 
@@ -1086,17 +1160,6 @@ function MapControlsInline({
           />
           <Label htmlFor="toggle-markers" className="text-xs cursor-pointer">
             Markers
-          </Label>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Switch
-            id="toggle-hotels"
-            checked={settings.showHotels}
-            onCheckedChange={(value) => onChange({ showHotels: value })}
-            className="scale-75"
-          />
-          <Label htmlFor="toggle-hotels" className="text-xs cursor-pointer">
-            Hotels
           </Label>
         </div>
         <div className="flex items-center gap-1.5">
@@ -1257,7 +1320,6 @@ function MapControlsPopover({
               { key: "heatmap3d", label: "3D Heatmap" },
               { key: "showRoutes", label: "Routes" },
               { key: "showMarkers", label: "Markers" },
-              { key: "showHotels", label: "Hotels" },
               { key: "showLabels", label: "Labels" },
               { key: "terrainEnabled", label: "Terrain" },
             ] as { key: keyof MapSettings; label: string }[]
@@ -1652,13 +1714,110 @@ function FlightInteractionControls({
   );
 }
 
+function HotelInteractionControls({
+  hotelCount,
+  scope,
+  startDate,
+  endDate,
+  onScopeChange,
+  onStartDateChange,
+  onEndDateChange,
+  onClear,
+}: {
+  hotelCount: number;
+  scope: HotelStayScope;
+  startDate: string;
+  endDate: string;
+  onScopeChange: (value: HotelStayScope) => void;
+  onStartDateChange: (value: string) => void;
+  onEndDateChange: (value: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-center">
+        <div className="flex items-center gap-2">
+          <Label className="w-20 text-xs text-muted-foreground">Hotels</Label>
+          <Select
+            value={scope}
+            onValueChange={(value) => onScopeChange(value as HotelStayScope)}
+          >
+            <SelectTrigger className="h-8 w-40 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active" className="text-xs">
+                Active stays
+              </SelectItem>
+              <SelectItem value="archived" className="text-xs">
+                Archived stays
+              </SelectItem>
+              <SelectItem value="all" className="text-xs">
+                All stays
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label className="w-20 text-xs text-muted-foreground">From</Label>
+          <Input
+            type="date"
+            value={startDate}
+            onChange={(event) => onStartDateChange(event.target.value)}
+            className="h-8 w-40 text-xs"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label className="w-20 text-xs text-muted-foreground">To</Label>
+          <Input
+            type="date"
+            value={endDate}
+            onChange={(event) => onEndDateChange(event.target.value)}
+            className="h-8 w-40 text-xs"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            {hotelCount} visible hotels
+          </Badge>
+          <Button type="button" variant="outline" size="sm" onClick={onClear}>
+            Clear hotel filters
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TravelMapLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2">
+        <span className="size-3 rounded-full bg-orange-500 ring-2 ring-white/90" />
+        Airports
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="size-3 rounded-full bg-teal-400 ring-2 ring-white/90" />
+        Hotels
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="size-3 rounded-full bg-slate-400 ring-2 ring-white/90" />
+        Archived hotel
+      </div>
+    </div>
+  );
+}
+
 export interface FlightMapDashboardProps {
   isActive: boolean;
 }
 
 export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
   const mapQuery = useFlightMap();
-  const hotelsQuery = useAllHotelStays();
+  const hotelsQuery = useAllHotelStays({ includeArchived: true });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -1674,6 +1833,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
   const latestRouteStatsRef = useRef<Map<string, RouteHoverStat>>(new Map());
   const latestHotelsRef = useRef<HotelStay[]>([]);
   const latestHotelStatsRef = useRef<Map<string, HotelHoverStat>>(new Map());
+  const latestSelectedHotelIdRef = useRef<string | null>(null);
   const settingsRef = useRef<MapSettings>(DEFAULT_SETTINGS);
   const baseStyleKeyRef = useRef<string | null>(null);
 
@@ -1687,6 +1847,10 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
   const [selectedRoute, setSelectedRoute] = useState("all");
   const [routeScope, setRouteScope] = useState<RouteScope>("all");
   const [topRoutesOnly, setTopRoutesOnly] = useState(false);
+  const [hotelScope, setHotelScope] = useState<HotelStayScope>("all");
+  const [hotelStartDate, setHotelStartDate] = useState("");
+  const [hotelEndDate, setHotelEndDate] = useState("");
+  const [selectedHotelId, setSelectedHotelId] = useState<string | null>(null);
 
   const sortedFlights = useMemo(() => {
     if (!mapQuery.data) {
@@ -1963,7 +2127,25 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
     );
   }, [airportCountryByIata, displayData]);
 
-  const hotelMarkers = useMemo(
+  const hotelMarkers = useMemo(() => {
+    return (hotelsQuery.data?.data ?? []).filter((hotel) => {
+      if (hotel.lat === null || hotel.lng === null) {
+        return false;
+      }
+
+      if (hotelScope === "active" && hotel.archivedAt !== null) {
+        return false;
+      }
+
+      if (hotelScope === "archived" && hotel.archivedAt === null) {
+        return false;
+      }
+
+      return matchesHotelDateWindow(hotel, hotelStartDate, hotelEndDate);
+    }) as Array<HotelStay & { lat: number; lng: number }>;
+  }, [hotelEndDate, hotelScope, hotelStartDate, hotelsQuery.data?.data]);
+
+  const totalHotelMarkers = useMemo(
     () =>
       (hotelsQuery.data?.data ?? []).filter(
         (hotel): hotel is HotelStay & { lat: number; lng: number } =>
@@ -1985,10 +2167,16 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
             checkOutDate: hotel.checkOutDate,
             pricingCurrency: hotel.pricing.currency,
             pricingTotal: hotel.pricing.total,
+            archivedAt: hotel.archivedAt,
           } satisfies HotelHoverStat,
         ]),
       ),
     [hotelMarkers],
+  );
+
+  const selectedHotel = useMemo(
+    () => hotelMarkers.find((hotel) => hotel.id === selectedHotelId) ?? null,
+    [hotelMarkers, selectedHotelId],
   );
 
   settingsRef.current = settings;
@@ -1998,6 +2186,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
   latestRouteStatsRef.current = routeHoverStats;
   latestHotelsRef.current = hotelMarkers;
   latestHotelStatsRef.current = hotelHoverStats;
+  latestSelectedHotelIdRef.current = selectedHotelId;
 
   const baseStyleKey = `${settings.mapStyle}:${settings.terrainEnabled ? "terrain" : "flat"}`;
   const hasActiveFilters =
@@ -2006,6 +2195,8 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
     selectedRoute !== "all" ||
     routeScope !== "all" ||
     topRoutesOnly;
+  const hasActiveHotelFilters =
+    hotelScope !== "all" || hotelStartDate !== "" || hotelEndDate !== "";
 
   const handleSettingsChange = useCallback((patch: Partial<MapSettings>) => {
     setSettings((previous) => {
@@ -2074,6 +2265,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
         sceneControllerRef.current = new FlightMap3DLayerController();
       }
       ensureFlightSceneLayer(map, sceneControllerRef.current);
+      sceneControllerRef.current.setSelectedHotel(null);
       applySettingsToMap(
         map,
         currentSettings,
@@ -2089,6 +2281,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
         map,
         data,
         latestHotelsRef.current,
+        latestSelectedHotelIdRef.current,
         latestActiveFlightRef.current,
         latestRouteStatsRef.current,
         sceneControllerRef.current,
@@ -2105,7 +2298,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
           map,
           data,
           latestHotelsRef.current,
-          currentSettings.showHotels,
+          currentSettings.showMarkers,
         );
         hasFittedRef.current = true;
       }
@@ -2155,7 +2348,49 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
 
   useEffect(() => {
     hasFittedRef.current = false;
-  }, [routeScope, selectedAirline, selectedRoute, selectedYear, topRoutesOnly]);
+  }, [
+    hotelEndDate,
+    hotelScope,
+    hotelStartDate,
+    routeScope,
+    selectedAirline,
+    selectedRoute,
+    selectedYear,
+    settings.showMarkers,
+    topRoutesOnly,
+  ]);
+
+  useEffect(() => {
+    if (!settings.showMarkers) {
+      setSelectedHotelId(null);
+      return;
+    }
+
+    if (
+      selectedHotelId &&
+      !hotelMarkers.some((hotel) => hotel.id === selectedHotelId)
+    ) {
+      setSelectedHotelId(null);
+    }
+  }, [hotelMarkers, selectedHotelId, settings.showMarkers]);
+
+  useEffect(() => {
+    if (
+      hotelScope === "active" &&
+      hotelStartDate === "" &&
+      hotelEndDate === "" &&
+      hotelMarkers.length === 0 &&
+      totalHotelMarkers.length > 0
+    ) {
+      setHotelScope("all");
+    }
+  }, [
+    hotelEndDate,
+    hotelMarkers.length,
+    hotelScope,
+    hotelStartDate,
+    totalHotelMarkers.length,
+  ]);
 
   useEffect(() => {
     if (!isPlaybackEnabled || !isPlaying || filteredFlights.length <= 1) {
@@ -2311,6 +2546,25 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
     );
 
     map.on(
+      "click",
+      AIRPORT_HIT_LAYER_ID,
+      (event: maplibregl.MapLayerMouseEvent) => {
+        const feature = event.features?.[0];
+        if (!feature || feature.geometry.type !== "Point") {
+          return;
+        }
+
+        map.easeTo({
+          center: [...feature.geometry.coordinates] as [number, number],
+          zoom: Math.max(map.getZoom(), 12),
+          pitch: Math.max(map.getPitch(), 45),
+          duration: 900,
+          essential: true,
+        });
+      },
+    );
+
+    map.on(
       "mouseenter",
       ROUTE_HIT_LAYER_ID,
       (event: maplibregl.MapLayerMouseEvent) => {
@@ -2387,11 +2641,53 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
         popupRef.current
           ?.setLngLat(coordinates)
           .setHTML(
-            `<div class="space-y-1.5"><div class="text-sm font-semibold">${properties?.hotelName ?? "Unknown hotel"}</div><div class="text-xs text-muted-foreground">${properties?.city ?? hotelStat?.city ?? "Unknown city"}, ${properties?.country ?? hotelStat?.country ?? "Unknown country"}</div><div class="text-xs font-medium">${stayDates}</div><div class="text-xs text-muted-foreground">Nights: ${hotelStat?.nights ?? "Unknown"}</div><div class="text-xs text-muted-foreground">${pricing}</div></div>`,
+            `<div class="space-y-1.5"><div class="text-sm font-semibold">${properties?.hotelName ?? "Unknown hotel"}</div><div class="text-xs text-muted-foreground">${properties?.city ?? hotelStat?.city ?? "Unknown city"}, ${properties?.country ?? hotelStat?.country ?? "Unknown country"}</div><div class="text-xs font-medium">${stayDates}</div><div class="text-xs text-muted-foreground">Nights: ${hotelStat?.nights ?? "Unknown"}</div><div class="text-xs text-muted-foreground">${pricing}</div><div class="text-xs text-sky-200">Click to select</div></div>`,
           )
           .addTo(map);
       },
     );
+
+    map.on(
+      "click",
+      HOTEL_HIT_LAYER_ID,
+      (event: maplibregl.MapLayerMouseEvent) => {
+        const feature = event.features?.[0];
+        if (!feature) {
+          return;
+        }
+
+        const hotelId =
+          feature.properties && "id" in feature.properties
+            ? String(feature.properties.id)
+            : null;
+
+        if (!hotelId) {
+          return;
+        }
+
+        setSelectedHotelId(hotelId);
+
+        if (feature.geometry.type === "Point") {
+          map.easeTo({
+            center: [...feature.geometry.coordinates] as [number, number],
+            zoom: Math.max(map.getZoom(), 14),
+            pitch: Math.max(map.getPitch(), 50),
+            duration: 900,
+            essential: true,
+          });
+        }
+      },
+    );
+
+    map.on("click", (event) => {
+      const clickedHotelFeatures = map.queryRenderedFeatures(event.point, {
+        layers: [HOTEL_HIT_LAYER_ID],
+      });
+
+      if (clickedHotelFeatures.length === 0) {
+        setSelectedHotelId(null);
+      }
+    });
 
     map.on("mouseleave", AIRPORT_HIT_LAYER_ID, () => {
       map.getCanvas().style.cursor = "";
@@ -2437,7 +2733,13 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
     }
 
     syncMapPresentation(true);
-  }, [displayData, activeFlight, hotelMarkers, syncMapPresentation]);
+  }, [
+    displayData,
+    activeFlight,
+    hotelMarkers,
+    selectedHotelId,
+    syncMapPresentation,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2460,7 +2762,6 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
     settings.heatmap3d,
     settings.showRoutes,
     settings.showMarkers,
-    settings.showHotels,
     settings.showLabels,
     settings.routeColor,
     settings.heatmapIntensity,
@@ -2567,7 +2868,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Switch between flat and globe projection, enable terrain on
                   satellite, and control overlays without losing route state.
-                  Hotel pins stay hidden until you enable them.
+                  Hotel pins follow the main markers toggle.
                 </p>
               </div>
 
@@ -2578,9 +2879,19 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
                 <Badge variant="outline" className="text-xs">
                   {displayData?.routes.length ?? 0} routes
                 </Badge>
-                {settings.showHotels ? (
+                {totalHotelMarkers.length > 0 ? (
                   <Badge variant="outline" className="text-xs">
-                    {hotelMarkers.length} hotels
+                    {hotelMarkers.length} / {totalHotelMarkers.length} hotels
+                  </Badge>
+                ) : null}
+                {hasActiveHotelFilters && settings.showMarkers ? (
+                  <Badge variant="outline" className="text-xs">
+                    Hotel filters
+                  </Badge>
+                ) : null}
+                {selectedHotel ? (
+                  <Badge variant="outline" className="text-xs">
+                    Hotel selected
                   </Badge>
                 ) : null}
                 {isPlaybackEnabled ? (
@@ -2615,6 +2926,89 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
                 onChange={handleSettingsChange}
               />
             </div>
+            <TravelMapLegend />
+            <HotelInteractionControls
+              hotelCount={hotelMarkers.length}
+              scope={hotelScope}
+              startDate={hotelStartDate}
+              endDate={hotelEndDate}
+              onScopeChange={setHotelScope}
+              onStartDateChange={setHotelStartDate}
+              onEndDateChange={setHotelEndDate}
+              onClear={() => {
+                setHotelScope("all");
+                setHotelStartDate("");
+                setHotelEndDate("");
+              }}
+            />
+            {settings.showMarkers &&
+            hotelMarkers.length === 0 &&
+            totalHotelMarkers.length > 0 ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-amber-400/20 bg-amber-500/5 p-3 text-sm lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">
+                    Hotel filters are hiding all pins
+                  </p>
+                  <p className="text-muted-foreground">
+                    Clear the hotel filters or switch the scope to reveal the
+                    available hotel markers.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setHotelScope("all");
+                    setHotelStartDate("");
+                    setHotelEndDate("");
+                  }}
+                >
+                  Show all hotels
+                </Button>
+              </div>
+            ) : null}
+            {selectedHotel ? (
+              <div className="rounded-xl border border-sky-400/30 bg-sky-500/5 p-3 text-sm">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-foreground">
+                        {selectedHotel.hotelName}
+                      </p>
+                      <Badge variant="outline" className="text-xs">
+                        Selected hotel
+                      </Badge>
+                      {selectedHotel.archivedAt ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Archived
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <p className="text-muted-foreground">
+                      {selectedHotel.city ?? "Unknown city"},{" "}
+                      {selectedHotel.country ?? "Unknown country"}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {selectedHotel.checkInDate || selectedHotel.checkOutDate
+                        ? `${formatStayDate(selectedHotel.checkInDate)} → ${formatStayDate(selectedHotel.checkOutDate)}`
+                        : "Dates not captured"}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {formatHotelPricing(selectedHotel)}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedHotelId(null)}
+                  >
+                    Clear selection
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <FlightInteractionControls
               airlineOptions={airlineOptions}
               routeOptions={routeOptions}
