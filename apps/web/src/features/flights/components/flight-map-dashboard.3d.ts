@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl/dist/maplibre-gl-csp'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import * as THREE from 'three'
 
-import type { FlightMap } from '@workspace/domain'
+import type { FlightMap, FlightMapAirport } from '@workspace/domain'
 import type {
   CustomLayerInterface,
   CustomRenderMethodInput,
@@ -20,7 +20,7 @@ const MAX_PLANE_SCALE_METERS = 10_000
 const MIN_PLANE_LIFT_METERS = 30_000
 const MAX_PLANE_LIFT_METERS = 110_000
 const GLOW_RADIUS_MULTIPLIER = 0
-const PICKABLE_PLANE_RADIUS_PX = 40
+const PICKABLE_PLANE_RADIUS_PX = 44
 const DEFAULT_MODEL_FORWARD_AXIS = new THREE.Vector3(0, 0, 1)
 const MODEL_UP_AXIS = new THREE.Vector3(0, 1, 0)
 const MERCATOR_UP_AXIS = new THREE.Vector3(0, 0, 1)
@@ -64,6 +64,7 @@ interface FlightSceneData {
 interface SceneSettings {
   showMarkers: boolean
   showRoutes: boolean
+  showHeatmap3d: boolean
 }
 
 interface SceneNode {
@@ -78,6 +79,7 @@ type RouteMeshEntry = SceneNode & {
 type PlaneMeshEntry = SceneNode & {
   mesh: THREE.Group
   plane: ScenePlane
+  screenPos: { x: number, y: number } | null
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -287,7 +289,7 @@ function buildSceneData(data: FlightMap): FlightSceneData {
       state: 'idle',
       parkedProgress,
       progress: parkedProgress,
-      speedPerSecond: clamp(route.distanceMeters / 1_900_000, 0.05, 0.16),
+      speedPerSecond: clamp(route.distanceMeters / 2_400_000, 0.025, 0.07),
     } satisfies ScenePlane
   })
 
@@ -358,16 +360,19 @@ function createRouteMesh(
   route: SceneRoute,
   projection: ProjectionName,
   glowTint: string,
+  zoom: number,
 ) {
   const worldPoints = route.arc.map((point) =>
     worldPointFromArcPoint(point, projection),
   )
   const curve = new THREE.CatmullRomCurve3(worldPoints, false, 'catmullrom', 0.18)
   const midpoint = route.arc[Math.floor(route.arc.length / 2)] ?? route.arc[0]
+  // Shrink tube radius as zoom increases so routes don't overwhelm the view
+  const zoomScale = Math.pow(2, Math.max(0, zoom - 4) * 0.6)
   const radius = worldScaleForMeters(
     midpoint.lng,
     midpoint.lat,
-    clamp(route.distanceMeters * 0.004, 8000, 20_000),
+    clamp(route.distanceMeters * 0.004 / zoomScale, 2000, 20_000),
     projection,
   )
   const geometry = new THREE.TubeGeometry(
@@ -503,7 +508,8 @@ function tuneMaterial(
     )
   }
 
-  material.depthWrite = true
+  material.depthWrite = false
+  material.blending = THREE.AdditiveBlending
   material.depthTest = true
   material.side = THREE.FrontSide
 
@@ -722,16 +728,24 @@ export class FlightMap3DLayerController {
   private settings: SceneSettings = {
     showMarkers: true,
     showRoutes: true,
+    showHeatmap3d: false,
   }
 
   private projection: ProjectionName | null = null
   private routeGlowTint = '#38bdf8'
   private routeMeshes: RouteMeshEntry[] = []
   private planeMeshes: PlaneMeshEntry[] = []
+  private heatmapBarGroup = new THREE.Group()
+  private heatmapBarMeshes: THREE.Mesh[] = []
+  private heatmapAirports: FlightMapAirport[] = []
   private modelForwardAxis = DEFAULT_MODEL_FORWARD_AXIS.clone()
   private lastAnimationTime = 0
   private handleMapClick = (event: MapMouseEvent) => {
     this.startPlaneAnimation(event)
+  }
+
+  private handleZoomEnd = () => {
+    this.rebuildRoutes()
   }
 
   constructor() {
@@ -739,6 +753,7 @@ export class FlightMap3DLayerController {
     this.scene.add(
       this.ambientLight,
       this.directionalLight,
+      this.heatmapBarGroup,
       this.routeGroup,
       this.planeGroup,
     )
@@ -762,6 +777,7 @@ export class FlightMap3DLayerController {
         }
 
         map.on('click', this.handleMapClick)
+        map.on('zoomend', this.handleZoomEnd)
 
         void this.ensureModelTemplate().then(() => {
           this.rebuildScene()
@@ -770,6 +786,7 @@ export class FlightMap3DLayerController {
       },
       onRemove: () => {
         this.map?.off('click', this.handleMapClick)
+        this.map?.off('zoomend', this.handleZoomEnd)
         this.clearScene()
         this.renderer = null
       },
@@ -781,19 +798,25 @@ export class FlightMap3DLayerController {
 
   setData(data: FlightMap | null) {
     this.sceneData = data ? buildSceneData(data) : null
+    this.heatmapAirports = data?.airports ?? []
     this.rebuildScene()
     this.map?.triggerRepaint()
   }
 
   setSettings(settings: SceneSettings & { glowTint?: string }) {
+    const prev3d = this.settings.showHeatmap3d
     this.settings = settings
     this.routeGlowTint = settings.glowTint ?? this.routeGlowTint
+    if (settings.showHeatmap3d !== prev3d) {
+      this.buildHeatmapBars()
+    }
     this.updateVisibility()
     this.map?.triggerRepaint()
   }
 
   destroy() {
     this.map?.off('click', this.handleMapClick)
+    this.map?.off('zoomend', this.handleZoomEnd)
     this.clearScene()
     this.renderer?.dispose()
     this.renderer = null
@@ -841,6 +864,13 @@ export class FlightMap3DLayerController {
       mesh.dispose()
     }
 
+    for (const mesh of this.heatmapBarMeshes) {
+      this.heatmapBarGroup.remove(mesh)
+      mesh.geometry.dispose()
+      ;(mesh.material as THREE.Material).dispose()
+    }
+    this.heatmapBarMeshes = []
+
     this.routeMeshes = []
     this.planeMeshes = []
   }
@@ -852,12 +882,17 @@ export class FlightMap3DLayerController {
     }
 
     const projection = getProjectionName(this.map)
+    const zoom = this.map.getZoom()
 
     this.clearScene()
     this.projection = projection
 
+    if (this.settings.showHeatmap3d) {
+      this.buildHeatmapBars()
+    }
+
     for (const route of this.sceneData.routes) {
-      const mesh = createRouteMesh(route, projection, this.routeGlowTint)
+      const mesh = createRouteMesh(route, projection, this.routeGlowTint, zoom)
       this.routeMeshes.push(mesh)
       this.routeGroup.add(mesh.glow, mesh.main)
     }
@@ -873,6 +908,7 @@ export class FlightMap3DLayerController {
         this.planeMeshes.push({
           mesh,
           plane,
+          screenPos: null,
           dispose() {
             disposeObject3D(mesh)
           },
@@ -887,98 +923,225 @@ export class FlightMap3DLayerController {
     this.updateVisibility()
   }
 
-  private syncPlaneTransforms() {
-    if (!this.map || !this.projection) {
-      return
+  private buildHeatmapBars() {
+    for (const mesh of this.heatmapBarMeshes) {
+      this.heatmapBarGroup.remove(mesh)
+      mesh.geometry.dispose()
+      ;(mesh.material as THREE.Material).dispose()
     }
+    this.heatmapBarMeshes = []
+
+    if (!this.projection || this.heatmapAirports.length === 0) return
+
+    const airports = this.heatmapAirports.filter((a) => a.visits > 0)
+    if (airports.length === 0) return
+
+    const maxVisits = Math.max(...airports.map((a) => a.visits))
+    const MAX_HEIGHT_METERS = 600_000
+    // Dome angular radius in degrees – each airport gets a smooth bell hill of this size
+    const DOME_RADIUS_DEG = 0.8
+    // σ chosen so the dome falls to ~5 % at the edge (σ = radius/2.5)
+    const sigma = DOME_RADIUS_DEG / 2.5
+    const sigma2 = 2 * sigma * sigma
+    const PATCH = 200 // 24×24 vertex grid per dome
+
+    const projection = this.projection
+    const material = new THREE.MeshLambertMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.82,
+      side: THREE.DoubleSide,
+    })
+
+    for (const airport of airports) {
+      // Relative intensity of this airport in [0, 1]
+      const peakT = Math.pow(airport.visits / maxVisits, 0.55)
+
+      const positions = new Float32Array(PATCH * PATCH * 3)
+      const colors = new Float32Array(PATCH * PATCH * 3)
+
+      for (let iy = 0; iy < PATCH; iy++) {
+        for (let ix = 0; ix < PATCH; ix++) {
+          const lng = airport.lng + DOME_RADIUS_DEG * (-1 + (2 * ix) / (PATCH - 1))
+          const lat = airport.lat + DOME_RADIUS_DEG * (-1 + (2 * iy) / (PATCH - 1))
+          const dlng = lng - airport.lng
+          const dlat = lat - airport.lat
+          const dist = Math.hypot(dlng, dlat)
+
+          // Normalize distance inside dome radius
+          const r = dist / DOME_RADIUS_DEG
+
+          // Outside circle → zero height
+          if (r > 1) {
+            continue
+          }
+
+          // Gaussian bell for smooth center
+          const gaussian = Math.exp(-(dist * dist) / sigma2)
+
+          // Additional radial fade so edges disappear smoothly
+          const radialFade = Math.pow(1 - r, 2.2)
+
+          const altMeters = MAX_HEIGHT_METERS * peakT * gaussian * radialFade
+
+          const wp = worldPointFromArcPoint(
+            { lng, lat, altitudeMeters: altMeters, progress: 0 },
+            projection,
+          )
+          const vi = (iy * PATCH + ix) * 3
+          positions[vi] = wp.x
+          positions[vi + 1] = wp.y
+          positions[vi + 2] = wp.z
+
+          // Colour is keyed on global normalised height (peakT × gaussian)
+          // so high-traffic airports are hot-coloured at the peak,
+          // low-traffic airports stay in the cool range throughout
+          const t = peakT * gaussian
+          const color = new THREE.Color()
+          if (t < 0.25) {
+            color.lerpColors(new THREE.Color('#3b82f6'), new THREE.Color('#06b6d4'), t / 0.25)
+          } else if (t < 0.5) {
+            color.lerpColors(new THREE.Color('#06b6d4'), new THREE.Color('#22c55e'), (t - 0.25) / 0.25)
+          } else if (t < 0.75) {
+            color.lerpColors(new THREE.Color('#22c55e'), new THREE.Color('#f97316'), (t - 0.5) / 0.25)
+          } else {
+            color.lerpColors(new THREE.Color('#f97316'), new THREE.Color('#ef4444'), (t - 0.75) / 0.25)
+          }
+          colors[vi] = color.r
+          colors[vi + 1] = color.g
+          colors[vi + 2] = color.b
+        }
+      }
+
+      // Triangle indices for the patch
+      const indices = new Uint32Array((PATCH - 1) * (PATCH - 1) * 6)
+      let ii = 0
+      for (let iy = 0; iy < PATCH - 1; iy++) {
+        for (let ix = 0; ix < PATCH - 1; ix++) {
+          const a = iy * PATCH + ix
+          const b = a + 1
+          const c = a + PATCH
+          const d = c + 1
+          indices[ii++] = a
+          indices[ii++] = c
+          indices[ii++] = b
+          indices[ii++] = b
+          indices[ii++] = c
+          indices[ii++] = d
+        }
+      }
+
+      const geom = new THREE.BufferGeometry()
+      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      geom.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+      geom.setIndex(new THREE.BufferAttribute(indices, 1))
+      geom.computeVertexNormals()
+
+      const mesh = new THREE.Mesh(geom, material)
+      this.heatmapBarMeshes.push(mesh)
+      this.heatmapBarGroup.add(mesh)
+    }
+  }
+
+  private rebuildRoutes() {
+    if (!this.map || !this.sceneData || !this.projection) return
+
+    const zoom = this.map.getZoom()
+
+    for (const mesh of this.routeMeshes) {
+      this.routeGroup.remove(mesh.main)
+      this.routeGroup.remove(mesh.glow)
+      mesh.dispose()
+    }
+    this.routeMeshes = []
+
+    for (const route of this.sceneData.routes) {
+      const mesh = createRouteMesh(route, this.projection, this.routeGlowTint, zoom)
+      this.routeMeshes.push(mesh)
+      this.routeGroup.add(mesh.glow, mesh.main)
+    }
+
+    this.updateVisibility()
+    this.map.triggerRepaint()
+  }
+
+  private syncPlaneTransforms() {
+    if (!this.map || !this.projection) return
 
     for (const entry of this.planeMeshes) {
       const visualProgress = getPlaneVisualProgress(entry.plane)
+      const prevProgress = Math.max(0, visualProgress - 0.025)
+      const nextProgress = Math.min(1, visualProgress + 0.025)
+
       const point = sampleArcPoint(entry.plane.arc, visualProgress)
-      const previousPoint = sampleArcPoint(
-        entry.plane.arc,
-        Math.max(0, visualProgress - 0.015),
-      )
-      const nextPoint = sampleArcPoint(
-        entry.plane.arc,
-        Math.min(1, visualProgress + 0.015),
-      )
-      const liftMeters = getPlaneLiftMeters(
-        entry.plane.distanceMeters,
-        visualProgress,
-      )
-      const liftedPoint = {
-        ...point,
-        altitudeMeters: point.altitudeMeters + liftMeters,
-      } satisfies FlightArcPoint
-      const liftedPreviousPoint = {
-        ...previousPoint,
-        altitudeMeters:
-          previousPoint.altitudeMeters
-          + getPlaneLiftMeters(entry.plane.distanceMeters, previousPoint.progress),
-      } satisfies FlightArcPoint
-      const liftedNextPoint = {
-        ...nextPoint,
-        altitudeMeters:
-          nextPoint.altitudeMeters
-          + getPlaneLiftMeters(entry.plane.distanceMeters, nextPoint.progress),
-      } satisfies FlightArcPoint
-      const worldPoint = worldPointFromArcPoint(liftedPoint, this.projection)
-      const previousWorldPoint = worldPointFromArcPoint(
-        liftedPreviousPoint,
-        this.projection,
-      )
-      const nextWorldPoint = worldPointFromArcPoint(
-        liftedNextPoint,
-        this.projection,
-      )
-      const tangent = nextWorldPoint.clone().sub(previousWorldPoint)
+      const prevArcPt = sampleArcPoint(entry.plane.arc, prevProgress)
+      const nextArcPt = sampleArcPoint(entry.plane.arc, nextProgress)
 
-      if (tangent.lengthSq() <= 1e-10) {
-        continue
+      const liftNow = getPlaneLiftMeters(entry.plane.distanceMeters, visualProgress)
+      const liftPrev = getPlaneLiftMeters(entry.plane.distanceMeters, prevProgress)
+      const liftNext = getPlaneLiftMeters(entry.plane.distanceMeters, nextProgress)
+
+      const liftedNow: FlightArcPoint = { ...point, altitudeMeters: point.altitudeMeters + liftNow }
+      const liftedPrev: FlightArcPoint = { ...prevArcPt, altitudeMeters: prevArcPt.altitudeMeters + liftPrev }
+      const liftedNext: FlightArcPoint = { ...nextArcPt, altitudeMeters: nextArcPt.altitudeMeters + liftNext }
+
+      const worldPos = worldPointFromArcPoint(liftedNow, this.projection)
+      const worldPrev = worldPointFromArcPoint(liftedPrev, this.projection)
+      const worldNext = worldPointFromArcPoint(liftedNext, this.projection)
+
+      // Cache screen position for click hit-testing — map.project() is always accurate
+      entry.screenPos = this.map.project([point.lng, point.lat])
+
+      // Always update position — never skip a frame
+      entry.mesh.visible = this.settings.showMarkers && entry.plane.state !== 'landed'
+      entry.mesh.position.copy(worldPos)
+
+      const tangent = worldNext.clone().sub(worldPrev)
+
+      if (tangent.lengthSq() > 1e-14) {
+        tangent.normalize()
+        const worldUp
+          = this.projection === 'globe'
+            ? worldPos.clone().normalize()
+            : MERCATOR_UP_AXIS.clone()
+        const quaternion = this.computePlaneOrientation(tangent, worldUp)
+        if (entry.plane.state === 'flying') {
+          quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(tangent, Math.PI / 14))
+        }
+        entry.mesh.quaternion.copy(quaternion)
       }
+      // Degenerate tangent: keep previous frame's quaternion, still update position
 
-      tangent.normalize()
-      const worldUp
-        = this.projection === 'globe'
-          ? worldPoint.clone().normalize()
-          : MERCATOR_UP_AXIS.clone()
-      const headingQuaternion = new THREE.Quaternion().setFromUnitVectors(
-        this.modelForwardAxis,
-        tangent,
-      )
-      const bankQuaternion = new THREE.Quaternion().setFromAxisAngle(
-        tangent,
-        entry.plane.state === 'flying' ? Math.PI / 10 : Math.PI / 18,
-      )
-      const upAlignmentQuaternion = new THREE.Quaternion().setFromUnitVectors(
-        MODEL_UP_AXIS.clone().applyQuaternion(headingQuaternion),
-        worldUp,
-      )
-      const pitchQuaternion = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(1, 0, 0),
-        entry.plane.state === 'flying'
-          ? Math.PI / 18
-          : (entry.plane.state === 'landed' ? 0 : Math.PI / 28),
-      )
       const scaleWorld = worldScaleForMeters(
         point.lng,
         point.lat,
         interpolatePlaneScaleMeters(entry.plane.distanceMeters),
         this.projection,
       )
-
-      entry.mesh.visible = true
-      entry.mesh.position.copy(worldPoint)
-      entry.mesh.quaternion
-        .copy(headingQuaternion)
-        .premultiply(upAlignmentQuaternion)
-        .multiply(bankQuaternion)
-        .multiply(pitchQuaternion)
       entry.mesh.scale.setScalar(scaleWorld)
       entry.mesh.updateMatrix()
       entry.mesh.updateMatrixWorld(true)
     }
+  }
+
+  private computePlaneOrientation(tangent: THREE.Vector3, worldUp: THREE.Vector3): THREE.Quaternion {
+    const worldRight = new THREE.Vector3().crossVectors(worldUp, tangent)
+    if (worldRight.lengthSq() < 1e-8) {
+      return new THREE.Quaternion().setFromUnitVectors(this.modelForwardAxis, tangent)
+    }
+    worldRight.normalize()
+    const worldUpOrtho = new THREE.Vector3().crossVectors(tangent, worldRight).normalize()
+
+    const modelRight = new THREE.Vector3().crossVectors(MODEL_UP_AXIS, this.modelForwardAxis)
+    if (modelRight.lengthSq() < 1e-8) {
+      return new THREE.Quaternion().setFromUnitVectors(this.modelForwardAxis, tangent)
+    }
+    modelRight.normalize()
+    const modelUp = new THREE.Vector3().crossVectors(this.modelForwardAxis, modelRight).normalize()
+
+    const mWorld = new THREE.Matrix4().makeBasis(worldRight, worldUpOrtho, tangent)
+    const mModel = new THREE.Matrix4().makeBasis(modelRight, modelUp, this.modelForwardAxis)
+    return new THREE.Quaternion().setFromRotationMatrix(mWorld.multiply(mModel.transpose()))
   }
 
   private updatePlaneAnimations(deltaSeconds: number) {
@@ -1010,90 +1173,71 @@ export class FlightMap3DLayerController {
 
   private updateVisibility() {
     this.routeGroup.visible = this.settings.showRoutes
-
+    this.heatmapBarGroup.visible = this.settings.showHeatmap3d
     for (const entry of this.planeMeshes) {
-      entry.mesh.visible = this.settings.showMarkers
-    }
-  }
-
-  private projectWorldPointToScreen(worldPoint: THREE.Vector3) {
-    if (!this.map) {
-      return null
-    }
-
-    const canvas = this.map.getCanvas()
-    const width = canvas.clientWidth || canvas.width
-    const height = canvas.clientHeight || canvas.height
-
-    if (width === 0 || height === 0) {
-      return null
-    }
-
-    const clipPoint = new THREE.Vector4(
-      worldPoint.x,
-      worldPoint.y,
-      worldPoint.z,
-      1,
-    ).applyMatrix4(this.camera.projectionMatrix)
-
-    if (Math.abs(clipPoint.w) <= 1e-6) {
-      return null
-    }
-
-    const ndcX = clipPoint.x / clipPoint.w
-    const ndcY = clipPoint.y / clipPoint.w
-    const ndcZ = clipPoint.z / clipPoint.w
-
-    if (
-      !Number.isFinite(ndcX)
-      || !Number.isFinite(ndcY)
-      || !Number.isFinite(ndcZ)
-      || ndcZ < -1.25
-      || ndcZ > 1.25
-    ) {
-      return null
-    }
-
-    return {
-      x: (ndcX * 0.5 + 0.5) * width,
-      y: (1 - (ndcY * 0.5 + 0.5)) * height,
+      if (entry.plane.state !== 'flying') {
+        entry.mesh.visible = this.settings.showMarkers && entry.plane.state !== 'landed'
+      }
     }
   }
 
   private startPlaneAnimation(event: MapMouseEvent) {
-    if (!this.map || !this.settings.showMarkers || this.planeMeshes.length === 0) {
-      return
-    }
+    if (!this.map || !this.settings.showMarkers || this.planeMeshes.length === 0) return
+
+    // Compute canvas dims once — event.point uses CSS pixels, clientWidth matches
+    const canvas = this.map.getCanvas()
+    const canvasW = canvas.clientWidth || canvas.width
+    const canvasH = canvas.clientHeight || canvas.height
 
     let closestEntry: PlaneMeshEntry | null = null
     let closestDistanceSquared = PICKABLE_PLANE_RADIUS_PX ** 2
 
     for (const entry of this.planeMeshes) {
-      if (entry.plane.state !== 'idle') {
-        continue
+      if (entry.plane.state !== 'idle') continue
+
+      const visualProgress = getPlaneVisualProgress(entry.plane)
+      const groundPt = sampleArcPoint(entry.plane.arc, visualProgress)
+      const liftMeters = getPlaneLiftMeters(entry.plane.distanceMeters, visualProgress)
+
+      let sx: number
+      let sy: number
+
+      // Project the actual elevated 3D world position through the last-frame VP matrix.
+      // camera.projectionMatrix holds MapLibre's combined view-projection matrix from
+      // the most recent render call — valid at click time since the viewport is static.
+      if (this.projection && canvasW > 0 && canvasH > 0) {
+        const elevatedPt: FlightArcPoint = {
+          ...groundPt,
+          altitudeMeters: groundPt.altitudeMeters + liftMeters,
+        }
+        const world = worldPointFromArcPoint(elevatedPt, this.projection)
+        const clip = new THREE.Vector4(world.x, world.y, world.z, 1)
+          .applyMatrix4(this.camera.projectionMatrix)
+
+        if (Math.abs(clip.w) > 1e-6 && Number.isFinite(clip.w)) {
+          sx = ((clip.x / clip.w) * 0.5 + 0.5) * canvasW
+          sy = (1 - ((clip.y / clip.w) * 0.5 + 0.5)) * canvasH
+        } else {
+          // Degenerate clip: fall back to ground-level map projection
+          const p = this.map.project([groundPt.lng, groundPt.lat])
+          sx = p.x
+          sy = p.y
+        }
+      } else {
+        const p = this.map.project([groundPt.lng, groundPt.lat])
+        sx = p.x
+        sy = p.y
       }
 
-      const projectedPoint = this.projectWorldPointToScreen(entry.mesh.position)
-
-      if (!projectedPoint) {
-        continue
-      }
-
-      const dx = projectedPoint.x - event.point.x
-      const dy = projectedPoint.y - event.point.y
-      const distanceSquared = dx * dx + dy * dy
-
-      if (distanceSquared > closestDistanceSquared) {
-        continue
-      }
-
+      const dx = sx - event.point.x
+      const dy = sy - event.point.y
+      const distSq = dx * dx + dy * dy
+      if (distSq >= closestDistanceSquared) continue
       closestEntry = entry
-      closestDistanceSquared = distanceSquared
+      closestDistanceSquared = distSq
     }
 
-    if (!closestEntry) {
-      return
-    }
+    if (!closestEntry) return
 
     closestEntry.plane.state = 'flying'
     closestEntry.plane.progress = closestEntry.plane.parkedProgress

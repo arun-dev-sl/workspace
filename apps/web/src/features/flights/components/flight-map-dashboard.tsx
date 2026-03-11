@@ -155,55 +155,74 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
       id: HEATMAP_LAYER_ID,
       type: "heatmap",
       source: AIRPORT_SOURCE_ID,
-      maxzoom: 7,
       paint: {
         "heatmap-weight": [
           "interpolate",
           ["linear"],
           ["get", "visits"],
           1,
-          0.35,
+          0.4,
           12,
-          1.45,
+          1,
         ],
+
         "heatmap-intensity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           0,
-          1.5 * settings.heatmapIntensity,
+          1.6 * settings.heatmapIntensity,
           7,
-          3 * settings.heatmapIntensity,
+          2.2 * settings.heatmapIntensity,
+          12,
+          2.5 * settings.heatmapIntensity,
         ],
-        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 0, 28, 7, 64],
+
+        "heatmap-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          0,
+          24,
+          7,
+          56,
+          12,
+          72,
+        ],
+
         "heatmap-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
           0,
-          0.92,
-          8,
-          0.32,
+          0.95,
+          7,
+          0.85,
+          12,
+          0.55,
         ],
+
         "heatmap-color": [
           "interpolate",
           ["linear"],
           ["heatmap-density"],
           0,
-          "rgba(29, 78, 216, 0.08)",
-          0.2,
-          "rgba(59, 130, 246, 0.5)",
-          0.45,
-          "rgba(14, 165, 233, 0.72)",
-          0.7,
-          "rgba(34, 197, 94, 0.82)",
+          "rgba(59,130,246,0.12)",
+          0.25,
+          "rgba(59,130,246,0.45)",
+          0.5,
+          "rgba(14,165,233,0.65)",
+          0.75,
+          "rgba(34,197,94,0.8)",
           1,
-          "rgba(249, 115, 22, 0.95)",
+          "rgba(249,115,22,0.9)",
         ],
       },
     },
     beforeId,
   );
+
+  // Uncomment to add airport overview circles back in the airports
 
   addLayerIfMissing(
     map,
@@ -211,22 +230,37 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
       id: AIRPORT_OVERVIEW_LAYER_ID,
       type: "circle",
       source: AIRPORT_SOURCE_ID,
-      minzoom: 2,
-      maxzoom: AIRPORT_MIN_ZOOM + 0.2,
+      minzoom: 6,
+      maxzoom: AIRPORT_MIN_ZOOM + 10,
       paint: {
         "circle-radius": [
           "interpolate",
           ["linear"],
+          ["zoom"],
+          6,
+          ["interpolate", ["linear"], ["get", "visits"], 1, 4, 12, 10],
+          10,
+          ["interpolate", ["linear"], ["get", "visits"], 1, 8, 12, 20],
+        ],
+        "circle-color": [
+          "interpolate",
+          ["linear"],
           ["get", "visits"],
           1,
-          8,
-          12,
+          "#fed7aa", // light orange
+          5,
+          "#fb923c",
+          10,
+          "#f97316",
           20,
+          "#ea580c",
+          40,
+          "#c2410c",
         ],
-        "circle-color": "#f97316",
-        "circle-opacity": 0.98,
-        "circle-stroke-color": "#fff7ed",
-        "circle-stroke-width": 2,
+
+        "circle-opacity": 0.95,
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 1.5,
       },
     },
     beforeId,
@@ -408,6 +442,7 @@ function applySettingsToMap(
   sceneController.setSettings({
     showMarkers: settings.showMarkers,
     showRoutes: settings.showRoutes,
+    showHeatmap3d: settings.heatmap3d,
     glowTint: settings.routeColor,
   });
 
@@ -497,6 +532,17 @@ function MapControlsInline({
           />
           <Label htmlFor="toggle-heatmap" className="text-xs cursor-pointer">
             Heatmap
+          </Label>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Switch
+            id="toggle-heatmap3d"
+            checked={settings.heatmap3d}
+            onCheckedChange={(value) => onChange({ heatmap3d: value })}
+            className="scale-75"
+          />
+          <Label htmlFor="toggle-heatmap3d" className="text-xs cursor-pointer">
+            3D Heat
           </Label>
         </div>
         <div className="flex items-center gap-1.5">
@@ -676,6 +722,7 @@ function MapControlsPopover({
           {(
             [
               { key: "showHeatmap", label: "Heatmap" },
+              { key: "heatmap3d", label: "3D Heatmap" },
               { key: "showRoutes", label: "Routes" },
               { key: "showMarkers", label: "Markers" },
               { key: "showLabels", label: "Labels" },
@@ -1013,6 +1060,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
     applySettingsToMap(map, settings, sceneControllerRef.current);
   }, [
     settings.showHeatmap,
+    settings.heatmap3d,
     settings.showRoutes,
     settings.showMarkers,
     settings.showLabels,
@@ -1123,6 +1171,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
                   satellite, and control overlays without losing route state.
                 </p>
               </div>
+
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
                   {mapQuery.data.airports.length} airports

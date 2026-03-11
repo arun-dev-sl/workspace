@@ -1,7 +1,7 @@
 import type { FlightMap } from '@workspace/domain'
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl'
 
-export type MapStyleName = 'satellite' | 'light' | 'dark' | 'voyager'
+export type MapStyleName = 'satellite' | 'light' | 'dark' | 'voyager' | 'streets' | 'topo'
 export type MapProjection = 'mercator' | 'globe'
 
 export interface MapSettings {
@@ -9,6 +9,7 @@ export interface MapSettings {
   projection: MapProjection
   terrainEnabled: boolean
   showHeatmap: boolean
+  heatmap3d: boolean
   showRoutes: boolean
   showMarkers: boolean
   showLabels: boolean
@@ -29,6 +30,8 @@ export const MAP_STYLE_OPTIONS: { value: MapStyleName, label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
   { value: 'voyager', label: 'Voyager' },
+  { value: 'streets', label: 'Streets' },
+  { value: 'topo', label: 'Topo' },
 ]
 
 export const DEFAULT_SETTINGS: MapSettings = {
@@ -36,7 +39,8 @@ export const DEFAULT_SETTINGS: MapSettings = {
   projection: 'mercator',
   terrainEnabled: false,
   showHeatmap: true,
-  showRoutes: true,
+  heatmap3d: false,
+  showRoutes: false,
   showMarkers: true,
   showLabels: true,
   routeColor: '#ef4444',
@@ -171,6 +175,12 @@ export function getMapStyle(settings: MapSettings): StyleSpecification | string 
     }
     case 'voyager': {
       return 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json'
+    }
+    case 'streets': {
+      return 'https://api.maptiler.com/maps/streets/style.json?key=cB2ulVaz4uLJFwOe9W7G'
+    }
+    case 'topo': {
+      return 'https://api.maptiler.com/maps/topo/style.json?key=cB2ulVaz4uLJFwOe9W7G'
     }
   }
 }
