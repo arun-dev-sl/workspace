@@ -30,21 +30,55 @@ const MobileNavItems = ({ onSelect }: { onSelect: () => void }) => {
   return (
     <>
       {navItems.map((item) => {
-        const isActive = location.pathname.includes(item.href);
+        const isActive =
+          location.pathname === item.href ||
+          location.pathname.startsWith(`${item.href}/`) ||
+          item.children?.some(
+            (child) =>
+              location.pathname === child.href ||
+              location.pathname.startsWith(`${child.href}/`),
+          );
         const Icon = item.icon;
         return (
-          <button
-            key={item.href}
-            onClick={() => handleSelect(item.href)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-colors ${
-              isActive
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
-            }`}
-          >
-            <Icon className="size-5" />
-            <span className="font-medium">{item.label}</span>
-          </button>
+          <div key={item.href} className="flex flex-col gap-2">
+            <button
+              onClick={() => handleSelect(item.href)}
+              className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors ${
+                isActive
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+              }`}
+            >
+              <Icon className="size-5" />
+              <span className="font-medium">{item.label}</span>
+            </button>
+
+            {item.children ? (
+              <div className="ml-4 flex flex-col gap-1 border-l border-border/60 pl-4">
+                {item.children.map((child) => {
+                  const ChildIcon = child.icon;
+                  const isChildActive =
+                    location.pathname === child.href ||
+                    location.pathname.startsWith(`${child.href}/`);
+
+                  return (
+                    <button
+                      key={child.href}
+                      onClick={() => handleSelect(child.href)}
+                      className={`flex items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition-colors ${
+                        isChildActive
+                          ? "bg-secondary text-foreground"
+                          : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                      }`}
+                    >
+                      <ChildIcon className="size-4" />
+                      <span className="font-medium">{child.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         );
       })}
     </>

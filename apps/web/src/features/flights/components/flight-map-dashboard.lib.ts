@@ -12,6 +12,7 @@ export interface MapSettings {
   heatmap3d: boolean
   showRoutes: boolean
   showMarkers: boolean
+  showHotels: boolean
   showLabels: boolean
   routeColor: string
   heatmapIntensity: number
@@ -40,8 +41,9 @@ export const DEFAULT_SETTINGS: MapSettings = {
   terrainEnabled: false,
   showHeatmap: true,
   heatmap3d: false,
-  showRoutes: false,
+  showRoutes: true,
   showMarkers: true,
+  showHotels: false,
   showLabels: true,
   routeColor: '#ef4444',
   heatmapIntensity: 1,

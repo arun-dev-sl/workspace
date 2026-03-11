@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { format, parseISO } from "date-fns";
 import maplibregl from "maplibre-gl/dist/maplibre-gl-csp";
 import maplibreglWorkerUrl from "maplibre-gl/dist/maplibre-gl-csp-worker.js?url";
 import {
   Globe2,
   MapPinned,
+  Pause,
   Palette,
+  Play,
   Route,
   Settings2,
+  SkipBack,
+  SkipForward,
   Sparkles,
 } from "lucide-react";
 
 import { useFlightMap } from "@/features/flights/api/flights";
+import { useAllHotelStays } from "@/features/hotels/api/hotels";
 import {
   AIRPORT_MIN_ZOOM,
   FLIGHT_SCENE_LAYER_ID,
@@ -24,7 +30,6 @@ import {
   STORAGE_KEY,
   TERRAIN_HILLSHADE_LAYER_ID,
   buildAirportFeatureCollection,
-  buildRouteFeatureCollection,
   getBaseLabelLayerIds,
   getMapStyle,
   getOverlayAnchorId,
@@ -65,7 +70,7 @@ import {
   ToggleGroupItem,
 } from "@workspace/ui/components/ui/toggle-group";
 
-import type { FlightMap } from "@workspace/domain";
+import type { FlightMap, HotelStay } from "@workspace/domain";
 import type { LayerSpecification } from "maplibre-gl";
 
 maplibregl.setWorkerUrl(maplibreglWorkerUrl);
@@ -76,6 +81,13 @@ const HEATMAP_LAYER_ID = "flight-map-heatmap";
 const AIRPORT_OVERVIEW_LAYER_ID = "flight-map-airports-overview";
 const AIRPORT_HIT_LAYER_ID = "flight-map-airports-hit";
 const AIRPORT_LABEL_LAYER_ID = "flight-map-airports-labels";
+const ROUTE_HIT_LAYER_ID = "flight-map-routes-hit";
+const ACTIVE_ROUTE_SOURCE_ID = "flight-map-active-route";
+const ACTIVE_ROUTE_LAYER_ID = "flight-map-active-route-line";
+const HOTEL_SOURCE_ID = "flight-map-hotels";
+const HOTEL_LAYER_ID = "flight-map-hotels-circle";
+const HOTEL_HIT_LAYER_ID = "flight-map-hotels-hit";
+const HOTEL_LABEL_LAYER_ID = "flight-map-hotels-labels";
 const AIRPORT_LAYER_ID = AIRPORT_OVERVIEW_LAYER_ID;
 const ROUTE_GLOW_LAYER_ID = FLIGHT_SCENE_LAYER_ID;
 const ROUTE_LINE_LAYER_ID = FLIGHT_SCENE_LAYER_ID;
@@ -86,11 +98,336 @@ const CUSTOM_LAYER_IDS = [
   AIRPORT_OVERVIEW_LAYER_ID,
   AIRPORT_HIT_LAYER_ID,
   AIRPORT_LABEL_LAYER_ID,
+  ROUTE_HIT_LAYER_ID,
+  ACTIVE_ROUTE_LAYER_ID,
+  HOTEL_LAYER_ID,
+  HOTEL_HIT_LAYER_ID,
+  HOTEL_LABEL_LAYER_ID,
   FLIGHT_SCENE_LAYER_ID,
 ];
 
+type RouteScope = "all" | "domestic" | "international";
+
+interface AirportHoverStat {
+  airlines: string[];
+  connectedRoutes: number;
+  lastYear: string | null;
+}
+
+interface RouteHoverStat {
+  airlines: string[];
+  count: number;
+  distanceKm: number;
+  routeType: RouteScope | "unknown";
+  years: string[];
+}
+
+interface RouteOption {
+  count: number;
+  key: string;
+  label: string;
+}
+
+interface HotelHoverStat {
+  city: string | null;
+  country: string | null;
+  nights: number | null;
+  checkInDate: string | null;
+  checkOutDate: string | null;
+  pricingCurrency: string | null;
+  pricingTotal: number | null;
+}
+
 function formatDistance(value: number) {
   return `${value.toLocaleString()} km`;
+}
+
+function formatPlaybackDate(value: string) {
+  try {
+    return format(parseISO(value), "MMM d, yyyy");
+  } catch {
+    return value;
+  }
+}
+
+function formatStayDate(value: string | null) {
+  if (!value) {
+    return "Unknown";
+  }
+
+  try {
+    return format(parseISO(value), "MMM d, yyyy");
+  } catch {
+    return value;
+  }
+}
+
+function createEmptyFeatureCollection() {
+  return { type: "FeatureCollection" as const, features: [] };
+}
+
+function buildHotelFeatureCollection(hotels: HotelStay[]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: hotels
+      .filter(
+        (hotel): hotel is HotelStay & { lat: number; lng: number } =>
+          hotel.lat !== null && hotel.lng !== null,
+      )
+      .map((hotel) => ({
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [hotel.lng, hotel.lat],
+        },
+        properties: {
+          id: hotel.id,
+          hotelName: hotel.hotelName,
+          city: hotel.city ?? "Unknown city",
+          country: hotel.country ?? "Unknown country",
+          checkInDate: hotel.checkInDate,
+          checkOutDate: hotel.checkOutDate,
+          nights: hotel.nights,
+          pricingCurrency: hotel.pricing.currency,
+          pricingTotal: hotel.pricing.total,
+        },
+      })),
+  };
+}
+
+function getRouteKey(from: string, to: string) {
+  return `${from}:${to}`;
+}
+
+function formatAirlineList(values: string[]) {
+  if (values.length === 0) return "Unknown";
+  if (values.length <= 2) return values.join(", ");
+  return `${values.slice(0, 2).join(", ")} +${values.length - 2}`;
+}
+
+function formatYearList(values: string[]) {
+  if (values.length === 0) return "Unknown";
+  if (values.length <= 3) return values.join(", ");
+  return `${values.slice(0, 3).join(", ")} +${values.length - 3}`;
+}
+
+function getFlightRouteType(
+  flight: FlightMap["flights"][number],
+  airportCountryByIata: Map<string, string>,
+): RouteScope | "unknown" {
+  const fromCountry = airportCountryByIata.get(flight.from);
+  const toCountry = airportCountryByIata.get(flight.to);
+
+  if (!fromCountry || !toCountry) {
+    return "unknown";
+  }
+
+  return fromCountry === toCountry ? "domestic" : "international";
+}
+
+function buildDerivedMapData(data: FlightMap, flights: FlightMap["flights"]) {
+  if (flights.length === 0) {
+    return {
+      airports: [],
+      routes: [],
+      flights: [],
+      summary: {
+        totalFlights: 0,
+        totalDistanceKm: 0,
+        citiesVisited: 0,
+        countriesVisited: 0,
+      },
+    } satisfies FlightMap;
+  }
+
+  const airportMeta = new Map(
+    data.airports.map((airport) => [airport.iata, airport]),
+  );
+  const routeMeta = new Map<string, FlightMap["routes"][number]>(
+    data.routes.map(
+      (route) => [getRouteKey(route.from, route.to), route] as const,
+    ),
+  );
+  const airportCounts = new Map<string, number>();
+  const citySet = new Set<string>();
+  const countrySet = new Set<string>();
+  const routeCounts = new Map<string, FlightMap["routes"][number]>();
+  let totalDistanceKm = 0;
+
+  for (const flight of flights) {
+    totalDistanceKm += haversineDistanceKm(
+      flight.fromLat,
+      flight.fromLng,
+      flight.toLat,
+      flight.toLng,
+    );
+
+    airportCounts.set(flight.from, (airportCounts.get(flight.from) ?? 0) + 1);
+    airportCounts.set(flight.to, (airportCounts.get(flight.to) ?? 0) + 1);
+
+    const fromAirport = airportMeta.get(flight.from);
+    const toAirport = airportMeta.get(flight.to);
+    if (fromAirport?.city) citySet.add(fromAirport.city);
+    if (toAirport?.city) citySet.add(toAirport.city);
+    if (fromAirport?.country) countrySet.add(fromAirport.country);
+    if (toAirport?.country) countrySet.add(toAirport.country);
+
+    const routeKey = getRouteKey(flight.from, flight.to);
+    const existingRoute = routeCounts.get(routeKey);
+    if (existingRoute) {
+      existingRoute.count += 1;
+      continue;
+    }
+
+    const baseRoute = routeMeta.get(routeKey);
+    routeCounts.set(routeKey, {
+      from: flight.from,
+      to: flight.to,
+      fromLat: baseRoute?.fromLat ?? flight.fromLat,
+      fromLng: baseRoute?.fromLng ?? flight.fromLng,
+      toLat: baseRoute?.toLat ?? flight.toLat,
+      toLng: baseRoute?.toLng ?? flight.toLng,
+      count: 1,
+      path: baseRoute?.path ?? [
+        [flight.fromLng, flight.fromLat],
+        [flight.toLng, flight.toLat],
+      ],
+    });
+  }
+
+  const airports = Array.from(airportCounts.entries()).map(([iata, visits]) => {
+    const airport = airportMeta.get(iata);
+    const matchingFlight = flights.find(
+      (flight) => flight.from === iata || flight.to === iata,
+    );
+
+    return {
+      iata,
+      lat:
+        airport?.lat ??
+        (matchingFlight?.from === iata
+          ? matchingFlight.fromLat
+          : (matchingFlight?.toLat ?? 0)),
+      lng:
+        airport?.lng ??
+        (matchingFlight?.from === iata
+          ? matchingFlight.fromLng
+          : (matchingFlight?.toLng ?? 0)),
+      city: airport?.city ?? null,
+      country: airport?.country ?? null,
+      timezone: airport?.timezone ?? null,
+      visits,
+    };
+  });
+
+  return {
+    airports,
+    routes: Array.from(routeCounts.values()),
+    flights,
+    summary: {
+      totalFlights: flights.length,
+      totalDistanceKm: Math.round(totalDistanceKm),
+      citiesVisited: citySet.size,
+      countriesVisited: countrySet.size,
+    },
+  } satisfies FlightMap;
+}
+
+function haversineDistanceKm(
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
+) {
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLng = toRadians(toLng - fromLng);
+  const originLat = toRadians(fromLat);
+  const destinationLat = toRadians(toLat);
+
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(originLat) *
+      Math.cos(destinationLat) *
+      Math.sin(deltaLng / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusKm * c;
+}
+
+function buildPlaybackMapData(
+  data: FlightMap,
+  flights: FlightMap["flights"],
+  activeIndex: number,
+): FlightMap {
+  return buildDerivedMapData(data, flights.slice(0, activeIndex + 1));
+}
+
+function buildInteractiveRouteFeatureCollection(
+  data: FlightMap,
+  routeStats: Map<string, RouteHoverStat>,
+) {
+  return {
+    type: "FeatureCollection" as const,
+    features: data.routes.map((route) => {
+      const routeKey = getRouteKey(route.from, route.to);
+      const stat = routeStats.get(routeKey);
+
+      return {
+        type: "Feature" as const,
+        geometry: {
+          type: "LineString" as const,
+          coordinates: route.path,
+        },
+        properties: {
+          from: route.from,
+          to: route.to,
+          count: route.count,
+          distanceKm: stat?.distanceKm ?? 0,
+          airlines: formatAirlineList(stat?.airlines ?? []),
+          routeType: stat?.routeType ?? "unknown",
+          years: formatYearList(stat?.years ?? []),
+        },
+      };
+    }),
+  };
+}
+
+function buildActiveRouteFeatureCollection(
+  activeFlight: FlightMap["flights"][number] | null,
+  data: FlightMap,
+) {
+  if (!activeFlight) {
+    return createEmptyFeatureCollection();
+  }
+
+  const route = data.routes.find(
+    (entry) => entry.from === activeFlight.from && entry.to === activeFlight.to,
+  );
+
+  return {
+    type: "FeatureCollection" as const,
+    features: [
+      {
+        type: "Feature" as const,
+        geometry: {
+          type: "LineString" as const,
+          coordinates: route?.path ?? [
+            [activeFlight.fromLng, activeFlight.fromLat],
+            [activeFlight.toLng, activeFlight.toLat],
+          ],
+        },
+        properties: {
+          from: activeFlight.from,
+          to: activeFlight.to,
+          airline: activeFlight.airline,
+          date: activeFlight.date,
+          flightNumber: activeFlight.flightNumber ?? "",
+        },
+      },
+    ],
+  };
 }
 
 function hasVisibleSize(element: HTMLElement) {
@@ -106,7 +443,7 @@ function MapSkeleton() {
           <Skeleton key={index} className="h-28" />
         ))}
       </div>
-      <Skeleton className="h-[560px] w-full rounded-3xl" />
+      <Skeleton className="h-140 w-full rounded-3xl" />
     </div>
   );
 }
@@ -128,6 +465,20 @@ function ensureMapSources(map: maplibregl.Map) {
     map.addSource(ROUTE_SOURCE_ID, {
       type: "geojson",
       data: { type: "FeatureCollection", features: [] },
+    });
+  }
+
+  if (!map.getSource(ACTIVE_ROUTE_SOURCE_ID)) {
+    map.addSource(ACTIVE_ROUTE_SOURCE_ID, {
+      type: "geojson",
+      data: createEmptyFeatureCollection(),
+    });
+  }
+
+  if (!map.getSource(HOTEL_SOURCE_ID)) {
+    map.addSource(HOTEL_SOURCE_ID, {
+      type: "geojson",
+      data: createEmptyFeatureCollection(),
     });
   }
 }
@@ -323,6 +674,134 @@ function ensureMapLayers(map: maplibregl.Map, settings: MapSettings) {
     },
     beforeId,
   );
+
+  addLayerIfMissing(
+    map,
+    {
+      id: ROUTE_HIT_LAYER_ID,
+      type: "line",
+      source: ROUTE_SOURCE_ID,
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
+      },
+      paint: {
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          1,
+          12,
+          6,
+          18,
+          10,
+          28,
+        ],
+        "line-opacity": 0,
+      },
+    },
+    beforeId,
+  );
+
+  addLayerIfMissing(
+    map,
+    {
+      id: ACTIVE_ROUTE_LAYER_ID,
+      type: "line",
+      source: ACTIVE_ROUTE_SOURCE_ID,
+      layout: {
+        "line-cap": "round",
+        "line-join": "round",
+      },
+      paint: {
+        "line-color": "#f8fafc",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 1, 3, 6, 5, 10, 8],
+        "line-opacity": 0.96,
+        "line-blur": 0.2,
+      },
+    },
+    beforeId,
+  );
+
+  addLayerIfMissing(
+    map,
+    {
+      id: HOTEL_LAYER_ID,
+      type: "circle",
+      source: HOTEL_SOURCE_ID,
+      minzoom: 2,
+      paint: {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          2,
+          5,
+          6,
+          7,
+          10,
+          10,
+        ],
+        "circle-color": "#f97316",
+        "circle-opacity": 0.95,
+        "circle-stroke-color": "#fff7ed",
+        "circle-stroke-width": 1.5,
+      },
+    },
+    beforeId,
+  );
+
+  addLayerIfMissing(
+    map,
+    {
+      id: HOTEL_HIT_LAYER_ID,
+      type: "circle",
+      source: HOTEL_SOURCE_ID,
+      minzoom: 2,
+      paint: {
+        "circle-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          2,
+          14,
+          6,
+          18,
+          10,
+          24,
+        ],
+        "circle-color": "#f97316",
+        "circle-opacity": 0,
+        "circle-stroke-opacity": 0,
+      },
+    },
+    beforeId,
+  );
+
+  addLayerIfMissing(
+    map,
+    {
+      id: HOTEL_LABEL_LAYER_ID,
+      type: "symbol",
+      source: HOTEL_SOURCE_ID,
+      minzoom: Math.max(0, AIRPORT_MIN_ZOOM - 0.2),
+      layout: {
+        "text-field": ["get", "hotelName"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 10, 8, 12],
+        "text-line-height": 1.1,
+        "text-letter-spacing": 0.02,
+        "text-offset": [0, 1.1],
+        "text-anchor": "top",
+        "text-font": ["Open Sans Semibold", "Arial Unicode MS Regular"],
+      },
+      paint: {
+        "text-color": "#fff7ed",
+        "text-halo-color": "rgba(67, 20, 7, 0.92)",
+        "text-halo-width": 1.2,
+      },
+    },
+    beforeId,
+  );
 }
 
 function ensureFlightSceneLayer(
@@ -339,6 +818,9 @@ function ensureFlightSceneLayer(
 function updateMapData(
   map: maplibregl.Map,
   data: FlightMap,
+  hotels: HotelStay[],
+  activeFlight: FlightMap["flights"][number] | null,
+  routeStats: Map<string, RouteHoverStat>,
   sceneController: FlightMap3DLayerController,
 ) {
   const airportSource = map.getSource(AIRPORT_SOURCE_ID) as
@@ -347,20 +829,50 @@ function updateMapData(
   const routeSource = map.getSource(ROUTE_SOURCE_ID) as
     | maplibregl.GeoJSONSource
     | undefined;
+  const activeRouteSource = map.getSource(ACTIVE_ROUTE_SOURCE_ID) as
+    | maplibregl.GeoJSONSource
+    | undefined;
+  const hotelSource = map.getSource(HOTEL_SOURCE_ID) as
+    | maplibregl.GeoJSONSource
+    | undefined;
 
   airportSource?.setData(buildAirportFeatureCollection(data));
-  routeSource?.setData(buildRouteFeatureCollection(data));
+  routeSource?.setData(
+    buildInteractiveRouteFeatureCollection(data, routeStats),
+  );
+  hotelSource?.setData(buildHotelFeatureCollection(hotels));
+  activeRouteSource?.setData(
+    buildActiveRouteFeatureCollection(activeFlight, data),
+  );
   sceneController.setData(data);
 }
 
-function fitMapToAirports(map: maplibregl.Map, data: FlightMap) {
-  if (data.airports.length === 0) {
+function fitMapToPoints(
+  map: maplibregl.Map,
+  data: FlightMap,
+  hotels: HotelStay[],
+  includeHotels: boolean,
+) {
+  const coordinates: [number, number][] = data.airports.map((airport) => [
+    airport.lng,
+    airport.lat,
+  ]);
+
+  if (includeHotels) {
+    for (const hotel of hotels) {
+      if (hotel.lat !== null && hotel.lng !== null) {
+        coordinates.push([hotel.lng, hotel.lat]);
+      }
+    }
+  }
+
+  if (coordinates.length === 0) {
     return;
   }
 
-  if (data.airports.length === 1) {
+  if (coordinates.length === 1) {
     map.flyTo({
-      center: [data.airports[0].lng, data.airports[0].lat],
+      center: coordinates[0],
       zoom: 4,
       pitch: DEFAULT_MAP_PITCH,
       bearing: DEFAULT_MAP_BEARING,
@@ -370,8 +882,8 @@ function fitMapToAirports(map: maplibregl.Map, data: FlightMap) {
   }
 
   const bounds = new maplibregl.LngLatBounds();
-  for (const airport of data.airports) {
-    bounds.extend([airport.lng, airport.lat]);
+  for (const coordinate of coordinates) {
+    bounds.extend(coordinate);
   }
 
   map.fitBounds(bounds, {
@@ -387,6 +899,7 @@ function applySettingsToMap(
   map: maplibregl.Map,
   settings: MapSettings,
   sceneController: FlightMap3DLayerController,
+  showActiveRouteHighlight = false,
 ) {
   const setVis = (id: string, visible: boolean) => {
     if (map.getLayer(id)) {
@@ -398,6 +911,14 @@ function applySettingsToMap(
   setVis(AIRPORT_OVERVIEW_LAYER_ID, true);
   setVis(AIRPORT_HIT_LAYER_ID, true);
   setVis(AIRPORT_LABEL_LAYER_ID, settings.showLabels);
+  setVis(HOTEL_LAYER_ID, settings.showHotels);
+  setVis(HOTEL_HIT_LAYER_ID, settings.showHotels);
+  setVis(HOTEL_LABEL_LAYER_ID, settings.showHotels && settings.showLabels);
+  setVis(ROUTE_HIT_LAYER_ID, settings.showRoutes);
+  setVis(
+    ACTIVE_ROUTE_LAYER_ID,
+    showActiveRouteHighlight && !settings.showRoutes,
+  );
 
   const labelLayerIds = getBaseLabelLayerIds(
     map.getStyle().layers as LayerSpecification[] | undefined,
@@ -482,7 +1003,7 @@ function MapControlsInline({
             onChange({ mapStyle: value as MapStyleName })
           }
         >
-          <SelectTrigger className="h-7 w-[110px] text-xs">
+          <SelectTrigger className="h-7 w-27.5 text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -565,6 +1086,17 @@ function MapControlsInline({
           />
           <Label htmlFor="toggle-markers" className="text-xs cursor-pointer">
             Markers
+          </Label>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Switch
+            id="toggle-hotels"
+            checked={settings.showHotels}
+            onCheckedChange={(value) => onChange({ showHotels: value })}
+            className="scale-75"
+          />
+          <Label htmlFor="toggle-hotels" className="text-xs cursor-pointer">
+            Hotels
           </Label>
         </div>
         <div className="flex items-center gap-1.5">
@@ -725,6 +1257,7 @@ function MapControlsPopover({
               { key: "heatmap3d", label: "3D Heatmap" },
               { key: "showRoutes", label: "Routes" },
               { key: "showMarkers", label: "Markers" },
+              { key: "showHotels", label: "Hotels" },
               { key: "showLabels", label: "Labels" },
               { key: "terrainEnabled", label: "Terrain" },
             ] as { key: keyof MapSettings; label: string }[]
@@ -803,27 +1336,676 @@ function MapControlsPopover({
   );
 }
 
+function TimelinePlaybackControls({
+  activeFlight,
+  currentIndex,
+  enabled,
+  isPlaying,
+  onEnabledChange,
+  onPlayPause,
+  onReset,
+  onStep,
+  onValueChange,
+  setSpeed,
+  speed,
+  totalFlights,
+}: {
+  activeFlight: FlightMap["flights"][number] | null;
+  currentIndex: number;
+  enabled: boolean;
+  isPlaying: boolean;
+  onEnabledChange: (value: boolean) => void;
+  onPlayPause: () => void;
+  onReset: () => void;
+  onStep: (direction: -1 | 1) => void;
+  onValueChange: (nextIndex: number) => void;
+  setSpeed: (value: number) => void;
+  speed: number;
+  totalFlights: number;
+}) {
+  const disabled = totalFlights <= 1;
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <Switch
+              id="toggle-timeline-playback"
+              checked={enabled}
+              onCheckedChange={onEnabledChange}
+              disabled={disabled}
+              className="scale-75"
+            />
+            <Label
+              htmlFor="toggle-timeline-playback"
+              className="cursor-pointer text-xs"
+            >
+              Timeline Playback
+            </Label>
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {enabled
+              ? `${currentIndex + 1} / ${totalFlights}`
+              : `${totalFlights} flights`}
+          </Badge>
+        </div>
+
+        {enabled ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onReset}
+              disabled={currentIndex === 0}
+              aria-label="Reset timeline"
+            >
+              <SkipBack className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onStep(-1)}
+              disabled={currentIndex === 0}
+              aria-label="Previous flight"
+            >
+              <SkipBack className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={onPlayPause}
+              disabled={disabled}
+              aria-label={isPlaying ? "Pause timeline" : "Play timeline"}
+            >
+              {isPlaying ? (
+                <Pause className="mr-2 h-4 w-4" />
+              ) : (
+                <Play className="mr-2 h-4 w-4" />
+              )}
+              {isPlaying ? "Pause" : "Play"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => onStep(1)}
+              disabled={currentIndex >= totalFlights - 1}
+              aria-label="Next flight"
+            >
+              <SkipForward className="h-4 w-4" />
+            </Button>
+            <ToggleGroup
+              type="single"
+              value={String(speed)}
+              onValueChange={(value) => {
+                if (!value) {
+                  return;
+                }
+                setSpeed(Number(value));
+              }}
+              className="gap-1"
+            >
+              {[1, 2, 4].map((value) => (
+                <ToggleGroupItem
+                  key={value}
+                  value={String(value)}
+                  className="h-8 px-2.5 text-xs"
+                >
+                  {value}x
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        ) : null}
+      </div>
+
+      {enabled ? (
+        <>
+          <div className="flex items-center gap-3">
+            <Slider
+              min={0}
+              max={Math.max(totalFlights - 1, 0)}
+              step={1}
+              value={[currentIndex]}
+              onValueChange={([value]) => onValueChange(value)}
+              className="flex-1"
+            />
+            <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
+              {currentIndex + 1}
+            </span>
+          </div>
+          <div className="rounded-lg bg-background/80 px-3 py-2 text-sm text-muted-foreground">
+            {activeFlight ? (
+              <>
+                <span className="font-medium text-foreground">
+                  {activeFlight.from} → {activeFlight.to}
+                </span>
+                <span className="mx-2">•</span>
+                <span>{activeFlight.airline}</span>
+                {activeFlight.flightNumber ? (
+                  <>
+                    <span className="mx-2">•</span>
+                    <span>{activeFlight.flightNumber}</span>
+                  </>
+                ) : null}
+                <span className="mx-2">•</span>
+                <span>{formatPlaybackDate(activeFlight.date)}</span>
+              </>
+            ) : (
+              "Turn on playback to scrub through your trips in chronological order."
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Turn on playback to replay your trips in chronological order and
+          highlight one active flight at a time.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function FlightInteractionControls({
+  airlineOptions,
+  routeOptions,
+  routeScope,
+  selectedAirline,
+  selectedRoute,
+  selectedYear,
+  topRoutesOnly,
+  yearOptions,
+  onAirlineChange,
+  onRouteChange,
+  onRouteScopeChange,
+  onTopRoutesChange,
+  onYearChange,
+}: {
+  airlineOptions: string[];
+  routeOptions: RouteOption[];
+  routeScope: RouteScope;
+  selectedAirline: string;
+  selectedRoute: string;
+  selectedYear: string;
+  topRoutesOnly: boolean;
+  yearOptions: string[];
+  onAirlineChange: (value: string) => void;
+  onRouteChange: (value: string) => void;
+  onRouteScopeChange: (value: RouteScope) => void;
+  onTopRoutesChange: (value: boolean) => void;
+  onYearChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+      <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-center">
+        <div className="flex items-center gap-2">
+          <Label className="w-16 text-xs text-muted-foreground">Airline</Label>
+          <Select value={selectedAirline} onValueChange={onAirlineChange}>
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">
+                All airlines
+              </SelectItem>
+              {airlineOptions.map((airline) => (
+                <SelectItem key={airline} value={airline} className="text-xs">
+                  {airline}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label className="w-16 text-xs text-muted-foreground">Year</Label>
+          <Select value={selectedYear} onValueChange={onYearChange}>
+            <SelectTrigger className="h-8 w-36 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">
+                All years
+              </SelectItem>
+              {yearOptions.map((year) => (
+                <SelectItem key={year} value={year} className="text-xs">
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label className="w-16 text-xs text-muted-foreground">Type</Label>
+          <ToggleGroup
+            type="single"
+            value={routeScope}
+            onValueChange={(value) => {
+              if (
+                value === "all" ||
+                value === "domestic" ||
+                value === "international"
+              ) {
+                onRouteScopeChange(value);
+              }
+            }}
+            className="gap-1"
+          >
+            <ToggleGroupItem value="all" className="h-8 px-2.5 text-xs">
+              All
+            </ToggleGroupItem>
+            <ToggleGroupItem value="domestic" className="h-8 px-2.5 text-xs">
+              Domestic
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="international"
+              className="h-8 px-2.5 text-xs"
+            >
+              International
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Label className="w-16 text-xs text-muted-foreground">Route</Label>
+          <Select value={selectedRoute} onValueChange={onRouteChange}>
+            <SelectTrigger className="h-8 w-52 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all" className="text-xs">
+                All routes
+              </SelectItem>
+              {routeOptions.map((route) => (
+                <SelectItem
+                  key={route.key}
+                  value={route.key}
+                  className="text-xs"
+                >
+                  {route.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Switch
+            id="toggle-top-routes"
+            checked={topRoutesOnly}
+            onCheckedChange={onTopRoutesChange}
+            className="scale-75"
+          />
+          <Label htmlFor="toggle-top-routes" className="cursor-pointer text-xs">
+            Top 10 routes only
+          </Label>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export interface FlightMapDashboardProps {
   isActive: boolean;
 }
 
 export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
   const mapQuery = useFlightMap();
+  const hotelsQuery = useAllHotelStays();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const sceneControllerRef = useRef<FlightMap3DLayerController | null>(null);
   const hasFittedRef = useRef(false);
   const latestDataRef = useRef<FlightMap | null>(null);
+  const latestActiveFlightRef = useRef<FlightMap["flights"][number] | null>(
+    null,
+  );
+  const latestAirportStatsRef = useRef<Map<string, AirportHoverStat>>(
+    new Map(),
+  );
+  const latestRouteStatsRef = useRef<Map<string, RouteHoverStat>>(new Map());
+  const latestHotelsRef = useRef<HotelStay[]>([]);
+  const latestHotelStatsRef = useRef<Map<string, HotelHoverStat>>(new Map());
   const settingsRef = useRef<MapSettings>(DEFAULT_SETTINGS);
   const baseStyleKeyRef = useRef<string | null>(null);
 
   const [settings, setSettings] = useState<MapSettings>(loadSettings);
+  const [isPlaybackEnabled, setIsPlaybackEnabled] = useState(false);
+  const [playbackIndex, setPlaybackIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [selectedAirline, setSelectedAirline] = useState("all");
+  const [selectedYear, setSelectedYear] = useState("all");
+  const [selectedRoute, setSelectedRoute] = useState("all");
+  const [routeScope, setRouteScope] = useState<RouteScope>("all");
+  const [topRoutesOnly, setTopRoutesOnly] = useState(false);
+
+  const sortedFlights = useMemo(() => {
+    if (!mapQuery.data) {
+      return [] as FlightMap["flights"];
+    }
+
+    return [...mapQuery.data.flights].sort((left, right) => {
+      const byDate = left.date.localeCompare(right.date);
+      if (byDate !== 0) return byDate;
+      const byFrom = left.from.localeCompare(right.from);
+      if (byFrom !== 0) return byFrom;
+      return left.to.localeCompare(right.to);
+    });
+  }, [mapQuery.data]);
+
+  const airportCountryByIata = useMemo(() => {
+    if (!mapQuery.data) {
+      return new Map<string, string>();
+    }
+
+    return new Map(
+      mapQuery.data.airports
+        .filter((airport) => Boolean(airport.country))
+        .map((airport) => [airport.iata, airport.country ?? ""] as const),
+    );
+  }, [mapQuery.data]);
+
+  const airlineOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          sortedFlights
+            .map((flight) => flight.airline?.trim())
+            .filter((value): value is string => Boolean(value)),
+        ),
+      ).sort((left, right) => left.localeCompare(right)),
+    [sortedFlights],
+  );
+
+  const yearOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(sortedFlights.map((flight) => flight.date.slice(0, 4))),
+      ).sort((left, right) => right.localeCompare(left)),
+    [sortedFlights],
+  );
+
+  const scopedFlights = useMemo(() => {
+    return sortedFlights.filter((flight) => {
+      if (selectedAirline !== "all" && flight.airline !== selectedAirline) {
+        return false;
+      }
+
+      if (selectedYear !== "all" && !flight.date.startsWith(selectedYear)) {
+        return false;
+      }
+
+      if (routeScope !== "all") {
+        const flightRouteType = getFlightRouteType(
+          flight,
+          airportCountryByIata,
+        );
+        if (flightRouteType !== routeScope) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    airportCountryByIata,
+    routeScope,
+    selectedAirline,
+    selectedYear,
+    sortedFlights,
+  ]);
+
+  const routeOptions = useMemo(() => {
+    const routeCounts = new Map<string, number>();
+
+    for (const flight of scopedFlights) {
+      const routeKey = getRouteKey(flight.from, flight.to);
+      routeCounts.set(routeKey, (routeCounts.get(routeKey) ?? 0) + 1);
+    }
+
+    return Array.from(routeCounts.entries())
+      .map(([key, count]) => {
+        const [from, to] = key.split(":");
+        return {
+          key,
+          count,
+          label: `${from} → ${to} (${count})`,
+        } satisfies RouteOption;
+      })
+      .sort(
+        (left, right) =>
+          right.count - left.count || left.label.localeCompare(right.label),
+      );
+  }, [scopedFlights]);
+
+  const filteredFlights = useMemo(() => {
+    let nextFlights = scopedFlights;
+
+    if (selectedRoute !== "all") {
+      nextFlights = nextFlights.filter(
+        (flight) => getRouteKey(flight.from, flight.to) === selectedRoute,
+      );
+    }
+
+    if (topRoutesOnly) {
+      const topRouteKeys = new Set(
+        routeOptions.slice(0, 10).map((route) => route.key),
+      );
+      nextFlights = nextFlights.filter((flight) =>
+        topRouteKeys.has(getRouteKey(flight.from, flight.to)),
+      );
+    }
+
+    return nextFlights;
+  }, [routeOptions, scopedFlights, selectedRoute, topRoutesOnly]);
+
+  const boundedPlaybackIndex = Math.min(
+    playbackIndex,
+    Math.max(filteredFlights.length - 1, 0),
+  );
+
+  const filteredBaseData = useMemo(() => {
+    if (!mapQuery.data) {
+      return null;
+    }
+
+    return buildDerivedMapData(mapQuery.data, filteredFlights);
+  }, [filteredFlights, mapQuery.data]);
+
+  const displayData = useMemo(() => {
+    if (!mapQuery.data) {
+      return null;
+    }
+
+    if (!isPlaybackEnabled) {
+      return filteredBaseData;
+    }
+
+    return buildPlaybackMapData(
+      mapQuery.data,
+      filteredFlights,
+      boundedPlaybackIndex,
+    );
+  }, [
+    boundedPlaybackIndex,
+    filteredBaseData,
+    filteredFlights,
+    isPlaybackEnabled,
+    mapQuery.data,
+  ]);
+
+  const activeFlight = useMemo(() => {
+    if (!isPlaybackEnabled) {
+      return null;
+    }
+
+    return filteredFlights[boundedPlaybackIndex] ?? null;
+  }, [boundedPlaybackIndex, filteredFlights, isPlaybackEnabled]);
+
+  const airportHoverStats = useMemo(() => {
+    if (!displayData) {
+      return new Map<string, AirportHoverStat>();
+    }
+
+    const routeSetByAirport = new Map<string, Set<string>>();
+    const airlinesByAirport = new Map<string, Set<string>>();
+    const lastYearByAirport = new Map<string, string>();
+
+    for (const flight of displayData.flights) {
+      const routeKey = getRouteKey(flight.from, flight.to);
+
+      for (const iata of [flight.from, flight.to]) {
+        const routeSet = routeSetByAirport.get(iata) ?? new Set<string>();
+        routeSet.add(routeKey);
+        routeSetByAirport.set(iata, routeSet);
+
+        const airlineSet = airlinesByAirport.get(iata) ?? new Set<string>();
+        if (flight.airline) {
+          airlineSet.add(flight.airline);
+        }
+        airlinesByAirport.set(iata, airlineSet);
+
+        const year = flight.date.slice(0, 4);
+        const currentLastYear = lastYearByAirport.get(iata);
+        if (!currentLastYear || year > currentLastYear) {
+          lastYearByAirport.set(iata, year);
+        }
+      }
+    }
+
+    return new Map(
+      displayData.airports.map((airport) => [
+        airport.iata,
+        {
+          airlines: Array.from(airlinesByAirport.get(airport.iata) ?? []).sort(
+            (left, right) => left.localeCompare(right),
+          ),
+          connectedRoutes: (routeSetByAirport.get(airport.iata) ?? new Set())
+            .size,
+          lastYear: lastYearByAirport.get(airport.iata) ?? null,
+        } satisfies AirportHoverStat,
+      ]),
+    );
+  }, [displayData]);
+
+  const routeHoverStats = useMemo(() => {
+    if (!displayData) {
+      return new Map<string, RouteHoverStat>();
+    }
+
+    const routeMeta = new Map(
+      displayData.routes.map(
+        (route) => [getRouteKey(route.from, route.to), route] as const,
+      ),
+    );
+    const airlinesByRoute = new Map<string, Set<string>>();
+    const yearsByRoute = new Map<string, Set<string>>();
+
+    for (const flight of displayData.flights) {
+      const routeKey = getRouteKey(flight.from, flight.to);
+      const airlineSet = airlinesByRoute.get(routeKey) ?? new Set<string>();
+      if (flight.airline) {
+        airlineSet.add(flight.airline);
+      }
+      airlinesByRoute.set(routeKey, airlineSet);
+
+      const yearSet = yearsByRoute.get(routeKey) ?? new Set<string>();
+      yearSet.add(flight.date.slice(0, 4));
+      yearsByRoute.set(routeKey, yearSet);
+    }
+
+    return new Map(
+      displayData.routes.map((route) => {
+        const routeKey = getRouteKey(route.from, route.to);
+        const meta = routeMeta.get(routeKey) ?? route;
+        return [
+          routeKey,
+          {
+            airlines: Array.from(airlinesByRoute.get(routeKey) ?? []).sort(
+              (left, right) => left.localeCompare(right),
+            ),
+            count: route.count,
+            distanceKm: Math.round(
+              haversineDistanceKm(
+                meta.fromLat,
+                meta.fromLng,
+                meta.toLat,
+                meta.toLng,
+              ),
+            ),
+            routeType: getFlightRouteType(
+              {
+                from: route.from,
+                to: route.to,
+                fromLat: meta.fromLat,
+                fromLng: meta.fromLng,
+                toLat: meta.toLat,
+                toLng: meta.toLng,
+                airline: "",
+                date: "",
+                flightNumber: null,
+              },
+              airportCountryByIata,
+            ),
+            years: Array.from(yearsByRoute.get(routeKey) ?? []).sort(),
+          } satisfies RouteHoverStat,
+        ] as const;
+      }),
+    );
+  }, [airportCountryByIata, displayData]);
+
+  const hotelMarkers = useMemo(
+    () =>
+      (hotelsQuery.data?.data ?? []).filter(
+        (hotel): hotel is HotelStay & { lat: number; lng: number } =>
+          hotel.lat !== null && hotel.lng !== null,
+      ),
+    [hotelsQuery.data?.data],
+  );
+
+  const hotelHoverStats = useMemo(
+    () =>
+      new Map(
+        hotelMarkers.map((hotel) => [
+          hotel.id,
+          {
+            city: hotel.city,
+            country: hotel.country,
+            nights: hotel.nights,
+            checkInDate: hotel.checkInDate,
+            checkOutDate: hotel.checkOutDate,
+            pricingCurrency: hotel.pricing.currency,
+            pricingTotal: hotel.pricing.total,
+          } satisfies HotelHoverStat,
+        ]),
+      ),
+    [hotelMarkers],
+  );
 
   settingsRef.current = settings;
-  latestDataRef.current = mapQuery.data ?? null;
+  latestDataRef.current = displayData;
+  latestActiveFlightRef.current = activeFlight;
+  latestAirportStatsRef.current = airportHoverStats;
+  latestRouteStatsRef.current = routeHoverStats;
+  latestHotelsRef.current = hotelMarkers;
+  latestHotelStatsRef.current = hotelHoverStats;
 
   const baseStyleKey = `${settings.mapStyle}:${settings.terrainEnabled ? "terrain" : "flat"}`;
+  const hasActiveFilters =
+    selectedAirline !== "all" ||
+    selectedYear !== "all" ||
+    selectedRoute !== "all" ||
+    routeScope !== "all" ||
+    topRoutesOnly;
 
   const handleSettingsChange = useCallback((patch: Partial<MapSettings>) => {
     setSettings((previous) => {
@@ -832,6 +2014,50 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
       return next;
     });
   }, []);
+
+  const handlePlaybackEnabledChange = useCallback((enabled: boolean) => {
+    setIsPlaybackEnabled(enabled);
+    setIsPlaying(false);
+    setPlaybackIndex(enabled ? 0 : 0);
+  }, []);
+
+  useEffect(() => {
+    if (
+      selectedAirline !== "all" &&
+      !airlineOptions.includes(selectedAirline)
+    ) {
+      setSelectedAirline("all");
+    }
+  }, [airlineOptions, selectedAirline]);
+
+  useEffect(() => {
+    if (selectedYear !== "all" && !yearOptions.includes(selectedYear)) {
+      setSelectedYear("all");
+    }
+  }, [selectedYear, yearOptions]);
+
+  useEffect(() => {
+    if (
+      selectedRoute !== "all" &&
+      !routeOptions.some((route) => route.key === selectedRoute)
+    ) {
+      setSelectedRoute("all");
+    }
+  }, [routeOptions, selectedRoute]);
+
+  const handlePlaybackStep = useCallback(
+    (direction: -1 | 1) => {
+      setIsPlaying(false);
+      setPlaybackIndex((previous) => {
+        const next = previous + direction;
+        return Math.max(
+          0,
+          Math.min(next, Math.max(filteredFlights.length - 1, 0)),
+        );
+      });
+    },
+    [filteredFlights.length],
+  );
 
   const syncMapPresentation = useCallback(
     (fitToData: boolean) => {
@@ -848,17 +2074,39 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
         sceneControllerRef.current = new FlightMap3DLayerController();
       }
       ensureFlightSceneLayer(map, sceneControllerRef.current);
-      applySettingsToMap(map, currentSettings, sceneControllerRef.current);
+      applySettingsToMap(
+        map,
+        currentSettings,
+        sceneControllerRef.current,
+        Boolean(latestActiveFlightRef.current),
+      );
 
       if (!data) {
         return;
       }
 
-      updateMapData(map, data, sceneControllerRef.current);
-      applySettingsToMap(map, currentSettings, sceneControllerRef.current);
+      updateMapData(
+        map,
+        data,
+        latestHotelsRef.current,
+        latestActiveFlightRef.current,
+        latestRouteStatsRef.current,
+        sceneControllerRef.current,
+      );
+      applySettingsToMap(
+        map,
+        currentSettings,
+        sceneControllerRef.current,
+        Boolean(latestActiveFlightRef.current),
+      );
 
       if (fitToData && !hasFittedRef.current && isActive) {
-        fitMapToAirports(map, data);
+        fitMapToPoints(
+          map,
+          data,
+          latestHotelsRef.current,
+          currentSettings.showHotels,
+        );
         hasFittedRef.current = true;
       }
 
@@ -867,35 +2115,83 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
         map.triggerRepaint();
       });
     },
-    [isActive, mapQuery.data],
+    [isActive],
   );
 
   const summaryCards = useMemo(() => {
-    if (!mapQuery.data) {
+    if (!displayData) {
       return [];
     }
 
     return [
       {
         title: "Distance Flown",
-        value: formatDistance(mapQuery.data.summary.totalDistanceKm),
-        description: "Backend-calculated across mapped routes",
+        value: formatDistance(displayData.summary.totalDistanceKm),
+        description: isPlaybackEnabled
+          ? "Visible timeline slice"
+          : hasActiveFilters
+            ? "Across the current filtered selection"
+            : "Across all mapped routes",
         icon: Globe2,
       },
       {
         title: "Cities Reached",
-        value: mapQuery.data.summary.citiesVisited.toLocaleString(),
-        description: "Unique airport cities across your history",
+        value: displayData.summary.citiesVisited.toLocaleString(),
+        description: isPlaybackEnabled
+          ? "Visible during playback"
+          : hasActiveFilters
+            ? "Unique cities in the current filter"
+            : "Unique airport cities across your history",
         icon: MapPinned,
       },
       {
         title: "Routes Visualized",
-        value: mapQuery.data.routes.length.toLocaleString(),
-        description: `${mapQuery.data.summary.totalFlights.toLocaleString()} mapped flights`,
+        value: displayData.routes.length.toLocaleString(),
+        description: `${displayData.summary.totalFlights.toLocaleString()} mapped flights`,
         icon: Route,
       },
     ];
-  }, [mapQuery.data]);
+  }, [displayData, hasActiveFilters, isPlaybackEnabled]);
+
+  useEffect(() => {
+    hasFittedRef.current = false;
+  }, [routeScope, selectedAirline, selectedRoute, selectedYear, topRoutesOnly]);
+
+  useEffect(() => {
+    if (!isPlaybackEnabled || !isPlaying || filteredFlights.length <= 1) {
+      return;
+    }
+
+    const intervalId = window.setInterval(
+      () => {
+        setPlaybackIndex((previous) => {
+          if (previous >= filteredFlights.length - 1) {
+            setIsPlaying(false);
+            return previous;
+          }
+          return previous + 1;
+        });
+      },
+      Math.max(350, 1600 / playbackSpeed),
+    );
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [filteredFlights.length, isPlaybackEnabled, isPlaying, playbackSpeed]);
+
+  useEffect(() => {
+    if (filteredFlights.length === 0) {
+      setPlaybackIndex(0);
+      setIsPlaying(false);
+      setIsPlaybackEnabled(false);
+      return;
+    }
+
+    setPlaybackIndex((previous) =>
+      Math.min(previous, filteredFlights.length - 1),
+    );
+  }, [filteredFlights.length]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -1001,17 +2297,113 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
               visits?: number | string;
             }
           | undefined;
+        const airportStat = properties?.iata
+          ? latestAirportStatsRef.current.get(properties.iata)
+          : undefined;
 
         popupRef.current
           ?.setLngLat(coordinates)
           .setHTML(
-            `<div class="space-y-1"><div class="text-sm font-semibold">${properties?.iata ?? "Unknown"}</div><div class="text-xs text-muted-foreground">${properties?.city ?? "Unknown city"}, ${properties?.country ?? "Unknown country"}</div><div class="text-xs font-medium">Visits: ${properties?.visits ?? 0}</div></div>`,
+            `<div class="space-y-1.5"><div class="text-sm font-semibold">${properties?.iata ?? "Unknown"}</div><div class="text-xs text-muted-foreground">${properties?.city ?? "Unknown city"}, ${properties?.country ?? "Unknown country"}</div><div class="text-xs font-medium">Visits: ${properties?.visits ?? 0}</div><div class="text-xs text-muted-foreground">Routes: ${airportStat?.connectedRoutes ?? 0}</div><div class="text-xs text-muted-foreground">Airlines: ${formatAirlineList(airportStat?.airlines ?? [])}</div><div class="text-xs text-muted-foreground">Last active: ${airportStat?.lastYear ?? "Unknown"}</div></div>`,
+          )
+          .addTo(map);
+      },
+    );
+
+    map.on(
+      "mouseenter",
+      ROUTE_HIT_LAYER_ID,
+      (event: maplibregl.MapLayerMouseEvent) => {
+        map.getCanvas().style.cursor = "pointer";
+        const feature = event.features?.[0];
+        if (!feature || feature.geometry.type !== "LineString") {
+          return;
+        }
+
+        const coordinates = feature.geometry.coordinates;
+        const midpoint = coordinates[
+          Math.max(Math.floor(coordinates.length / 2), 0)
+        ] as [number, number] | undefined;
+        if (!midpoint) {
+          return;
+        }
+
+        const properties = feature.properties as
+          | {
+              from?: string;
+              to?: string;
+            }
+          | undefined;
+        const routeKey = getRouteKey(
+          properties?.from ?? "",
+          properties?.to ?? "",
+        );
+        const routeStat = latestRouteStatsRef.current.get(routeKey);
+
+        popupRef.current
+          ?.setLngLat(midpoint)
+          .setHTML(
+            `<div class="space-y-1.5"><div class="text-sm font-semibold">${properties?.from ?? "Unknown"} → ${properties?.to ?? "Unknown"}</div><div class="text-xs text-muted-foreground">Flights: ${routeStat?.count ?? 0}</div><div class="text-xs text-muted-foreground">Distance: ${routeStat?.distanceKm?.toLocaleString?.() ?? 0} km</div><div class="text-xs text-muted-foreground">Type: ${routeStat?.routeType ?? "unknown"}</div><div class="text-xs text-muted-foreground">Airlines: ${formatAirlineList(routeStat?.airlines ?? [])}</div><div class="text-xs text-muted-foreground">Years: ${formatYearList(routeStat?.years ?? [])}</div></div>`,
+          )
+          .addTo(map);
+      },
+    );
+
+    map.on(
+      "mouseenter",
+      HOTEL_HIT_LAYER_ID,
+      (event: maplibregl.MapLayerMouseEvent) => {
+        map.getCanvas().style.cursor = "pointer";
+        const feature = event.features?.[0];
+        if (!feature || feature.geometry.type !== "Point") {
+          return;
+        }
+
+        const coordinates = [...feature.geometry.coordinates] as [
+          number,
+          number,
+        ];
+        const properties = feature.properties as
+          | {
+              id?: string;
+              hotelName?: string;
+              city?: string;
+              country?: string;
+            }
+          | undefined;
+        const hotelStat = properties?.id
+          ? latestHotelStatsRef.current.get(properties.id)
+          : undefined;
+        const stayDates =
+          hotelStat?.checkInDate || hotelStat?.checkOutDate
+            ? `${formatStayDate(hotelStat?.checkInDate ?? null)} → ${formatStayDate(hotelStat?.checkOutDate ?? null)}`
+            : "Dates not captured";
+        const pricing =
+          hotelStat?.pricingTotal !== null &&
+          hotelStat?.pricingTotal !== undefined
+            ? `${hotelStat.pricingCurrency ?? "Currency unknown"} ${hotelStat.pricingTotal}`
+            : "Pricing not captured";
+
+        popupRef.current
+          ?.setLngLat(coordinates)
+          .setHTML(
+            `<div class="space-y-1.5"><div class="text-sm font-semibold">${properties?.hotelName ?? "Unknown hotel"}</div><div class="text-xs text-muted-foreground">${properties?.city ?? hotelStat?.city ?? "Unknown city"}, ${properties?.country ?? hotelStat?.country ?? "Unknown country"}</div><div class="text-xs font-medium">${stayDates}</div><div class="text-xs text-muted-foreground">Nights: ${hotelStat?.nights ?? "Unknown"}</div><div class="text-xs text-muted-foreground">${pricing}</div></div>`,
           )
           .addTo(map);
       },
     );
 
     map.on("mouseleave", AIRPORT_HIT_LAYER_ID, () => {
+      map.getCanvas().style.cursor = "";
+      popupRef.current?.remove();
+    });
+
+    map.on("mouseleave", ROUTE_HIT_LAYER_ID, () => {
+      map.getCanvas().style.cursor = "";
+      popupRef.current?.remove();
+    });
+
+    map.on("mouseleave", HOTEL_HIT_LAYER_ID, () => {
       map.getCanvas().style.cursor = "";
       popupRef.current?.remove();
     });
@@ -1026,7 +2418,7 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
       hasFittedRef.current = false;
       baseStyleKeyRef.current = null;
     };
-  }, [isActive, mapQuery.data, syncMapPresentation]);
+  }, [baseStyleKey, isActive, syncMapPresentation]);
 
   useEffect(() => {
     if (!isActive || !mapRef.current) {
@@ -1040,12 +2432,12 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
   }, [isActive, syncMapPresentation]);
 
   useEffect(() => {
-    if (!mapQuery.data || !mapRef.current || !mapRef.current.isStyleLoaded()) {
+    if (!displayData || !mapRef.current || !mapRef.current.isStyleLoaded()) {
       return;
     }
 
     syncMapPresentation(true);
-  }, [mapQuery.data, syncMapPresentation]);
+  }, [displayData, activeFlight, hotelMarkers, syncMapPresentation]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1057,16 +2449,23 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
       return;
     }
 
-    applySettingsToMap(map, settings, sceneControllerRef.current);
+    applySettingsToMap(
+      map,
+      settings,
+      sceneControllerRef.current,
+      Boolean(activeFlight),
+    );
   }, [
     settings.showHeatmap,
     settings.heatmap3d,
     settings.showRoutes,
     settings.showMarkers,
+    settings.showHotels,
     settings.showLabels,
     settings.routeColor,
     settings.heatmapIntensity,
     settings.projection,
+    activeFlight,
   ]);
 
   useEffect(() => {
@@ -1130,10 +2529,9 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
           Interactive route visualization
         </h2>
         <p className="max-w-3xl text-sm text-muted-foreground">
-          You have flown {formatDistance(mapQuery.data.summary.totalDistanceKm)}{" "}
-          across {mapQuery.data.summary.citiesVisited.toLocaleString()} cities
-          and {mapQuery.data.summary.countriesVisited.toLocaleString()}{" "}
-          countries.
+          {hasActiveFilters && displayData
+            ? `Current filters show ${formatDistance(displayData.summary.totalDistanceKm)} across ${displayData.summary.citiesVisited.toLocaleString()} cities and ${displayData.summary.countriesVisited.toLocaleString()} countries.`
+            : `You have flown ${formatDistance(mapQuery.data.summary.totalDistanceKm)} across ${mapQuery.data.summary.citiesVisited.toLocaleString()} cities and ${mapQuery.data.summary.countriesVisited.toLocaleString()} countries.`}
         </p>
       </div>
 
@@ -1169,16 +2567,32 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
                 <p className="mt-1 text-sm text-muted-foreground">
                   Switch between flat and globe projection, enable terrain on
                   satellite, and control overlays without losing route state.
+                  Hotel pins stay hidden until you enable them.
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  {mapQuery.data.airports.length} airports
+                  {displayData?.airports.length ?? 0} airports
                 </Badge>
                 <Badge variant="outline" className="text-xs">
-                  {mapQuery.data.routes.length} routes
+                  {displayData?.routes.length ?? 0} routes
                 </Badge>
+                {settings.showHotels ? (
+                  <Badge variant="outline" className="text-xs">
+                    {hotelMarkers.length} hotels
+                  </Badge>
+                ) : null}
+                {isPlaybackEnabled ? (
+                  <Badge variant="outline" className="text-xs">
+                    Playback
+                  </Badge>
+                ) : null}
+                {hasActiveFilters ? (
+                  <Badge variant="outline" className="text-xs">
+                    Filtered
+                  </Badge>
+                ) : null}
                 <Badge variant="outline" className="text-xs">
                   {settings.projection === "globe" ? "Globe" : "Flat"}
                 </Badge>
@@ -1201,12 +2615,70 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
                 onChange={handleSettingsChange}
               />
             </div>
+            <FlightInteractionControls
+              airlineOptions={airlineOptions}
+              routeOptions={routeOptions}
+              routeScope={routeScope}
+              selectedAirline={selectedAirline}
+              selectedRoute={selectedRoute}
+              selectedYear={selectedYear}
+              topRoutesOnly={topRoutesOnly}
+              yearOptions={yearOptions}
+              onAirlineChange={(value) => {
+                setSelectedAirline(value);
+                setSelectedRoute("all");
+              }}
+              onRouteChange={setSelectedRoute}
+              onRouteScopeChange={(value) => {
+                setRouteScope(value);
+                setSelectedRoute("all");
+              }}
+              onTopRoutesChange={setTopRoutesOnly}
+              onYearChange={(value) => {
+                setSelectedYear(value);
+                setSelectedRoute("all");
+              }}
+            />
+            {filteredFlights.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No flights match the current filters. Clear a filter to bring
+                routes back into view.
+              </p>
+            ) : null}
+            <TimelinePlaybackControls
+              activeFlight={activeFlight}
+              currentIndex={boundedPlaybackIndex}
+              enabled={isPlaybackEnabled}
+              isPlaying={isPlaying}
+              onEnabledChange={handlePlaybackEnabledChange}
+              onPlayPause={() => {
+                if (!isPlaybackEnabled) {
+                  setIsPlaybackEnabled(true);
+                }
+                if (boundedPlaybackIndex >= filteredFlights.length - 1) {
+                  setPlaybackIndex(0);
+                }
+                setIsPlaying((previous) => !previous);
+              }}
+              onReset={() => {
+                setIsPlaying(false);
+                setPlaybackIndex(0);
+              }}
+              onStep={handlePlaybackStep}
+              onValueChange={(nextIndex) => {
+                setIsPlaying(false);
+                setPlaybackIndex(nextIndex);
+              }}
+              setSpeed={setPlaybackSpeed}
+              speed={playbackSpeed}
+              totalFlights={filteredFlights.length}
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">
           <div
             ref={containerRef}
-            className="h-[560px] w-full"
+            className="h-140 w-full"
             data-map-active={isActive ? "true" : "false"}
           />
         </CardContent>
@@ -1221,6 +2693,9 @@ export {
   AIRPORT_LABEL_LAYER_ID,
   AIRPORT_OVERVIEW_LAYER_ID,
   HEATMAP_LAYER_ID,
+  HOTEL_HIT_LAYER_ID,
+  HOTEL_LABEL_LAYER_ID,
+  HOTEL_LAYER_ID,
   ROUTE_GLOW_LAYER_ID,
   ROUTE_LINE_LAYER_ID,
   STORAGE_KEY,

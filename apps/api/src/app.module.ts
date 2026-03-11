@@ -24,6 +24,7 @@ import { DividendsModule } from '@/modules/dividends/dividends.module'
 import { ExpensesModule } from '@/modules/expenses/expenses.module'
 import { FlightsModule } from '@/modules/flights/flights.module'
 import { HoldingsModule } from '@/modules/holdings/holdings.module'
+import { HotelsModule } from '@/modules/hotels/hotels.module'
 import { PlaygroundModule } from '@/modules/playground/playground.module'
 import { PrincipalModule } from '@/modules/principal/principal.module'
 import { TodoModule } from '@/modules/todo/todo.module'
@@ -77,6 +78,7 @@ import type { NestModule, MiddlewareConsumer } from '@nestjs/common'
     AuthModule, // Auth module (authentication + DDD example)
     ExpensesModule, // Expenses module (email parsing + finance data)
     FlightsModule, // Flights module (travel email extraction)
+    HotelsModule, // Hotels module (hotel stays + review queue)
     HoldingsModule, // Holdings module (investment portfolio management)
     DividendsModule, // Dividends module (dividend income tracking + analytics)
     PrincipalModule, // Principal module (principal investment tracking)

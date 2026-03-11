@@ -118,4 +118,28 @@ export default [
       ],
     },
   },
+  // Allow hotels module to depend on auth and expenses module plumbing
+  {
+    files: ['src/modules/hotels/**/*.ts'],
+    rules: {
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            {
+              from: ['module'],
+              allow: [
+                'app',
+                'shared-kernel',
+                ['module', { moduleName: 'hotels' }],
+                ['module', { moduleName: 'auth' }],
+                ['module', { moduleName: 'expenses' }],
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]

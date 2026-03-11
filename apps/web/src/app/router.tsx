@@ -14,6 +14,7 @@ import PatternsPage from "@/pages/expenses/patterns";
 import HoldingsPage from "@/pages/holdings";
 import DividendsPage from "@/pages/dividends";
 import FlightsPage from "@/pages/flights";
+import HotelsPage from "@/pages/hotels";
 import PlaygroundPage from "@/pages/playground";
 
 const router = createBrowserRouter([
@@ -101,6 +102,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <FlightsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "hotels",
+        element: (
+          <ProtectedRoute>
+            <HotelsPage />
           </ProtectedRoute>
         ),
       },

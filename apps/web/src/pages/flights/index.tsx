@@ -25,6 +25,7 @@ import { FlightActivityEditorSheet } from "@/features/flights/components/flight-
 import { FlightAnalyticsDashboard } from "@/features/flights/components/flight-analytics-dashboard";
 import { FlightMapDashboard } from "@/features/flights/components/flight-map-dashboard";
 import { FlightLlmReviewSheet } from "@/features/flights/components/flight-llm-review-sheet";
+import { HotelsPageContent } from "@/pages/hotels";
 import {
   formatFlightExtractionMethodHistory,
   getLatestFlightExtractionMethod,
@@ -414,7 +415,7 @@ export default function FlightsPage() {
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <h1 className="text-2xl font-semibold text-foreground">
-                  Flight Activity
+                  Flight and Hotels Activity
                 </h1>
                 <Badge variant="outline" className="gap-1">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -422,8 +423,8 @@ export default function FlightsPage() {
                 </Badge>
               </div>
               <p className="max-w-xl text-sm text-muted-foreground">
-                Review extracted itineraries, trigger syncs, and correct flight
-                records when automated extraction needs help.
+                Review extracted itineraries and hotel stays, trigger syncs, and
+                correct travel records when automated extraction needs help.
               </p>
             </div>
 
@@ -488,6 +489,7 @@ export default function FlightsPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="w-full overflow-x-auto">
             <TabsTrigger value="flights">Flights</TabsTrigger>
+            <TabsTrigger value="hotels">Hotels</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="map">Map</TabsTrigger>
           </TabsList>
@@ -801,6 +803,10 @@ export default function FlightsPage() {
 
           <TabsContent value="analytics" className="mt-4">
             <FlightAnalyticsDashboard />
+          </TabsContent>
+
+          <TabsContent value="hotels" className="mt-4">
+            <HotelsPageContent />
           </TabsContent>
 
           <TabsContent value="map" className="mt-4">
