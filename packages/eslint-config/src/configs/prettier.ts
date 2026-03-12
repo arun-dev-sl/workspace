@@ -1,5 +1,5 @@
 import { defineConfig } from 'eslint/config'
-import prettierConfig from 'eslint-plugin-prettier/recommended'
+import eslintConfigPrettier from 'eslint-config-prettier'
 
 import { GLOB_SRC } from '../utils'
 
@@ -24,8 +24,11 @@ export function prettier(options: PrettierOptions = {}): Linter.Config[] {
     {
       name: 'prettier/rules',
       files,
-      extends: [prettierConfig],
-      rules: overrides,
+      ...eslintConfigPrettier,
+      rules: {
+        ...eslintConfigPrettier.rules,
+        ...overrides,
+      },
     },
   ])
 }

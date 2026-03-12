@@ -233,7 +233,7 @@ function sampleArcPoint(arc: FlightArcPoint[], progress: number) {
   }
 
   if (progress >= 1) {
-    return arc.at(-1) ?? arc[0]
+    return arc[arc.length - 1] ?? arc[0]
   }
 
   const scaledIndex = progress * (arc.length - 1)

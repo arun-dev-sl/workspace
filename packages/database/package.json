@@ -25,6 +25,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.schemas.json",
     "dev": "tsc -p tsconfig.schemas.json --watch",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "check-types": "tsc --noEmit",

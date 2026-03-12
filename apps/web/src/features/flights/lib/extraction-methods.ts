@@ -40,8 +40,8 @@ export function getLatestFlightExtractionMethod(
   if (methods.length === 0) {
     return null
   }
-  // @ts-ignore
-  return methods.at(-1) ?? null
+
+  return methods[methods.length - 1] ?? null
 }
 
 export function hasFlightExtractionMethod(
