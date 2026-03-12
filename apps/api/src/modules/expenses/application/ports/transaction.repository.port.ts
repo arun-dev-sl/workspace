@@ -52,6 +52,12 @@ export interface TransactionRepository {
     filters?: TransactionFilters
   }): Promise<Transaction[]>
   countByUser(userId: string, filters?: TransactionFilters): Promise<number>
+  listByUserCursor(params: {
+    userId: string
+    pageSize: number
+    cursor?: string
+    filters?: TransactionFilters
+  }): Promise<{ data: Transaction[], nextCursor?: string, hasMore: boolean }>
   listByUserMonth(params: {
     userId: string
     year: number

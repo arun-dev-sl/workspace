@@ -16,17 +16,20 @@ import {
 import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiQuery } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 
+import { ZodValidationPipe } from '@/app/pipes/zod-validation.pipe'
 import { JwtAuthGuard } from '@/modules/auth/presentation/guards/jwt-auth.guard'
 import { ExpensesService } from '@/modules/expenses/application/services/expenses.service'
 import { GmailOAuthService } from '@/modules/expenses/application/services/gmail-oauth.service'
 import { BulkCategorizeDto } from '@/modules/expenses/presentation/dtos/bulk-categorize.dto'
 import { BulkUpdateTransactionsDto } from '@/modules/expenses/presentation/dtos/bulk-update-transactions.dto'
+import { ListExpensesCursorSchema } from '@/modules/expenses/presentation/dtos/expenses.schema'
 import { ListExpenseEmailsDto } from '@/modules/expenses/presentation/dtos/list-expense-emails.dto'
 import { ListExpensesDto } from '@/modules/expenses/presentation/dtos/list-expenses.dto'
 import { SyncExpensesDto } from '@/modules/expenses/presentation/dtos/sync-expenses.dto'
 import { UpdateTransactionDto } from '@/modules/expenses/presentation/dtos/update-transaction.dto'
-import { OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
+import { ListResponseDto, OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
 
+import type { ListExpensesCursorInput } from '@/modules/expenses/presentation/dtos/expenses.schema'
 import type { RawEmail, Transaction, AnalyticsPeriod } from '@workspace/domain'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
@@ -194,6 +197,40 @@ export class ExpensesController {
       page_size,
       total,
       has_more: offset + data.length < total,
+    }
+  }
+
+  @Get('transactions/cursor')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List transactions with cursor-based pagination' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns cursor-paginated expense transactions',
+  })
+  async listExpensesCursor(
+    @Request() req: FastifyRequest & { user: { id: string } },
+    @Query(new ZodValidationPipe(ListExpensesCursorSchema)) query: ListExpensesCursorInput,
+  ): Promise<ListResponseDto<Transaction>> {
+    const filters: Record<string, unknown> = {}
+    if (query.category) filters.category = query.category
+    if (query.mode) filters.mode = query.mode
+    if (query.review !== undefined) filters.requiresReview = query.review === 'true'
+    if (query.from) filters.dateFrom = new Date(query.from)
+    if (query.to) filters.dateTo = new Date(query.to)
+    if (query.search) filters.search = query.search
+
+    const { data, nextCursor, hasMore } = await this.expensesService.listExpensesCursor({
+      userId: req.user.id,
+      pageSize: query.page_size,
+      cursor: query.cursor,
+      filters: Object.keys(filters).length > 0 ? filters : undefined,
+    })
+
+    return {
+      object: 'list',
+      data,
+      has_more: hasMore,
+      next_cursor: nextCursor,
     }
   }
 

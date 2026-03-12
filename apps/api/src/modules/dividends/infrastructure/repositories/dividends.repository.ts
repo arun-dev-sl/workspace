@@ -39,6 +39,8 @@ export class DividendsRepository implements DividendsRepositoryPort {
       .orderBy(desc(dividendsTable.exDate))
   }
 
+  private static readonly UPSERT_BATCH_SIZE = 250
+
   async upsertMany(
     userId: string,
     entries: {
@@ -52,23 +54,31 @@ export class DividendsRepository implements DividendsRepositoryPort {
       reportPeriodTo: string | null
     }[],
   ): Promise<{ imported: number, updated: number }> {
+    if (entries.length === 0) {
+      return { imported: 0, updated: 0 }
+    }
+
     let imported = 0
     let updated = 0
 
-    for (const entry of entries) {
-      const result = await this.db
+    for (let i = 0; i < entries.length; i += DividendsRepository.UPSERT_BATCH_SIZE) {
+      const chunk = entries.slice(i, i + DividendsRepository.UPSERT_BATCH_SIZE)
+
+      const results = await this.db
         .insert(dividendsTable)
-        .values({
-          userId,
-          companyName: entry.companyName,
-          isin: entry.isin,
-          exDate: entry.exDate,
-          shares: entry.shares,
-          dividendPerShare: entry.dividendPerShare,
-          amount: entry.amount,
-          reportPeriodFrom: entry.reportPeriodFrom,
-          reportPeriodTo: entry.reportPeriodTo,
-        })
+        .values(
+          chunk.map((entry) => ({
+            userId,
+            companyName: entry.companyName,
+            isin: entry.isin,
+            exDate: entry.exDate,
+            shares: entry.shares,
+            dividendPerShare: entry.dividendPerShare,
+            amount: entry.amount,
+            reportPeriodFrom: entry.reportPeriodFrom,
+            reportPeriodTo: entry.reportPeriodTo,
+          })),
+        )
         .onConflictDoUpdate({
           target: [dividendsTable.userId, dividendsTable.isin, dividendsTable.exDate],
           set: {
@@ -82,9 +92,7 @@ export class DividendsRepository implements DividendsRepositoryPort {
         })
         .returning({ id: dividendsTable.id, createdAt: dividendsTable.createdAt, updatedAt: dividendsTable.updatedAt })
 
-      if (result[0]) {
-        // If createdAt ≈ updatedAt (within 1s) it's a fresh insert, else update
-        const r = result[0]
+      for (const r of results) {
         const diff = Math.abs(new Date(r.updatedAt).getTime() - new Date(r.createdAt).getTime())
         if (diff < 1000) {
           imported++

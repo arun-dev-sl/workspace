@@ -1,15 +1,15 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 
-import { GMAIL_PROVIDER } from '@/modules/expenses/application/ports/gmail-provider.port'
-import { RAW_EMAIL_REPOSITORY } from '@/modules/expenses/application/ports/raw-email.repository.port'
-import { SYNC_JOB_REPOSITORY } from '@/modules/expenses/application/ports/sync-job.repository.port'
+import { GMAIL_PROVIDER } from '@/shared/application/ports/gmail-provider.port'
+import { RAW_EMAIL_REPOSITORY } from '@/shared/application/ports/raw-email.repository.port'
+import { SYNC_JOB_REPOSITORY } from '@/shared/application/ports/sync-job.repository.port'
 
-import type { GmailProvider } from '@/modules/expenses/application/ports/gmail-provider.port'
-import type { RawEmailRepository } from '@/modules/expenses/application/ports/raw-email.repository.port'
+import type { GmailProvider } from '@/shared/application/ports/gmail-provider.port'
+import type { RawEmailRepository } from '@/shared/application/ports/raw-email.repository.port'
 import type {
   SyncJobRepository,
   SyncJob,
-} from '@/modules/expenses/application/ports/sync-job.repository.port'
+} from '@/shared/application/ports/sync-job.repository.port'
 import type { RawEmail } from '@workspace/domain'
 
 export interface StartSyncParams {

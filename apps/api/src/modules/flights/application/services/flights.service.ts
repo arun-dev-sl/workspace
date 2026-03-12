@@ -10,12 +10,6 @@ import { ConfigService } from '@nestjs/config'
 import { format, isValid, parseISO, startOfDay } from 'date-fns'
 
 import {
-  RAW_EMAIL_REPOSITORY,
-} from '@/modules/expenses/application/ports/raw-email.repository.port'
-import {
-  SYNC_JOB_REPOSITORY,
-} from '@/modules/expenses/application/ports/sync-job.repository.port'
-import {
   FLIGHT_ACTIVITY_REPOSITORY,
 } from '@/modules/flights/application/ports/flight-activity.repository.port'
 import {
@@ -31,14 +25,20 @@ import {
   normalizeTravelClass,
 } from '@/modules/flights/infrastructure/extractors/flight-extractor.utils'
 import { FlightLlmInvocationError, HybridFlightExtractor } from '@/modules/flights/infrastructure/extractors/hybrid-flight.extractor'
+import {
+  RAW_EMAIL_REPOSITORY,
+} from '@/shared/application/ports/raw-email.repository.port'
+import {
+  SYNC_JOB_REPOSITORY,
+} from '@/shared/application/ports/sync-job.repository.port'
 import { EmailSyncService } from '@/shared/application/services/email-sync.service'
 
 import type { Env } from '@/app/config/env.schema'
-import type { RawEmailRepository } from '@/modules/expenses/application/ports/raw-email.repository.port'
-import type { SyncJob, SyncJobRepository } from '@/modules/expenses/application/ports/sync-job.repository.port'
 import type { FlightSegment } from '@/modules/flights/application/flight-extraction.schema'
 import type { FlightActivityRepository } from '@/modules/flights/application/ports/flight-activity.repository.port'
 import type { FlightEmailProcessingRepository } from '@/modules/flights/application/ports/flight-email-processing.repository.port'
+import type { RawEmailRepository } from '@/shared/application/ports/raw-email.repository.port'
+import type { SyncJob, SyncJobRepository } from '@/shared/application/ports/sync-job.repository.port'
 import type {
   FlightActivity,
   FlightActivityExtractionMethod,
@@ -257,6 +257,14 @@ export class FlightsService {
     ])
 
     return { data, total }
+  }
+
+  async listFlightActivitiesCursor(params: {
+    userId: string
+    pageSize: number
+    cursor?: string
+  }): Promise<{ data: FlightActivity[], nextCursor?: string, hasMore: boolean }> {
+    return this.flightActivityRepository.listByUserCursor(params)
   }
 
   async getFlightActivityById(params: {

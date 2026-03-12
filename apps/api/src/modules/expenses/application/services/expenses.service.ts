@@ -76,7 +76,6 @@ export class ExpensesService {
   private readonly logger = new Logger(ExpensesService.name)
   private readonly transactionCategorizer = TransactionCategorizer.getInstance()
   private readonly cardResolver = CardResolver.getInstance()
-  private readonly analyticsCache = new Map<string, { expiresAt: number, value: unknown }>()
 
   constructor(
     @Inject(EMAIL_PARSERS)
@@ -94,28 +93,28 @@ export class ExpensesService {
     private readonly emailSyncService: EmailSyncService,
   ) {}
 
-  private getCachedOrCompute<T>(key: string, compute: () => Promise<T>): Promise<T> {
-    const existing = this.analyticsCache.get(key)
-    const now = Date.now()
-    if (existing && existing.expiresAt > now) {
-      return Promise.resolve(existing.value as T)
+  private readonly analyticsCache = new Map<string, { expiresAt: number, value: unknown }>()
+
+  private async getCachedOrCompute<T>(key: string, compute: () => Promise<T>): Promise<T> {
+    const entry = this.analyticsCache.get(key)
+    if (entry && entry.expiresAt > Date.now()) {
+      return entry.value as T
     }
 
-    return compute().then((value) => {
-      this.analyticsCache.set(key, {
-        value,
-        expiresAt: now + ExpensesService.ANALYTICS_CACHE_TTL_MS,
-      })
-      return value
+    const value = await compute()
+    this.analyticsCache.set(key, {
+      expiresAt: Date.now() + ExpensesService.ANALYTICS_CACHE_TTL_MS,
+      value,
     })
+    return value
   }
 
   private cacheKey(userId: string, method: string, params: Record<string, unknown>): string {
-    return `${userId}:${method}:${JSON.stringify(params)}`
+    return `expenses:${userId}:${method}:${JSON.stringify(params)}`
   }
 
   private invalidateUserAnalyticsCache(userId: string): void {
-    const prefix = `${userId}:`
+    const prefix = `expenses:${userId}:`
     for (const key of this.analyticsCache.keys()) {
       if (key.startsWith(prefix)) {
         this.analyticsCache.delete(key)
@@ -460,6 +459,15 @@ export class ExpensesService {
       this.transactionRepository.countByUser(params.userId, params.filters),
     ])
     return { data, total }
+  }
+
+  async listExpensesCursor(params: {
+    userId: string
+    pageSize: number
+    cursor?: string
+    filters?: TransactionFilters
+  }): Promise<{ data: Transaction[], nextCursor?: string, hasMore: boolean }> {
+    return this.transactionRepository.listByUserCursor(params)
   }
 
   async getTransactionById(params: { userId: string, id: string }): Promise<Transaction | null> {

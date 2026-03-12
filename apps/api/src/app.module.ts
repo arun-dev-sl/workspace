@@ -12,6 +12,7 @@ import { AllExceptionsFilter } from '@/app/filters/all-exceptions.filter'
 import { ProblemDetailsFilter } from '@/app/filters/problem-details.filter'
 import { ThrottlerExceptionFilter } from '@/app/filters/throttler-exception.filter'
 import { HealthModule } from '@/app/health/health.module'
+import { MetricsModule } from '@/app/metrics/metrics.module'
 import { CorrelationIdInterceptor } from '@/app/interceptors/correlation-id.interceptor'
 import { DeprecationInterceptor } from '@/app/interceptors/deprecation.interceptor'
 import { RequestContextInterceptor } from '@/app/interceptors/request-context.interceptor'
@@ -73,6 +74,7 @@ import type { NestModule, MiddlewareConsumer } from '@nestjs/common'
       },
     ]),
     HealthModule, // Health check module
+    MetricsModule, // Prometheus metrics
     // Business modules
     TodoModule, // Todo module (anemic model example)
     AuthModule, // Auth module (authentication + DDD example)

@@ -1,10 +1,5 @@
 import type { RawEmail } from '@workspace/domain'
 
-/**
- * Gmail Provider interface
- *
- * Abstracts access to Gmail API (googleapis SDK implementation)
- */
 export interface GmailProvider {
   listExpenseEmails(params: {
     userId: string
@@ -19,10 +14,6 @@ export interface GmailProvider {
     category?: string
   }): Promise<RawEmail>
 
-  /**
-     * Fetch multiple emails in a single batch request
-     * More efficient than fetching emails one by one
-     */
   fetchEmailContentBatch(params: {
     userId: string
     emailIds: string[]

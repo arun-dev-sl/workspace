@@ -1,8 +1,15 @@
 import { load } from 'cheerio'
 
-import { normalizeWhitespace } from '@/modules/flights/infrastructure/extractors/flight-extractor.utils'
-
 import type { RawEmail } from '@workspace/domain'
+
+function normalizeWhitespace(value: string): string {
+  return value
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\u00A0', ' ')
+    .replaceAll(/[ \t]+/g, ' ')
+    .replaceAll(/\n{3,}/g, '\n\n')
+    .trim()
+}
 
 export interface PreparedFlightEmailContent {
   normalizedText: string

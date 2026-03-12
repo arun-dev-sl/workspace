@@ -11,12 +11,6 @@ import {
 import { addDays, differenceInCalendarDays, format, isValid, parseISO, startOfDay } from 'date-fns'
 
 import {
-  RAW_EMAIL_REPOSITORY,
-} from '@/modules/expenses/application/ports/raw-email.repository.port'
-import {
-  SYNC_JOB_REPOSITORY,
-} from '@/modules/expenses/application/ports/sync-job.repository.port'
-import {
   HOTEL_EMAIL_PROCESSING_REPOSITORY,
 } from '@/modules/hotels/application/ports/hotel-email-processing.repository.port'
 import {
@@ -25,13 +19,19 @@ import {
 import {
   HOTEL_STAY_REPOSITORY,
 } from '@/modules/hotels/application/ports/hotel-stay.repository.port'
+import {
+  RAW_EMAIL_REPOSITORY,
+} from '@/shared/application/ports/raw-email.repository.port'
+import {
+  SYNC_JOB_REPOSITORY,
+} from '@/shared/application/ports/sync-job.repository.port'
 
-import type { RawEmailRepository } from '@/modules/expenses/application/ports/raw-email.repository.port'
-import type { SyncJobRepository, SyncJob } from '@/modules/expenses/application/ports/sync-job.repository.port'
 import type { HotelStayDraft } from '@/modules/hotels/application/hotel-extraction.schema'
 import type { HotelEmailProcessingRepository } from '@/modules/hotels/application/ports/hotel-email-processing.repository.port'
 import type { HotelLlmExtractor } from '@/modules/hotels/application/ports/hotel-llm-extractor.port'
 import type { HotelStayRepository } from '@/modules/hotels/application/ports/hotel-stay.repository.port'
+import type { RawEmailRepository } from '@/shared/application/ports/raw-email.repository.port'
+import type { SyncJobRepository, SyncJob } from '@/shared/application/ports/sync-job.repository.port'
 import type {
   CreateHotelStayInput,
   HotelLlmReviewCandidate,

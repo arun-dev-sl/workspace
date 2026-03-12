@@ -16,6 +16,7 @@ import {
 import { ApiOperation, ApiParam, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 
+import { ZodValidationPipe } from '@/app/pipes/zod-validation.pipe'
 import { JwtAuthGuard } from '@/modules/auth/presentation/guards/jwt-auth.guard'
 import { FlightAnalyticsService } from '@/modules/flights/application/services/flight-analytics.service'
 import { FlightMapService } from '@/modules/flights/application/services/flight-map.service'
@@ -32,8 +33,10 @@ import { SyncFlightsDto } from '@/modules/flights/presentation/dtos/sync-flights
 import { SyncFlightsRequestSchema } from '@/modules/flights/presentation/dtos/sync-flights.schema'
 import { UpdateFlightActivityDto } from '@/modules/flights/presentation/dtos/update-flight-activity.dto'
 import { UpdateFlightActivityRequestSchema } from '@/modules/flights/presentation/dtos/update-flight-activity.schema'
-import { OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
+import { ListResponseDto, OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
+import { CursorPaginationSchema } from '@/shared/infrastructure/dtos/pagination.schema'
 
+import type { CursorPaginationInput } from '@/shared/infrastructure/dtos/pagination.schema'
 import type { FlightActivity, FlightAnalytics, FlightMap, FlightSyncJobStatus, RawEmail } from '@workspace/domain'
 import type { FastifyRequest } from 'fastify'
 import type { ZodType } from 'zod'
@@ -210,6 +213,27 @@ export class FlightsController {
       page_size: input.page_size,
       total,
       has_more: offset + data.length < total,
+    }
+  }
+
+  @Get('activities/cursor')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'List flight activities with cursor-based pagination' })
+  async listFlightActivitiesCursor(
+    @Request() req: FastifyRequest & { user: { id: string } },
+    @Query(new ZodValidationPipe(CursorPaginationSchema)) query: CursorPaginationInput,
+  ): Promise<ListResponseDto<FlightActivity>> {
+    const { data, nextCursor, hasMore } = await this.flightsService.listFlightActivitiesCursor({
+      userId: req.user.id,
+      pageSize: query.page_size,
+      cursor: query.cursor,
+    })
+
+    return {
+      object: 'list',
+      data,
+      has_more: hasMore,
+      next_cursor: nextCursor,
     }
   }
 

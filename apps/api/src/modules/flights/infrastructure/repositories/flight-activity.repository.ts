@@ -1,8 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common'
 import { flightActivitiesTable } from '@workspace/database'
-import { and, asc, count, desc, eq } from 'drizzle-orm'
+import { and, asc, count, desc, eq, inArray, lt, or } from 'drizzle-orm'
 
 import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
+import { decodeCursor, encodeCursor } from '@/shared/infrastructure/utils/cursor.utils'
 
 import type { FlightActivityRepository } from '@/modules/flights/application/ports/flight-activity.repository.port'
 import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
@@ -10,6 +11,8 @@ import type {
   FlightActivity,
   FlightActivityExtractionMethod,
 } from '@workspace/domain'
+
+const UPSERT_BATCH_SIZE = 250
 
 @Injectable()
 export class FlightActivityRepositoryImpl implements FlightActivityRepository {
@@ -20,19 +23,30 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
       return
     }
 
+    const canonicalHashes = activities.map((a) => a.canonicalHash)
+
+    const existingRows = await this.db
+      .select()
+      .from(flightActivitiesTable)
+      .where(
+        and(
+          eq(flightActivitiesTable.userId, activities[0]!.userId),
+          inArray(flightActivitiesTable.canonicalHash, canonicalHashes),
+        ),
+      )
+
+    const existingMap = new Map(
+      existingRows.map((row) => [row.canonicalHash, row]),
+    )
+
+    const toInsert: (typeof flightActivitiesTable.$inferInsert)[] = []
+    const toUpdate: { activity: FlightActivity, existing: typeof flightActivitiesTable.$inferSelect }[] = []
+
     for (const activity of activities) {
-      const [existing] = await this.db
-        .select()
-        .from(flightActivitiesTable)
-        .where(
-          and(
-            eq(flightActivitiesTable.userId, activity.userId),
-            eq(flightActivitiesTable.canonicalHash, activity.canonicalHash),
-          ),
-        )
+      const existing = existingMap.get(activity.canonicalHash)
 
       if (!existing) {
-        await this.db.insert(flightActivitiesTable).values(this.toInsert(activity))
+        toInsert.push(this.toInsert(activity))
         continue
       }
 
@@ -40,6 +54,15 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
         continue
       }
 
+      toUpdate.push({ activity, existing })
+    }
+
+    for (let i = 0; i < toInsert.length; i += UPSERT_BATCH_SIZE) {
+      const chunk = toInsert.slice(i, i + UPSERT_BATCH_SIZE)
+      await this.db.insert(flightActivitiesTable).values(chunk)
+    }
+
+    for (const { activity, existing } of toUpdate) {
       await this.db
         .update(flightActivitiesTable)
         .set({
@@ -147,6 +170,61 @@ export class FlightActivityRepositoryImpl implements FlightActivityRepository {
       .where(eq(flightActivitiesTable.userId, userId))
 
     return result[0]?.count ?? 0
+  }
+
+  async listByUserCursor(params: {
+    userId: string
+    pageSize: number
+    cursor?: string
+  }): Promise<{ data: FlightActivity[], nextCursor?: string, hasMore: boolean }> {
+    const conditions = [eq(flightActivitiesTable.userId, params.userId)]
+
+    if (params.cursor) {
+      const decoded = decodeCursor<{ d: string, si: number, id: string }>(params.cursor)
+      if (decoded) {
+        conditions.push(
+          or(
+            lt(flightActivitiesTable.departureDate, decoded.d),
+            and(
+              eq(flightActivitiesTable.departureDate, decoded.d),
+              lt(flightActivitiesTable.segmentIndex, decoded.si),
+            ),
+            and(
+              eq(flightActivitiesTable.departureDate, decoded.d),
+              eq(flightActivitiesTable.segmentIndex, decoded.si),
+              lt(flightActivitiesTable.id, decoded.id),
+            ),
+          )!,
+        )
+      }
+    }
+
+    const rows = await this.db
+      .select()
+      .from(flightActivitiesTable)
+      .where(and(...conditions))
+      .orderBy(
+        desc(flightActivitiesTable.departureDate),
+        desc(flightActivitiesTable.segmentIndex),
+        desc(flightActivitiesTable.id),
+      )
+      .limit(params.pageSize + 1)
+
+    const hasMore = rows.length > params.pageSize
+    const page = hasMore ? rows.slice(0, params.pageSize) : rows
+    const data = page.map((row) => this.toDomain(row))
+
+    let nextCursor: string | undefined
+    if (hasMore && page.length > 0) {
+      const last = page[page.length - 1]!
+      nextCursor = encodeCursor({
+        d: last.departureDate,
+        si: last.segmentIndex,
+        id: last.id,
+      })
+    }
+
+    return { data, nextCursor, hasMore }
   }
 
   async listBySourceEmailId(params: {

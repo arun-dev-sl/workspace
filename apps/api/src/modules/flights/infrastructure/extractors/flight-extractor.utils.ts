@@ -7,7 +7,7 @@ import {
   parseISO,
 } from 'date-fns'
 
-import { deterministicUuidFromHash } from '@/modules/expenses/infrastructure/parsers/parser-utils'
+import { deterministicUuidFromHash } from '@/shared/infrastructure/utils/hash.utils'
 
 import type { FlightSegment, FlightSegmentDraft } from '@/modules/flights/application/flight-extraction.schema'
 

@@ -1,0 +1,2 @@
+export type { RawEmailRepository } from '@/modules/expenses/application/ports/raw-email.repository.port'
+export { RAW_EMAIL_REPOSITORY } from '@/modules/expenses/application/ports/raw-email.repository.port'

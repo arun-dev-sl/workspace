@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { JwtService } from '@nestjs/jwt'
+import { accountsTable, sessionsTable, usersTable } from '@workspace/database'
+import { eq } from 'drizzle-orm'
 
 import { AuthIdentityDto } from '@/modules/auth/application/dtos/auth-identity.dto'
 import { AuthSessionDto } from '@/modules/auth/application/dtos/auth-session.dto'
@@ -11,6 +13,7 @@ import { AUTH_SESSION_REPOSITORY } from '@/modules/auth/application/ports/auth-s
 import { PASSWORD_HASHER } from '@/modules/auth/application/ports/password-hasher.port'
 import { USER_ROLE_REPOSITORY } from '@/modules/auth/application/ports/user-role.repository.port'
 import { USER_REPOSITORY } from '@/shared/application/ports/user.repository.port'
+import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
 
 import type { Env } from '@/app/config/env.schema'
 import type { AuthIdentityRepository } from '@/modules/auth/application/ports/auth-identity.repository.port'
@@ -20,6 +23,7 @@ import type { UserRoleRepository } from '@/modules/auth/application/ports/user-r
 import type { JwtPayload } from '@/modules/auth/infrastructure/strategies/jwt.strategy'
 import type { RoleType } from '@/shared/application/constants/role'
 import type { UserRepository } from '@/shared/application/ports/user.repository.port'
+import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
 
 /**
  * Device information interface
@@ -52,6 +56,8 @@ export class AuthService {
     private readonly userRoleRepo: UserRoleRepository,
     @Inject(USER_REPOSITORY)
     private readonly userRepo: UserRepository,
+    @Inject(DB_TOKEN)
+    private readonly db: DrizzleDb,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService<Env, true>,
   ) {}
@@ -96,68 +102,122 @@ export class AuthService {
     deviceContext?: DeviceContext,
     initialRole: RoleType = 'USER',
   ) {
-    // 1. Check if email already exists
     const exists = await this.authIdentityRepo.existsByIdentifier(email)
     if (exists) {
       throw new ConflictException('Email already registered')
     }
 
-    // 2. Create user
     const userId = randomUUID()
-    await this.userRepo.create({
-      id: userId,
-      name,
-      email,
-      role: initialRole,
-    })
-
-    // 3. Create authentication identity DTO
     const identityId = randomUUID()
     const passwordHash = await this.passwordHasher.hash(password)
     const now = new Date()
-    const identity = new AuthIdentityDto({
-      id: identityId,
-      userId,
-      providerId: 'email',
-      accountId: email.toLowerCase(),
-      password: passwordHash,
-      accessToken: null,
-      refreshToken: null,
-      accessTokenExpiresAt: null,
-      refreshTokenExpiresAt: null,
-      scope: null,
-      createdAt: now,
-      updatedAt: now,
-    })
-    await this.authIdentityRepo.save(identity)
 
-    // 4. Generate tokens
-    return this.generateTokens(userId, email, initialRole, deviceContext)
+    const refreshTokenValue = randomUUID()
+    const sessionId = randomUUID()
+    const refreshExpiresIn
+      = this.configService.get('JWT_REFRESH_EXPIRES_IN', { infer: true }) ?? '7d'
+    const expiresAt = this.parseExpiration(refreshExpiresIn)
+
+    await this.db.transaction(async (tx) => {
+      await tx.insert(usersTable).values({
+        id: userId,
+        name,
+        email,
+        role: initialRole,
+        emailVerified: false,
+        banned: false,
+        createdAt: now,
+        updatedAt: now,
+      })
+
+      await tx.insert(accountsTable).values({
+        id: identityId,
+        userId,
+        providerId: 'email',
+        accountId: email.toLowerCase(),
+        password: passwordHash,
+        createdAt: now,
+        updatedAt: now,
+      })
+
+      await tx.insert(sessionsTable).values({
+        id: sessionId,
+        userId,
+        token: refreshTokenValue,
+        expiresAt,
+        ipAddress: deviceContext?.ipAddress ?? null,
+        userAgent: deviceContext?.userAgent ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+
+    const payload: JwtPayload = {
+      sub: userId,
+      email,
+      roles: initialRole ? [initialRole] : [],
+      sessionId,
+    }
+    const accessToken = this.jwtService.sign(payload)
+
+    return {
+      accessToken,
+      refreshToken: refreshTokenValue,
+      user: { id: userId, email, role: initialRole },
+    }
   }
 
   /**
      * Refresh token
      */
   async refreshToken(refreshToken: string, deviceContext?: DeviceContext) {
-    // 1. Find session
     const session = await this.authSessionRepo.findByToken(refreshToken)
     if (!session?.isValid) {
       throw new UnauthorizedException('Invalid refresh token')
     }
 
-    // 2. Delete old session
-    await this.authSessionRepo.delete(session.id)
-
-    // 3. Get user authentication info
     const identities = await this.authIdentityRepo.findByUserId(session.userId)
     const emailIdentity = identities.find((i) => i.providerId === 'email')
     const email = emailIdentity?.accountId ?? ''
-
-    // 4. Get user role
     const role = await this.userRoleRepo.getRole(session.userId)
 
-    // 5. Generate new tokens
-    return this.generateTokens(session.userId, email, role, deviceContext)
+    const newRefreshToken = randomUUID()
+    const newSessionId = randomUUID()
+    const refreshExpiresIn
+      = this.configService.get('JWT_REFRESH_EXPIRES_IN', { infer: true }) ?? '7d'
+    const expiresAt = this.parseExpiration(refreshExpiresIn)
+    const now = new Date()
+
+    await this.db.transaction(async (tx) => {
+      await tx.delete(sessionsTable).where(
+        eq(sessionsTable.id, session.id),
+      )
+
+      await tx.insert(sessionsTable).values({
+        id: newSessionId,
+        userId: session.userId,
+        token: newRefreshToken,
+        expiresAt,
+        ipAddress: deviceContext?.ipAddress ?? null,
+        userAgent: deviceContext?.userAgent ?? null,
+        createdAt: now,
+        updatedAt: now,
+      })
+    })
+
+    const payload: JwtPayload = {
+      sub: session.userId,
+      email,
+      roles: role ? [role] : [],
+      sessionId: newSessionId,
+    }
+    const accessToken = this.jwtService.sign(payload)
+
+    return {
+      accessToken,
+      refreshToken: newRefreshToken,
+      user: { id: session.userId, email, role },
+    }
   }
 
   /**
@@ -267,13 +327,11 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    // 1. Find email authentication identity
     const identity = await this.authIdentityRepo.findByUserIdAndProvider(userId, 'email')
     if (!identity) {
       throw new UnauthorizedException('Email authentication not found')
     }
 
-    // 2. Verify current password
     if (!identity.password) {
       throw new UnauthorizedException('Invalid current password')
     }
@@ -282,14 +340,16 @@ export class AuthService {
       throw new UnauthorizedException('Invalid current password')
     }
 
-    // 3. Change password
     const newPasswordHash = await this.passwordHasher.hash(newPassword)
-    identity.password = newPasswordHash
-    identity.updatedAt = new Date()
-    await this.authIdentityRepo.save(identity)
+    const now = new Date()
 
-    // 4. Delete all sessions (enhanced security)
-    await this.authSessionRepo.deleteAllByUserId(userId)
+    await this.db.transaction(async (tx) => {
+      await tx.update(accountsTable)
+        .set({ password: newPasswordHash, updatedAt: now })
+        .where(eq(accountsTable.id, identity.id))
+
+      await tx.delete(sessionsTable).where(eq(sessionsTable.userId, userId))
+    })
   }
 
   /**
