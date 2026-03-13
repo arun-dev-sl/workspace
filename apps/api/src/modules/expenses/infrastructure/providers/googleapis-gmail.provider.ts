@@ -8,7 +8,7 @@ import { AUTH_IDENTITY_REPOSITORY } from '@/modules/auth/application/ports/auth-
 
 import type { Env } from '@/app/config/env.schema'
 import type { AuthIdentityRepository } from '@/modules/auth/application/ports/auth-identity.repository.port'
-import type { GmailProvider } from '@/modules/expenses/application/ports/gmail-provider.port'
+import type { GmailProvider } from '@/shared/application/ports/gmail-provider.port'
 import type { RawEmail } from '@workspace/domain'
 import type { gmail_v1 } from 'googleapis'
 

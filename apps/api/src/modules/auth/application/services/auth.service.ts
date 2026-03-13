@@ -6,13 +6,11 @@ import { JwtService } from '@nestjs/jwt'
 import { accountsTable, sessionsTable, usersTable } from '@workspace/database'
 import { eq } from 'drizzle-orm'
 
-import { AuthIdentityDto } from '@/modules/auth/application/dtos/auth-identity.dto'
 import { AuthSessionDto } from '@/modules/auth/application/dtos/auth-session.dto'
 import { AUTH_IDENTITY_REPOSITORY } from '@/modules/auth/application/ports/auth-identity.repository.port'
 import { AUTH_SESSION_REPOSITORY } from '@/modules/auth/application/ports/auth-session.repository.port'
 import { PASSWORD_HASHER } from '@/modules/auth/application/ports/password-hasher.port'
 import { USER_ROLE_REPOSITORY } from '@/modules/auth/application/ports/user-role.repository.port'
-import { USER_REPOSITORY } from '@/shared/application/ports/user.repository.port'
 import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
 
 import type { Env } from '@/app/config/env.schema'
@@ -22,7 +20,6 @@ import type { PasswordHasher } from '@/modules/auth/application/ports/password-h
 import type { UserRoleRepository } from '@/modules/auth/application/ports/user-role.repository.port'
 import type { JwtPayload } from '@/modules/auth/infrastructure/strategies/jwt.strategy'
 import type { RoleType } from '@/shared/application/constants/role'
-import type { UserRepository } from '@/shared/application/ports/user.repository.port'
 import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
 
 /**
@@ -54,8 +51,6 @@ export class AuthService {
     private readonly passwordHasher: PasswordHasher,
     @Inject(USER_ROLE_REPOSITORY)
     private readonly userRoleRepo: UserRoleRepository,
-    @Inject(USER_REPOSITORY)
-    private readonly userRepo: UserRepository,
     @Inject(DB_TOKEN)
     private readonly db: DrizzleDb,
     private readonly jwtService: JwtService,
