@@ -99,7 +99,7 @@ export function AiAssistantPanel() {
         type="button"
         onClick={() => setMinimized(false)}
         aria-label="Expand AI Assistant"
-        className="fixed bottom-5 right-5 z-50 flex size-11 items-center justify-center rounded-full border border-border/70 bg-card/95 shadow-2xl backdrop-blur-sm transition-transform hover:scale-105 sm:bottom-5 sm:left-5"
+        className="fixed bottom-4 right-4 z-50 flex size-11 items-center justify-center rounded-full border border-border/70 bg-card/95 shadow-2xl backdrop-blur-sm transition-transform hover:scale-105 sm:bottom-6 sm:right-6"
       >
         <Bot className="size-5 text-muted-foreground" />
       </button>
@@ -107,7 +107,7 @@ export function AiAssistantPanel() {
   }
 
   return (
-    <Card className="fixed bottom-4 right-2 z-1 flex h-fit w-[calc(100vw-1rem)] max-w-116 flex-col border-border/70 bg-card/95 shadow-2xl backdrop-blur-sm sm:bottom-6 sm:right-6 sm:w-116">
+    <Card className="fixed inset-x-3 bottom-3 top-16 z-50 flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border-border/70 bg-card/98 shadow-2xl backdrop-blur-md sm:inset-x-auto sm:bottom-6 sm:right-6 sm:top-auto sm:h-[min(42rem,calc(100dvh-7rem))] sm:w-[28rem] sm:max-w-[calc(100vw-3rem)] sm:rounded-[1.75rem]">
       <CardHeader className="space-y-3 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -170,8 +170,8 @@ export function AiAssistantPanel() {
         <>
           <Separator />
 
-          <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-4">
-            <div className="space-y-3 pb-2">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-3 sm:p-4">
+            <div className="space-y-3">
               {messages.length === 0 ? (
                 <div className="space-y-4">
                   <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
@@ -191,7 +191,7 @@ export function AiAssistantPanel() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-auto whitespace-normal text-left"
+                        className="h-auto whitespace-normal text-left text-xs"
                         onClick={() => {
                           void sendMessage(prompt, selectedModel || undefined)
                         }}
@@ -204,47 +204,49 @@ export function AiAssistantPanel() {
                   </div>
                 </div>
               ) : null}
-              <ScrollArea
-                className={cn(
-                  'min-h-0 flex-1 pr-4 h-[30vh] gap-4 overflow-y-scroll',
-                  messages.length > 0 ? 'flex' : 'hidden',
-                )}
-              >
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={
-                      message.role === 'user'
-                        ? 'flex justify-end gap-4'
-                        : 'flex justify-start gap-4'
-                    }
-                  >
-                    <div
-                      className={
-                        message.role === 'user'
-                          ? 'min-w-0 max-w-[85%] overflow-hidden wrap-anywhere rounded-2xl bg-primary px-4 py-3 text-sm text-primary-foreground mb-4'
-                          : 'min-w-0 max-w-[88%] overflow-hidden wrap-anywhere rounded-2xl border border-border/60 bg-muted/35 px-4 py-3 text-sm text-foreground mb-4'
-                      }
-                    >
-                      <ScrollArea className="-mx-4 h-fit w-[calc(100%+2rem)] px-4">
-                        {message.role === 'assistant' ? (
-                          <AssistantMessage content={message.content} />
-                        ) : (
-                          <div className="whitespace-pre-wrap leading-6 wrap-anywhere">
-                            {message.content}
-                          </div>
-                        )}
-                      </ScrollArea>
-                      {message.role === 'assistant' ? (
-                        <AssistantAnalysisTrace
-                          analysis={message.analysis}
-                          toolsUsed={message.toolsUsed}
-                        />
-                      ) : null}
-                    </div>
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <ScrollArea
+                  className={cn(
+                    'h-full pr-1 sm:pr-2',
+                    messages.length > 0 ? 'block' : 'hidden',
+                  )}
+                >
+                  <div className="space-y-4 pb-2 pr-2">
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={
+                          message.role === 'user'
+                            ? 'flex justify-end'
+                            : 'flex justify-start'
+                        }
+                      >
+                        <div
+                          className={
+                            message.role === 'user'
+                              ? 'min-w-0 max-w-[88%] overflow-hidden wrap-anywhere rounded-2xl bg-primary px-4 py-3 text-sm text-primary-foreground sm:max-w-[85%]'
+                              : 'min-w-0 max-w-[94%] overflow-hidden wrap-anywhere rounded-2xl border border-border/60 bg-muted/35 px-4 py-3 text-sm text-foreground sm:max-w-[88%]'
+                          }
+                        >
+                          {message.role === 'assistant' ? (
+                            <AssistantMessage content={message.content} />
+                          ) : (
+                            <div className="whitespace-pre-wrap leading-6 wrap-anywhere">
+                              {message.content}
+                            </div>
+                          )}
+                          {message.role === 'assistant' ? (
+                            <AssistantAnalysisTrace
+                              analysis={message.analysis}
+                              toolsUsed={message.toolsUsed}
+                            />
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </ScrollArea>
+                </ScrollArea>
+              </div>
 
               {isSending ? (
                 <div className="flex justify-start">
@@ -269,15 +271,16 @@ export function AiAssistantPanel() {
               </div>
             ) : null}
 
-            <div className="space-y-2">
+            <div className="space-y-2 border-t border-border/60 pt-3">
               <Textarea
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
                 placeholder="Ask about holdings, expenses, principal, flights, hotels, or any cross-domain pattern..."
-                rows={4}
+                rows={3}
                 disabled={isSending || !statusQuery.data?.available}
+                className="min-h-24 resize-none"
               />
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <p className="text-xs text-muted-foreground">
                   The backend chooses tools based on your question only.
                 </p>
@@ -289,6 +292,7 @@ export function AiAssistantPanel() {
                   disabled={
                     !draft.trim() || isSending || !statusQuery.data?.available
                   }
+                  className="w-full sm:w-auto"
                 >
                   {isSending ? 'Analyzing...' : 'Send'}
                 </Button>
