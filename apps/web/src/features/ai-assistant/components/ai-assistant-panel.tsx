@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getAiAssistantStatus } from '@/features/ai-assistant/api/assistant'
 import { useAiAssistant } from '@/features/ai-assistant/ai-assistant-context'
+import { AssistantAnalysisTrace } from '@/features/ai-assistant/components/assistant-analysis-trace'
 import { AssistantMessage } from '@/features/ai-assistant/components/assistant-message'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { Button } from '@workspace/ui/components/ui/button'
@@ -234,12 +235,11 @@ export function AiAssistantPanel() {
                           </div>
                         )}
                       </ScrollArea>
-                      {message.role === 'assistant' &&
-                      message.toolsUsed &&
-                      message.toolsUsed.length > 0 ? (
-                        <div className="mt-3 border-t border-border/50 pt-2 text-xs text-muted-foreground">
-                          Used tools: {message.toolsUsed.join(', ')}
-                        </div>
+                      {message.role === 'assistant' ? (
+                        <AssistantAnalysisTrace
+                          analysis={message.analysis}
+                          toolsUsed={message.toolsUsed}
+                        />
                       ) : null}
                     </div>
                   </div>

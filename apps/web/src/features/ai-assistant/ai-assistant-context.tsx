@@ -3,6 +3,7 @@ import React from 'react'
 import {
   sendAiAssistantChat,
   type AiAssistantChatMessage,
+  type AiAssistantChatResponse,
 } from '@/features/ai-assistant/api/assistant'
 import { useAuthSession } from '@/app/auth-session-context'
 
@@ -11,6 +12,7 @@ interface AiAssistantMessage {
   role: 'user' | 'assistant'
   content: string
   toolsUsed?: string[]
+  analysis?: AiAssistantChatResponse['analysis']
 }
 
 interface AiAssistantContextValue {
@@ -91,6 +93,7 @@ export function AiAssistantProvider({
             role: 'assistant',
             content: response.message,
             toolsUsed: response.toolsUsed,
+            analysis: response.analysis,
           },
         ])
       } catch (sendError) {

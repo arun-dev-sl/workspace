@@ -11,10 +11,33 @@ import type {
 } from '@/modules/ai-assistant/application/ports/ai-chat-provider.port'
 import type { AiAssistantChatRequest } from '@/modules/ai-assistant/presentation/dtos/ai-assistant.schema'
 
+type AiAssistantAnalysisStep = {
+  id: string
+  type: 'prefetch' | 'observation' | 'tool-call' | 'final'
+  title: string
+  summary: string
+  status: 'completed' | 'failed'
+  toolName?: string
+  toolArgs?: unknown
+  resultData?: unknown
+  resultPreview?: string
+}
+
+type AiAssistantAnalysis = {
+  status: 'completed'
+  totalToolRounds: number
+  toolsUsed: string[]
+  steps: AiAssistantAnalysisStep[]
+}
+
 const SYSTEM_PROMPT = [
   'You are an analytics assistant for a personal operations dashboard.',
   'You must reason from the conversation history, tool results, and your bounded general knowledge.',
   'When relevant tools are available, prefer calling them instead of guessing.',
+  'For analytical questions, work in stages: identify what needs to be tested, call the right tools, inspect the results, and only then conclude.',
+  'If the first tool result is incomplete, refine the query or call another tool instead of giving a premature answer.',
+  'When the question is broad or cross-domain, generate short working hypotheses, test them with tools, compare the evidence, and then synthesize.',
+  'Use capability discovery tools when you are unsure which tool or analytics shape is best.',
   'Do not rely on frontend-provided page snapshots, widgets, or route-specific context. Use backend tools to discover the necessary evidence.',
   'Do more than restate visible cards or tables. Use backend tools to fetch broader evidence, compare results, and produce useful analysis.',
   'You may use your own general world knowledge for qualitative explanation, business context, sector tailwinds, and common risk factors even when that detail is not present in the user data.',
@@ -24,6 +47,7 @@ const SYSTEM_PROMPT = [
   'Do not imply access to real-time prices, current filings, breaking news, or post-training events unless a tool explicitly returned that information.',
   'Avoid redundant tool calls and only fetch the data necessary to answer the user well.',
   'When a question needs information from holdings, dividends, principal, expenses, flights, or hotels, use the relevant tools or the constrained analytics DSL before giving a shallow answer.',
+  'Prefer multiple focused tool calls over one vague query when that will produce better evidence.',
   'Prefer concise, high-signal answers with concrete observations, anomalies, trends, risks, and next steps.',
   'If the user asks about a specific company or fund, first try to confirm the position with tools, then combine that portfolio evidence with your qualitative reasoning.',
   'If the data is incomplete, say what is missing and what additional context would improve the answer, but still provide the best bounded qualitative view you can when appropriate.',
@@ -73,6 +97,7 @@ export class AiAssistantService {
     const messages = this.buildMessages(input, prefetchedEvidence.messages)
     const model = input.model || this.configService.get('OPENWIRE_MODEL', { infer: true })
     const toolsUsed: string[] = [...prefetchedEvidence.toolsUsed]
+    const analysisSteps: AiAssistantAnalysisStep[] = [...prefetchedEvidence.steps]
 
     this.logger.debug(
       `AI chat request: ${JSON.stringify({
@@ -95,6 +120,16 @@ export class AiAssistantService {
       })
 
       if (!completion.toolCalls || completion.toolCalls.length === 0) {
+        analysisSteps.push({
+          id: `final-${round + 1}`,
+          type: 'final',
+          title: 'Synthesized response',
+          summary: completion.content
+            ? this.truncate(completion.content, 240)
+            : 'No response generated.',
+          status: 'completed',
+        })
+
         this.logger.debug(
           `AI chat response: ${JSON.stringify({
             userId,
@@ -110,10 +145,26 @@ export class AiAssistantService {
           model: completion.model,
           usage: completion.usage,
           toolsUsed: [...new Set(toolsUsed)],
+          analysis: {
+            status: 'completed',
+            totalToolRounds: round + 1,
+            toolsUsed: [...new Set(toolsUsed)],
+            steps: analysisSteps,
+          } satisfies AiAssistantAnalysis,
         }
       }
 
       messages.push(this.createAssistantToolCallMessage(completion.toolCalls, completion.content))
+
+      if (completion.content?.trim()) {
+        analysisSteps.push({
+          id: `observation-${round + 1}`,
+          type: 'observation',
+          title: `Planning step ${round + 1}`,
+          summary: this.truncate(completion.content, 240),
+          status: 'completed',
+        })
+      }
 
       this.logger.debug(
         `AI tool call round: ${JSON.stringify({
@@ -133,6 +184,25 @@ export class AiAssistantService {
         toolsUsed.push(toolCall.function.name)
         const toolResult = await this.aiToolRegistry.executeTool(toolCall, {
           userId,
+        })
+
+        const parsedArguments = this.tryParseJson(toolCall.function.arguments)
+        const resultPreview = toolResult.ok
+          ? this.summarizeToolResult(toolResult.result)
+          : toolResult.error
+
+        analysisSteps.push({
+          id: toolCall.id,
+          type: 'tool-call',
+          title: `Ran ${toolCall.function.name}`,
+          summary: toolResult.ok
+            ? `Executed ${toolCall.function.name} and captured structured evidence.`
+            : `Attempted ${toolCall.function.name}, but the tool returned an error.`,
+          status: toolResult.ok ? 'completed' : 'failed',
+          toolName: toolCall.function.name,
+          toolArgs: parsedArguments,
+          resultData: toolResult.ok ? toolResult.result : { error: toolResult.error },
+          resultPreview,
         })
 
         this.logger.debug(
@@ -171,18 +241,18 @@ export class AiAssistantService {
   private async buildPrefetchedEvidence(
     input: AiAssistantChatRequest,
     userId: string,
-  ): Promise<{ messages: AiChatProviderMessage[], toolsUsed: string[] }> {
+  ): Promise<{ messages: AiChatProviderMessage[], toolsUsed: string[], steps: AiAssistantAnalysisStep[] }> {
     const latestUserMessage = [...input.messages]
       .reverse()
       .find((message) => message.role === 'user')
 
     if (!latestUserMessage) {
-      return { messages: [], toolsUsed: [] }
+      return { messages: [], toolsUsed: [], steps: [] }
     }
 
     const holdingQuery = this.extractHoldingLookupQuery(latestUserMessage.content)
     if (!holdingQuery) {
-      return { messages: [], toolsUsed: [] }
+      return { messages: [], toolsUsed: [], steps: [] }
     }
 
     const toolResult = await this.aiToolRegistry.executeTool(
@@ -210,6 +280,19 @@ export class AiAssistantService {
 
     return {
       toolsUsed: ['getHoldingDetails'],
+      steps: [
+        {
+          id: 'prefetch-getHoldingDetails',
+          type: 'prefetch',
+          title: 'Prefetched holding evidence',
+          summary: `Ran getHoldingDetails before the main loop for "${holdingQuery}".`,
+          status: 'completed',
+          toolName: 'getHoldingDetails',
+          toolArgs: { query: holdingQuery },
+          resultData: toolResult,
+          resultPreview: this.summarizeToolResult(toolResult),
+        },
+      ],
       messages: [
         {
           role: 'system',
@@ -279,5 +362,17 @@ export class AiAssistantService {
     }
 
     return `${value.slice(0, maxLength)}... [truncated]`
+  }
+
+  private tryParseJson(value: string): unknown {
+    try {
+      return JSON.parse(value)
+    } catch {
+      return value
+    }
+  }
+
+  private summarizeToolResult(value: unknown): string {
+    return this.truncate(JSON.stringify(value), 320)
   }
 }

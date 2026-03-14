@@ -28,6 +28,26 @@ const aiAssistantChatResponseSchema = z.object({
   message: z.string(),
   model: z.string(),
   toolsUsed: z.array(z.string()).default([]),
+  analysis: z
+    .object({
+      status: z.literal('completed'),
+      totalToolRounds: z.number(),
+      toolsUsed: z.array(z.string()).default([]),
+      steps: z.array(
+        z.object({
+          id: z.string(),
+          type: z.enum(['prefetch', 'observation', 'tool-call', 'final']),
+          title: z.string(),
+          summary: z.string(),
+          status: z.enum(['completed', 'failed']),
+          toolName: z.string().optional(),
+          toolArgs: z.unknown().optional(),
+          resultData: z.unknown().optional(),
+          resultPreview: z.string().optional(),
+        }),
+      ),
+    })
+    .optional(),
   usage: z
     .object({
       promptTokens: z.number(),

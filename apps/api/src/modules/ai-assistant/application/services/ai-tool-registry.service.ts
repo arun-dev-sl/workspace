@@ -96,6 +96,39 @@ type StoredAiToolDefinition = {
   execute: (arguments_: any, context: AiToolExecutionContext) => Promise<unknown>
 }
 
+const analyticsCapabilities = {
+  expenses: {
+    queryTypes: ['summary', 'breakdown', 'top-items', 'trend'],
+    dimensions: ['category', 'mode', 'merchant', 'transaction', 'day', 'month'],
+    notes: 'Supports period-based summaries, category/mode breakdowns, top merchants or transactions, and daily or monthly trends.',
+  },
+  holdings: {
+    queryTypes: ['summary', 'breakdown', 'top-items'],
+    dimensions: ['assetType', 'platform', 'holding'],
+    notes: 'Supports portfolio summary, platform/asset allocation breakdowns, and top holdings with optional assetType/platform filters.',
+  },
+  dividends: {
+    queryTypes: ['summary', 'trend', 'top-items', 'breakdown'],
+    dimensions: ['company', 'yield', 'month'],
+    notes: 'Supports yearly dividend summary, monthly trend, top company contributors, and yield analysis.',
+  },
+  principal: {
+    queryTypes: ['summary'],
+    dimensions: ['allocation', 'contribution', 'milestones'],
+    notes: 'Returns contribution, allocation, and milestone analytics as a single summary payload.',
+  },
+  flights: {
+    queryTypes: ['summary', 'trend', 'top-items', 'breakdown'],
+    dimensions: ['airline', 'airport', 'timeline', 'year'],
+    notes: 'Supports travel overview, timeline/year trends, and airline or airport frequency analysis.',
+  },
+  hotels: {
+    queryTypes: ['summary', 'trend', 'top-items', 'breakdown'],
+    dimensions: ['city', 'country', 'hotel', 'checkInMonth'],
+    notes: 'Supports stay summaries, hotel/city/country grouping, and monthly check-in trends.',
+  },
+} as const
+
 @Injectable()
 export class AiToolRegistryService {
   private readonly toolDefinitions: StoredAiToolDefinition[]
@@ -110,6 +143,8 @@ export class AiToolRegistryService {
     private readonly domainIntelligenceService: AiDomainIntelligenceService,
   ) {
     this.toolDefinitions = [
+      this.createToolCapabilitiesTool(),
+      this.createAnalyticsCapabilitiesTool(),
       this.createExpenseSummaryTool(),
       this.createExpenseBreakdownTool(),
       this.createTopExpenseMerchantsTool(),
@@ -169,6 +204,85 @@ export class AiToolRegistryService {
         tool: tool.name,
         error: error instanceof Error ? error.message : 'Tool execution failed',
       }
+    }
+  }
+
+  private createToolCapabilitiesTool(): AiToolDefinition<Record<string, never>> {
+    return {
+      name: 'describeToolCapabilities',
+      description: 'List the available AI tools, what each tool is best for, and when to use them. Call this first when you are unsure how to investigate a question.',
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+      schema: z.object({}),
+      pages: ['global'],
+      execute: async () => {
+        return {
+          tools: this.toolDefinitions
+            .filter((tool) => !['describeToolCapabilities'].includes(tool.name))
+            .map((tool) => ({
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            })),
+          guidance: [
+            'Use curated domain tools first for common questions.',
+            'Use getHoldingDetails for company-specific investment questions.',
+            'Use getInvestmentIntelligence for cross-holdings/dividends/principal synthesis.',
+            'Use runAnalyticsQuery for long-tail questions when curated tools do not fit.',
+            'Use describeAnalyticsCapabilities before runAnalyticsQuery if the query shape is unclear.',
+          ],
+        }
+      },
+    }
+  }
+
+  private createAnalyticsCapabilitiesTool(): AiToolDefinition<Record<string, never>> {
+    return {
+      name: 'describeAnalyticsCapabilities',
+      description: 'Describe which domains, query types, dimensions, and filters are supported by the constrained analytics query tool.',
+      parameters: {
+        type: 'object',
+        properties: {},
+      },
+      schema: z.object({}),
+      pages: ['global'],
+      execute: async () => {
+        return {
+          supportedDomains: analyticsCapabilities,
+          queryExamples: [
+            {
+              question: 'What are my top expense merchants this month?',
+              query: {
+                domain: 'expenses',
+                queryType: 'top-items',
+                dimension: 'merchant',
+                period: 'month',
+                limit: 10,
+              },
+            },
+            {
+              question: 'Which holdings are my largest by current value?',
+              query: {
+                domain: 'holdings',
+                queryType: 'top-items',
+                dimension: 'holding',
+                limit: 10,
+              },
+            },
+            {
+              question: 'Show hotel frequency by city.',
+              query: {
+                domain: 'hotels',
+                queryType: 'breakdown',
+                dimension: 'city',
+                limit: 10,
+              },
+            },
+          ],
+        }
+      },
     }
   }
 
