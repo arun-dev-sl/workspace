@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { format, parseISO } from "date-fns";
+import { useEffect, useMemo, useState } from 'react'
+import { format, parseISO } from 'date-fns'
 import {
   Archive,
   ArchiveRestore,
@@ -9,9 +9,11 @@ import {
   Plus,
   Search,
   Trash2,
-} from "lucide-react";
+} from 'lucide-react'
 
-import { MainLayout } from "@/components/layouts";
+import { MainLayout } from '@/components/layouts'
+import { useAiPageContext } from '@/features/ai-assistant/ai-assistant-context'
+import { buildHotelsPageContext } from '@/features/ai-assistant/adapters/hotels-context'
 import {
   useArchiveHotelStay,
   useCreateHotelStay,
@@ -21,18 +23,18 @@ import {
   useHotelStays,
   useUnarchiveHotelStay,
   useUpdateHotelStay,
-} from "@/features/hotels/api/hotels";
-import { HotelLlmReviewSheet } from "@/features/hotels/components/hotel-llm-review-sheet";
-import { HotelStayEditorSheet } from "@/features/hotels/components/hotel-stay-editor-sheet";
-import { useHotelSyncJob } from "@/features/hotels/hooks/use-hotel-sync-job";
-import { Badge } from "@workspace/ui/components/ui/badge";
-import { Button } from "@workspace/ui/components/ui/button";
+} from '@/features/hotels/api/hotels'
+import { HotelLlmReviewSheet } from '@/features/hotels/components/hotel-llm-review-sheet'
+import { HotelStayEditorSheet } from '@/features/hotels/components/hotel-stay-editor-sheet'
+import { useHotelSyncJob } from '@/features/hotels/hooks/use-hotel-sync-job'
+import { Badge } from '@workspace/ui/components/ui/badge'
+import { Button } from '@workspace/ui/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
+} from '@workspace/ui/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -40,12 +42,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/ui/dialog";
-import { Input } from "@workspace/ui/components/ui/input";
-import { Label } from "@workspace/ui/components/ui/label";
-import { Progress } from "@workspace/ui/components/ui/progress";
-import { Separator } from "@workspace/ui/components/ui/separator";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
+} from '@workspace/ui/components/ui/dialog'
+import { Input } from '@workspace/ui/components/ui/input'
+import { Label } from '@workspace/ui/components/ui/label'
+import { Progress } from '@workspace/ui/components/ui/progress'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { Skeleton } from '@workspace/ui/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -53,51 +55,51 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/ui/table";
+} from '@workspace/ui/components/ui/table'
 import type {
   CreateHotelStayInput,
   HotelStay,
   UpdateHotelStayInput,
-} from "@workspace/domain";
+} from '@workspace/domain'
 
-const PAGE_SIZE = 25;
-const REVIEW_CANDIDATE_LIMIT = 50;
+const PAGE_SIZE = 25
+const REVIEW_CANDIDATE_LIMIT = 50
 
 interface PendingStayAction {
-  type: "archive" | "restore" | "delete";
-  stay: HotelStay;
+  type: 'archive' | 'restore' | 'delete'
+  stay: HotelStay
 }
 
 function formatStayDate(value: string) {
   try {
-    return format(parseISO(value), "MMM d, yyyy");
+    return format(parseISO(value), 'MMM d, yyyy')
   } catch {
-    return value;
+    return value
   }
 }
 
 function formatStayRange(stay: HotelStay) {
   if (!stay.checkInDate && !stay.checkOutDate) {
-    return "Dates not captured";
+    return 'Dates not captured'
   }
 
   if (!stay.checkInDate) {
-    return `Check-out ${formatStayDate(stay.checkOutDate!)}`;
+    return `Check-out ${formatStayDate(stay.checkOutDate!)}`
   }
 
   if (!stay.checkOutDate) {
-    return `Check-in ${formatStayDate(stay.checkInDate)}`;
+    return `Check-in ${formatStayDate(stay.checkInDate)}`
   }
 
-  return `${formatStayDate(stay.checkInDate)} → ${formatStayDate(stay.checkOutDate)}`;
+  return `${formatStayDate(stay.checkInDate)} → ${formatStayDate(stay.checkOutDate)}`
 }
 
 function formatExtractionLabel(stay: HotelStay) {
-  if (stay.extractionMethod.includes("manual")) {
-    return "Manual";
+  if (stay.extractionMethod.includes('manual')) {
+    return 'Manual'
   }
 
-  return stay.extractionMethod.includes("llm") ? "LLM" : "Unknown";
+  return stay.extractionMethod.includes('llm') ? 'LLM' : 'Unknown'
 }
 
 export default function HotelsPage() {
@@ -105,35 +107,35 @@ export default function HotelsPage() {
     <MainLayout>
       <HotelsPageContent />
     </MainLayout>
-  );
+  )
 }
 
 export function HotelsPageContent() {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [selectedStay, setSelectedStay] = useState<HotelStay | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [selectedStay, setSelectedStay] = useState<HotelStay | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
   const [pendingStayAction, setPendingStayAction] =
-    useState<PendingStayAction | null>(null);
-  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
-  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
-  const [reviewStartDate, setReviewStartDate] = useState("");
-  const [reviewEndDate, setReviewEndDate] = useState("");
+    useState<PendingStayAction | null>(null)
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [reviewSheetOpen, setReviewSheetOpen] = useState(false)
+  const [reviewStartDate, setReviewStartDate] = useState('')
+  const [reviewEndDate, setReviewEndDate] = useState('')
   const [selectedReviewEmailIds, setSelectedReviewEmailIds] = useState<
     string[]
-  >([]);
+  >([])
 
   const staysQuery = useHotelStays({
     page,
     page_size: PAGE_SIZE,
     includeArchived: showArchived,
-  });
-  const createMutation = useCreateHotelStay();
-  const updateMutation = useUpdateHotelStay();
-  const archiveMutation = useArchiveHotelStay();
-  const unarchiveMutation = useUnarchiveHotelStay();
-  const deleteMutation = useDeleteHotelStay();
+  })
+  const createMutation = useCreateHotelStay()
+  const updateMutation = useUpdateHotelStay()
+  const archiveMutation = useArchiveHotelStay()
+  const unarchiveMutation = useUnarchiveHotelStay()
+  const deleteMutation = useDeleteHotelStay()
 
   const {
     startLlmReviewProcess,
@@ -144,15 +146,15 @@ export function HotelsPageContent() {
     error: syncError,
   } = useHotelSyncJob({
     onQueued: () => {
-      setSelectedReviewEmailIds([]);
-      setReviewSheetOpen(false);
+      setSelectedReviewEmailIds([])
+      setReviewSheetOpen(false)
     },
-  });
+  })
 
   const emailQuery = useHotelEmail(
     selectedStay?.sourceEmailId ?? undefined,
     editorOpen && Boolean(selectedStay?.sourceEmailId),
-  );
+  )
 
   const reviewCandidatesQuery = useHotelLlmReviewCandidates({
     startDate: reviewSheetOpen ? reviewStartDate : undefined,
@@ -160,18 +162,18 @@ export function HotelsPageContent() {
     limit: REVIEW_CANDIDATE_LIMIT,
     enabled:
       reviewSheetOpen && Boolean(reviewStartDate) && Boolean(reviewEndDate),
-  });
+  })
 
   useEffect(() => {
-    setPage(1);
-  }, [showArchived]);
+    setPage(1)
+  }, [showArchived])
 
   const filteredStays = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    const stays = staysQuery.data?.data ?? [];
+    const needle = search.trim().toLowerCase()
+    const stays = staysQuery.data?.data ?? []
 
     if (!needle) {
-      return stays;
+      return stays
     }
 
     return stays.filter((stay) =>
@@ -185,46 +187,68 @@ export function HotelsPageContent() {
       ]
         .filter(Boolean)
         .some((value) => value!.toLowerCase().includes(needle)),
-    );
-  }, [search, staysQuery.data?.data]);
+    )
+  }, [search, staysQuery.data?.data])
 
   const stats = useMemo(() => {
-    const stays = staysQuery.data?.data ?? [];
+    const stays = staysQuery.data?.data ?? []
     const upcomingStay = [...stays]
       .filter(
         (stay) =>
           stay.checkInDate !== null &&
-          stay.checkInDate >= format(new Date(), "yyyy-MM-dd"),
+          stay.checkInDate >= format(new Date(), 'yyyy-MM-dd'),
       )
       .sort((left, right) =>
         left.checkInDate!.localeCompare(right.checkInDate!),
-      )[0];
+      )[0]
 
     return {
       totalStored: staysQuery.data?.total ?? 0,
-      manual: stays.filter((stay) => stay.extractionMethod.includes("manual"))
+      manual: stays.filter((stay) => stay.extractionMethod.includes('manual'))
         .length,
       geocoded: stays.filter((stay) => stay.lat !== null && stay.lng !== null)
         .length,
       upcomingStay,
-    };
-  }, [staysQuery.data]);
+    }
+  }, [staysQuery.data])
 
   const totalPages = staysQuery.data
     ? Math.max(1, Math.ceil(staysQuery.data.total / PAGE_SIZE))
-    : 1;
+    : 1
 
-  const reviewCandidates = reviewCandidatesQuery.data?.data ?? [];
+  const reviewCandidates = reviewCandidatesQuery.data?.data ?? []
+
+  const aiPageContext = useMemo(
+    () =>
+      buildHotelsPageContext({
+        showArchived,
+        totalStored: stats.totalStored,
+        manual: stats.manual,
+        geocoded: stats.geocoded,
+        filteredCount: filteredStays.length,
+        upcomingStay: stats.upcomingStay,
+      }),
+    [
+      filteredStays.length,
+      showArchived,
+      stats.geocoded,
+      stats.manual,
+      stats.totalStored,
+      stats.upcomingStay,
+    ],
+  )
+
+  useAiPageContext(aiPageContext)
 
   const handleOpenCreate = () => {
-    setSelectedStay(null);
-    setEditorOpen(true);
-  };
+    setSelectedStay(null)
+    setEditorOpen(true)
+  }
 
   const handleOpenEdit = (stay: HotelStay) => {
-    setSelectedStay(stay);
-    setEditorOpen(true);
-  };
+    setSelectedStay(stay)
+    setEditorOpen(true)
+  }
 
   const handleSaveStay = async (
     data: CreateHotelStayInput | UpdateHotelStayInput,
@@ -234,52 +258,52 @@ export function HotelsPageContent() {
           id: selectedStay.id,
           data: data as UpdateHotelStayInput,
         })
-      : createMutation.mutateAsync(data as CreateHotelStayInput));
+      : createMutation.mutateAsync(data as CreateHotelStayInput))
 
-    setEditorOpen(false);
-    setSelectedStay(null);
-  };
+    setEditorOpen(false)
+    setSelectedStay(null)
+  }
 
   const handleToggleReviewEmail = (emailId: string, checked: boolean) => {
     setSelectedReviewEmailIds((current) => {
       if (checked) {
-        return current.includes(emailId) ? current : [...current, emailId];
+        return current.includes(emailId) ? current : [...current, emailId]
       }
 
-      return current.filter((candidateId) => candidateId !== emailId);
-    });
-  };
+      return current.filter((candidateId) => candidateId !== emailId)
+    })
+  }
 
   const handleSubmitReviewEmails = () => {
     if (selectedReviewEmailIds.length === 0) {
-      return;
+      return
     }
 
     startLlmReviewProcess({
       emailIds: selectedReviewEmailIds,
-    });
-  };
+    })
+  }
 
   const handleConfirmStayAction = async () => {
     if (!pendingStayAction) {
-      return;
+      return
     }
 
-    if (pendingStayAction.type === "archive") {
-      await archiveMutation.mutateAsync(pendingStayAction.stay.id);
-    } else if (pendingStayAction.type === "restore") {
-      await unarchiveMutation.mutateAsync(pendingStayAction.stay.id);
+    if (pendingStayAction.type === 'archive') {
+      await archiveMutation.mutateAsync(pendingStayAction.stay.id)
+    } else if (pendingStayAction.type === 'restore') {
+      await unarchiveMutation.mutateAsync(pendingStayAction.stay.id)
     } else {
-      await deleteMutation.mutateAsync(pendingStayAction.stay.id);
+      await deleteMutation.mutateAsync(pendingStayAction.stay.id)
     }
 
-    setPendingStayAction(null);
-  };
+    setPendingStayAction(null)
+  }
 
   const stayActionIsPending =
     archiveMutation.isPending ||
     unarchiveMutation.isPending ||
-    deleteMutation.isPending;
+    deleteMutation.isPending
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
@@ -307,10 +331,10 @@ export function HotelsPageContent() {
 
           <div className="flex flex-wrap items-center gap-2">
             <Button
-              variant={showArchived ? "default" : "outline"}
+              variant={showArchived ? 'default' : 'outline'}
               onClick={() => setShowArchived((current) => !current)}
             >
-              {showArchived ? "Hide Archived" : "Show Archived"}
+              {showArchived ? 'Hide Archived' : 'Show Archived'}
             </Button>
             <Button
               variant="outline"
@@ -486,8 +510,8 @@ export function HotelsPageContent() {
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 {search
-                  ? "Try clearing your search."
-                  : "Add a stay manually or review hotel emails to extract reservations."}
+                  ? 'Try clearing your search.'
+                  : 'Add a stay manually or review hotel emails to extract reservations.'}
               </p>
             </div>
           ) : null}
@@ -519,7 +543,7 @@ export function HotelsPageContent() {
                             {stay.pricing.total !== null &&
                             stay.pricing.currency
                               ? `${stay.pricing.currency} ${stay.pricing.total}`
-                              : "Pricing not captured"}
+                              : 'Pricing not captured'}
                           </span>
                           {stay.archivedAt ? (
                             <Badge variant="secondary">Archived</Badge>
@@ -528,10 +552,10 @@ export function HotelsPageContent() {
                       </TableCell>
                       <TableCell>
                         <div className="font-medium text-foreground">
-                          {stay.city ?? "Unknown city"}
+                          {stay.city ?? 'Unknown city'}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {stay.country ?? "Unknown country"}
+                          {stay.country ?? 'Unknown country'}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -539,12 +563,12 @@ export function HotelsPageContent() {
                           {formatStayRange(stay)}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {stay.timezone ?? "Timezone not set"}
+                          {stay.timezone ?? 'Timezone not set'}
                         </div>
                       </TableCell>
                       <TableCell>
                         <span className="font-medium text-foreground">
-                          {stay.nights ?? "Unknown"}
+                          {stay.nights ?? 'Unknown'}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -567,7 +591,7 @@ export function HotelsPageContent() {
                             size="sm"
                             onClick={() =>
                               setPendingStayAction({
-                                type: stay.archivedAt ? "restore" : "archive",
+                                type: stay.archivedAt ? 'restore' : 'archive',
                                 stay,
                               })
                             }
@@ -577,7 +601,7 @@ export function HotelsPageContent() {
                             ) : (
                               <Archive className="mr-2 h-4 w-4" />
                             )}
-                            {stay.archivedAt ? "Restore" : "Archive"}
+                            {stay.archivedAt ? 'Restore' : 'Archive'}
                           </Button>
                           {stay.archivedAt ? (
                             <Button
@@ -585,7 +609,7 @@ export function HotelsPageContent() {
                               size="sm"
                               onClick={() =>
                                 setPendingStayAction({
-                                  type: "delete",
+                                  type: 'delete',
                                   stay,
                                 })
                               }
@@ -605,7 +629,7 @@ export function HotelsPageContent() {
 
           <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
-              Showing {filteredStays.length} of{" "}
+              Showing {filteredStays.length} of{' '}
               {staysQuery.data?.data.length ?? 0} loaded stays
               <span className="mx-2">•</span>
               {staysQuery.data?.total ?? 0} total stored
@@ -648,9 +672,9 @@ export function HotelsPageContent() {
           stayActionIsPending
         }
         onOpenChange={(open) => {
-          setEditorOpen(open);
+          setEditorOpen(open)
           if (!open) {
-            setSelectedStay(null);
+            setSelectedStay(null)
           }
         }}
         onSubmit={handleSaveStay}
@@ -675,7 +699,7 @@ export function HotelsPageContent() {
                 type="date"
                 value={reviewStartDate}
                 onChange={(event) => setReviewStartDate(event.target.value)}
-                max={format(new Date(), "yyyy-MM-dd")}
+                max={format(new Date(), 'yyyy-MM-dd')}
               />
             </div>
             <div className="space-y-2">
@@ -685,7 +709,7 @@ export function HotelsPageContent() {
                 type="date"
                 value={reviewEndDate}
                 onChange={(event) => setReviewEndDate(event.target.value)}
-                max={format(new Date(), "yyyy-MM-dd")}
+                max={format(new Date(), 'yyyy-MM-dd')}
               />
             </div>
           </div>
@@ -701,9 +725,9 @@ export function HotelsPageContent() {
             <Button
               type="button"
               onClick={() => {
-                setSelectedReviewEmailIds([]);
-                setReviewDialogOpen(false);
-                setReviewSheetOpen(true);
+                setSelectedReviewEmailIds([])
+                setReviewDialogOpen(false)
+                setReviewSheetOpen(true)
               }}
               disabled={
                 !reviewStartDate ||
@@ -720,9 +744,9 @@ export function HotelsPageContent() {
       <HotelLlmReviewSheet
         open={reviewSheetOpen}
         onOpenChange={(open) => {
-          setReviewSheetOpen(open);
+          setReviewSheetOpen(open)
           if (!open) {
-            setSelectedReviewEmailIds([]);
+            setSelectedReviewEmailIds([])
           }
         }}
         startDate={reviewStartDate || null}
@@ -750,25 +774,25 @@ export function HotelsPageContent() {
         open={pendingStayAction !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingStayAction(null);
+            setPendingStayAction(null)
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {pendingStayAction?.type === "archive"
-                ? "Archive hotel stay"
-                : pendingStayAction?.type === "restore"
-                  ? "Restore hotel stay"
-                  : "Delete hotel stay"}
+              {pendingStayAction?.type === 'archive'
+                ? 'Archive hotel stay'
+                : pendingStayAction?.type === 'restore'
+                  ? 'Restore hotel stay'
+                  : 'Delete hotel stay'}
             </DialogTitle>
             <DialogDescription>
-              {pendingStayAction?.type === "archive"
-                ? "The stay will be hidden from the default list but can still be restored later."
-                : pendingStayAction?.type === "restore"
-                  ? "The stay will be returned to the active hotel list."
-                  : "This permanently deletes the stay. Archive is reversible, deletion is not."}
+              {pendingStayAction?.type === 'archive'
+                ? 'The stay will be hidden from the default list but can still be restored later.'
+                : pendingStayAction?.type === 'restore'
+                  ? 'The stay will be returned to the active hotel list.'
+                  : 'This permanently deletes the stay. Archive is reversible, deletion is not.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -783,20 +807,20 @@ export function HotelsPageContent() {
             <Button
               type="button"
               variant={
-                pendingStayAction?.type === "delete" ? "destructive" : "default"
+                pendingStayAction?.type === 'delete' ? 'destructive' : 'default'
               }
               onClick={() => void handleConfirmStayAction()}
               disabled={stayActionIsPending}
             >
-              {pendingStayAction?.type === "archive"
-                ? "Archive stay"
-                : pendingStayAction?.type === "restore"
-                  ? "Restore stay"
-                  : "Delete stay"}
+              {pendingStayAction?.type === 'archive'
+                ? 'Archive stay'
+                : pendingStayAction?.type === 'restore'
+                  ? 'Restore stay'
+                  : 'Delete stay'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }

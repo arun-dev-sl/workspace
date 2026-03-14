@@ -1,9 +1,12 @@
-import { Outlet } from "react-router-dom";
+import { AiAssistantProvider } from '@/features/ai-assistant/ai-assistant-context'
+import { Outlet } from 'react-router-dom'
 
 export const RootLayout = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Outlet />
-    </div>
-  );
-};
+    <AiAssistantProvider>
+      <div className="min-h-screen bg-background">
+        <Outlet />
+      </div>
+    </AiAssistantProvider>
+  )
+}

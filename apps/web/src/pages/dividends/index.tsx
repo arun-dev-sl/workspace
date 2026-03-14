@@ -1,28 +1,44 @@
-import { useState } from "react";
-import { MainLayout } from "@/components/layouts";
+import { useMemo, useState } from 'react'
+import { MainLayout } from '@/components/layouts'
+import { useAiPageContext } from '@/features/ai-assistant/ai-assistant-context'
+import { buildDividendsPageContext } from '@/features/ai-assistant/adapters/dividends-context'
+import { useDividendDashboard } from '@/features/dividends/api/dividends'
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@workspace/ui/components/ui/tabs";
+} from '@workspace/ui/components/ui/tabs'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/ui/select";
-import { ImportDividendsDialog } from "@/features/dividends/components/import-dividends-dialog";
-import { DividendsTable } from "@/features/dividends/components/dividends-table";
-import { DividendDashboardView } from "@/features/dividends/components/dividend-dashboard";
+} from '@workspace/ui/components/ui/select'
+import { ImportDividendsDialog } from '@/features/dividends/components/import-dividends-dialog'
+import { DividendsTable } from '@/features/dividends/components/dividends-table'
+import { DividendDashboardView } from '@/features/dividends/components/dividend-dashboard'
 
-const currentYear = new Date().getFullYear();
-const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
+const currentYear = new Date().getFullYear()
+const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
 export default function DividendsPage() {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [activeTab, setActiveTab] = useState('overview')
+  const [selectedYear, setSelectedYear] = useState(currentYear)
+  const { data: dashboard } = useDividendDashboard(selectedYear)
+
+  const aiPageContext = useMemo(
+    () =>
+      buildDividendsPageContext({
+        activeTab,
+        selectedYear,
+        dashboard,
+      }),
+    [activeTab, dashboard, selectedYear],
+  )
+
+  useAiPageContext(aiPageContext)
 
   return (
     <MainLayout>
@@ -80,5 +96,5 @@ export default function DividendsPage() {
         </Tabs>
       </div>
     </MainLayout>
-  );
+  )
 }

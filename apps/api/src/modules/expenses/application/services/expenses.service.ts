@@ -1,5 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common'
-import { format, isValid, parseISO } from 'date-fns'
+import { addDays, format, isValid, parseISO, startOfDay } from 'date-fns'
 
 import {
   EMAIL_PARSERS,
@@ -615,6 +615,18 @@ export class ExpensesService {
     )
   }
 
+  async getSpendingByCategoryForDateRange(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<SpendingByCategoryItem[]> {
+    const range = this.computeExplicitDateRange(startDate, endDate)
+    return this.getCachedOrCompute(
+      this.cacheKey(userId, 'getSpendingByCategoryForDateRange', { startDate, endDate }),
+      () => this.transactionRepository.getSpendingByCategory({ userId, range }),
+    )
+  }
+
   async getSpendingByMode(
     userId: string,
     period: AnalyticsPeriod,
@@ -638,10 +650,35 @@ export class ExpensesService {
     )
   }
 
+  async getTopMerchantsForDateRange(
+    userId: string,
+    startDate: string,
+    endDate: string,
+    limit = 10,
+  ): Promise<SpendingByMerchantItem[]> {
+    const range = this.computeExplicitDateRange(startDate, endDate)
+    return this.getCachedOrCompute(
+      this.cacheKey(userId, 'getTopMerchantsForDateRange', { startDate, endDate, limit }),
+      () => this.transactionRepository.getTopMerchants({ userId, range, limit }),
+    )
+  }
+
   async getDailySpending(userId: string, period: AnalyticsPeriod): Promise<DailySpendingItem[]> {
     const range = this.computeDateRange(period)
     return this.getCachedOrCompute(
       this.cacheKey(userId, 'getDailySpending', { period }),
+      () => this.transactionRepository.getDailySpending({ userId, range }),
+    )
+  }
+
+  async getDailySpendingForDateRange(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<DailySpendingItem[]> {
+    const range = this.computeExplicitDateRange(startDate, endDate)
+    return this.getCachedOrCompute(
+      this.cacheKey(userId, 'getDailySpendingForDateRange', { startDate, endDate }),
       () => this.transactionRepository.getDailySpending({ userId, range }),
     )
   }
@@ -905,6 +942,31 @@ export class ExpensesService {
     )
   }
 
+  async getLargestTransactionsForDateRange(
+    userId: string,
+    startDate: string,
+    endDate: string,
+    limit = 10,
+  ): Promise<LargestTransactionItem[]> {
+    const range = this.computeExplicitDateRange(startDate, endDate)
+    return this.getCachedOrCompute(
+      this.cacheKey(userId, 'getLargestTransactionsForDateRange', { startDate, endDate, limit }),
+      () => this.transactionRepository.getLargestTransactions({ userId, range, limit }),
+    )
+  }
+
+  async getSpendingSummaryForDateRange(
+    userId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<SpendingSummary> {
+    const range = this.computeExplicitDateRange(startDate, endDate)
+    return this.getCachedOrCompute(
+      this.cacheKey(userId, 'getSpendingSummaryForDateRange', { startDate, endDate }),
+      () => this.transactionRepository.getSpendingSummary({ userId, range }),
+    )
+  }
+
   // ── Pattern Analytics ──
 
   async getBusAnalytics(userId: string, period: AnalyticsPeriod) {
@@ -921,6 +983,24 @@ export class ExpensesService {
       this.cacheKey(userId, 'getInvestmentAnalytics', { period }),
       () => this.transactionRepository.getInvestmentAnalytics({ userId, range }),
     )
+  }
+
+  private computeExplicitDateRange(startDate: string, endDate: string): DateRange {
+    const parsedStart = parseISO(startDate)
+    const parsedEnd = parseISO(endDate)
+
+    if (!isValid(parsedStart) || !isValid(parsedEnd)) {
+      throw new BadRequestException('Invalid date range. Expected YYYY-MM-DD for startDate and endDate.')
+    }
+
+    const start = startOfDay(parsedStart)
+    const end = startOfDay(addDays(parsedEnd, 1))
+
+    if (start >= end) {
+      throw new BadRequestException('endDate must be on or after startDate.')
+    }
+
+    return { start, end }
   }
 
   /**

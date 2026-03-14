@@ -143,6 +143,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         return this.formatValidationErrors(message)
       }
       if (typeof message === 'string') {
+        if ('errors' in exceptionResponse && Array.isArray(exceptionResponse.errors)) {
+          return this.formatZodErrors(exceptionResponse.errors)
+        }
         return message
       }
     }
@@ -171,12 +174,55 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     return details.length > 0 ? details.join('; ') : 'Validation failed'
   }
 
+  private formatZodErrors(errors: unknown[]): string {
+    const details = errors
+      .filter((item): item is { path?: unknown, message?: unknown } => typeof item === 'object' && item !== null)
+      .map((item) => {
+        const path = typeof item.path === 'string' && item.path.length > 0
+          ? item.path
+          : 'request'
+        const message = typeof item.message === 'string'
+          ? item.message
+          : 'Invalid value'
+
+        return `${path}: ${message}`
+      })
+
+    return details.length > 0 ? details.join('; ') : 'Validation failed'
+  }
+
   /**
      * Extract validation error details from class-validator
      */
   private extractValidationErrors(
     exceptionResponse: string | Record<string, unknown>,
   ): FieldError[] | undefined {
+    if (
+      typeof exceptionResponse === 'object'
+      && 'errors' in exceptionResponse
+      && Array.isArray(exceptionResponse.errors)
+    ) {
+      const errors = exceptionResponse.errors
+        .filter((item): item is { path?: unknown, message?: unknown } => typeof item === 'object' && item !== null)
+        .map((item) => {
+          const field = typeof item.path === 'string' && item.path.length > 0
+            ? item.path
+            : 'request'
+          const message = typeof item.message === 'string'
+            ? item.message
+            : 'Invalid value'
+
+          return {
+            field,
+            pointer: `/${field.replaceAll('.', '/')}`,
+            code: this.inferErrorCode(message),
+            message,
+          }
+        })
+
+      return errors.length > 0 ? errors : undefined
+    }
+
     if (
       typeof exceptionResponse === 'object'
       && 'message' in exceptionResponse

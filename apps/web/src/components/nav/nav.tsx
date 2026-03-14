@@ -1,31 +1,33 @@
-import { Header } from "@/components/layouts";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { useAuthSession } from "@/app/auth-session-context";
+import { Header } from '@/components/layouts'
+import { ThemeToggle } from '@/components/theme/theme-toggle'
+import { useAuthSession } from '@/app/auth-session-context'
+import { useAiAssistant } from '@/features/ai-assistant/ai-assistant-context'
 
-import { Button } from "@workspace/ui/components/ui/button";
+import { Button } from '@workspace/ui/components/ui/button'
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "@workspace/ui/components/ui/drawer";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { NavUser } from "./nav-user";
-import { Logo } from "@/components/nav/logo";
-import NavTabs from "./nav-tabs";
-import { Menu } from "lucide-react";
-import { useState } from "react";
-import { navItems } from "./nav-tabs";
+} from '@workspace/ui/components/ui/drawer'
+import { Switch } from '@workspace/ui/components/ui/switch'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { NavUser } from './nav-user'
+import { Logo } from '@/components/nav/logo'
+import NavTabs from './nav-tabs'
+import { Bot, Menu } from 'lucide-react'
+import { useState } from 'react'
+import { navItems } from './nav-tabs'
 
 const MobileNavItems = ({ onSelect }: { onSelect: () => void }) => {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const handleSelect = (href: string) => {
-    navigate(href);
-    onSelect();
-  };
+    navigate(href)
+    onSelect()
+  }
 
   return (
     <>
@@ -37,16 +39,16 @@ const MobileNavItems = ({ onSelect }: { onSelect: () => void }) => {
             (child) =>
               location.pathname === child.href ||
               location.pathname.startsWith(`${child.href}/`),
-          );
-        const Icon = item.icon;
+          )
+        const Icon = item.icon
         return (
           <div key={item.href} className="flex flex-col gap-2">
             <button
               onClick={() => handleSelect(item.href)}
               className={`flex items-center gap-3 rounded-lg px-4 py-3 text-left transition-colors ${
                 isActive
-                  ? "bg-secondary text-foreground"
-                  : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                  ? 'bg-secondary text-foreground'
+                  : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
               }`}
             >
               <Icon className="size-5" />
@@ -56,10 +58,10 @@ const MobileNavItems = ({ onSelect }: { onSelect: () => void }) => {
             {item.children ? (
               <div className="ml-4 flex flex-col gap-1 border-l border-border/60 pl-4">
                 {item.children.map((child) => {
-                  const ChildIcon = child.icon;
+                  const ChildIcon = child.icon
                   const isChildActive =
                     location.pathname === child.href ||
-                    location.pathname.startsWith(`${child.href}/`);
+                    location.pathname.startsWith(`${child.href}/`)
 
                   return (
                     <button
@@ -67,30 +69,31 @@ const MobileNavItems = ({ onSelect }: { onSelect: () => void }) => {
                       onClick={() => handleSelect(child.href)}
                       className={`flex items-center gap-3 rounded-lg px-4 py-2 text-left text-sm transition-colors ${
                         isChildActive
-                          ? "bg-secondary text-foreground"
-                          : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                          ? 'bg-secondary text-foreground'
+                          : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
                       }`}
                     >
                       <ChildIcon className="size-4" />
                       <span className="font-medium">{child.label}</span>
                     </button>
-                  );
+                  )
                 })}
               </div>
             ) : null}
           </div>
-        );
+        )
       })}
     </>
-  );
-};
+  )
+}
 
 const Nav = () => {
-  const { hasToken, isAuthenticated, user } = useAuthSession();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { hasToken, isAuthenticated, user } = useAuthSession()
+  const { enabled: aiEnabled, setEnabled: setAiEnabled } = useAiAssistant()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const email = user?.email;
-  const isSuccess = isAuthenticated && hasToken;
+  const email = user?.email
+  const isSuccess = isAuthenticated && hasToken
 
   return (
     <Header className="absolute top-0 w-full h-12">
@@ -105,6 +108,19 @@ const Nav = () => {
         </div>
 
         <div className="flex items-center gap-2 md:gap-4">
+          {isSuccess ? (
+            <div className="flex items-center gap-2 rounded-full border border-border/60 bg-card/80 px-2 py-1 backdrop-blur-sm">
+              <Bot className="size-4 text-muted-foreground" />
+              <span className="hidden text-xs font-medium text-foreground sm:inline">
+                AI
+              </span>
+              <Switch
+                checked={aiEnabled}
+                onCheckedChange={setAiEnabled}
+                aria-label="Toggle AI assistant"
+              />
+            </div>
+          ) : null}
           <ThemeToggle />
           {isSuccess ? (
             <div className="hidden md:block">
@@ -167,7 +183,7 @@ const Nav = () => {
         </div>
       </div>
     </Header>
-  );
-};
+  )
+}
 
-export { Nav };
+export { Nav }

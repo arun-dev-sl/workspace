@@ -132,6 +132,18 @@ export const envSchema = z.object({
       message: 'FLIGHTS_LLM_MAX_INPUT_CHARS must be at least 1000',
     }),
 
+  // Local AI assistant via OpenWire
+  OPENWIRE_BASE_URL: z.string().url().default('http://localhost:3030'),
+  OPENWIRE_API_KEY: z.string().optional(),
+  OPENWIRE_MODEL: z.string().default('gpt-5-mini'),
+  OPENWIRE_TIMEOUT_MS: z
+    .string()
+    .default('300000')
+    .transform((value) => Number.parseInt(value, 10))
+    .refine((value) => value === 0 || value >= 1000, {
+      message: 'OPENWIRE_TIMEOUT_MS must be 0 or at least 1000ms',
+    }),
+
   // Web app base URL (OAuth redirect target)
   WEB_APP_URL: z.string().url().default('http://localhost:5173'),
 

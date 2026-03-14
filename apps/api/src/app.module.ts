@@ -12,14 +12,15 @@ import { AllExceptionsFilter } from '@/app/filters/all-exceptions.filter'
 import { ProblemDetailsFilter } from '@/app/filters/problem-details.filter'
 import { ThrottlerExceptionFilter } from '@/app/filters/throttler-exception.filter'
 import { HealthModule } from '@/app/health/health.module'
-import { MetricsModule } from '@/app/metrics/metrics.module'
 import { CorrelationIdInterceptor } from '@/app/interceptors/correlation-id.interceptor'
 import { DeprecationInterceptor } from '@/app/interceptors/deprecation.interceptor'
 import { RequestContextInterceptor } from '@/app/interceptors/request-context.interceptor'
 import { TraceContextInterceptor } from '@/app/interceptors/trace-context.interceptor'
 import { LoggerModule } from '@/app/logger/logger.module'
+import { MetricsModule } from '@/app/metrics/metrics.module'
 import { ApiVersionMiddleware } from '@/app/middleware/api-version.middleware'
 import { SwaggerDevController } from '@/app/swagger/swagger-dev.controller'
+import { AiAssistantModule } from '@/modules/ai-assistant/ai-assistant.module'
 import { AuthModule } from '@/modules/auth/auth.module'
 import { DividendsModule } from '@/modules/dividends/dividends.module'
 import { ExpensesModule } from '@/modules/expenses/expenses.module'
@@ -78,6 +79,7 @@ import type { NestModule, MiddlewareConsumer } from '@nestjs/common'
     // Business modules
     TodoModule, // Todo module (anemic model example)
     AuthModule, // Auth module (authentication + DDD example)
+    AiAssistantModule, // Local AI assistant via OpenWire
     ExpensesModule, // Expenses module (email parsing + finance data)
     FlightsModule, // Flights module (travel email extraction)
     HotelsModule, // Hotels module (hotel stays + review queue)
