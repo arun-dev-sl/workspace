@@ -213,6 +213,7 @@ export function DashboardChat() {
                 }
               >
                 <div
+                  data-slot="badge"
                   className={
                     message.role === 'user'
                       ? 'max-w-[88%] rounded-2xl bg-primary px-4 py-3 text-sm text-primary-foreground sm:max-w-[80%]'

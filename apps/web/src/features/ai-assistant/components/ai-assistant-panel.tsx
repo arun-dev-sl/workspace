@@ -107,7 +107,7 @@ export function AiAssistantPanel() {
   }
 
   return (
-    <Card className="fixed inset-x-3 bottom-3 top-16 z-50 flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border-border/70 bg-card/98 shadow-2xl backdrop-blur-md sm:inset-x-auto sm:bottom-6 sm:right-6 sm:top-auto sm:h-[min(42rem,calc(100dvh-7rem))] sm:w-[28rem] sm:max-w-[calc(100vw-3rem)] sm:rounded-[1.75rem]">
+    <Card className="fixed inset-x-3 bottom-3 top-16 z-50 gap-0 flex min-h-0 flex-col overflow-hidden rounded-[1.5rem] border-border/70 bg-card/98 shadow-2xl backdrop-blur-md sm:inset-x-auto sm:bottom-6 sm:right-6 sm:top-auto sm:h-[min(42rem,calc(100dvh-7rem))] sm:w-[28rem] sm:max-w-[calc(100vw-3rem)] sm:rounded-[1.75rem]">
       <CardHeader className="space-y-3 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -170,7 +170,7 @@ export function AiAssistantPanel() {
         <>
           <Separator />
 
-          <CardContent className="flex min-h-0 flex-1 flex-col gap-4 p-3 sm:p-4">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-2 p-3 sm:p-4 overflow-y-scroll">
             <div className="space-y-3">
               {messages.length === 0 ? (
                 <div className="space-y-4">
