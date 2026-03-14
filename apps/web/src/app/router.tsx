@@ -1,25 +1,26 @@
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import { RootLayout } from "./layouts/root-layout";
-import { HomePage } from "@/pages/home";
-import { LoginPage } from "@/pages/auth/login";
-import { RegisterPage } from "@/pages/auth/register";
-import { NotFoundPage } from "@/pages/not-found";
-import { ProtectedRoute } from "@/components/protected-routes/protected-route";
-import Dashboard from "@/pages/dashboard";
-import ThemeSettingsPage from "@/pages/theme";
-import ExpenseEmailsPage from "@/pages/expenses/emails";
-import ExpenseEmailDetailsPage from "@/pages/expenses/email-details";
-import AnalyticsPage from "@/pages/expenses/analytics";
-import PatternsPage from "@/pages/expenses/patterns";
-import HoldingsPage from "@/pages/holdings";
-import DividendsPage from "@/pages/dividends";
-import FlightsPage from "@/pages/flights";
-import HotelsPage from "@/pages/hotels";
-import PlaygroundPage from "@/pages/playground";
+import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { RootLayout } from './layouts/root-layout'
+import { HomePage } from '@/pages/home'
+import { LoginPage } from '@/pages/auth/login'
+import { RegisterPage } from '@/pages/auth/register'
+import { NotFoundPage } from '@/pages/not-found'
+import { ProtectedRoute } from '@/components/protected-routes/protected-route'
+import Dashboard from '@/pages/dashboard'
+import ThemeSettingsPage from '@/pages/theme'
+import ExpenseEmailsPage from '@/pages/expenses/emails'
+import ExpenseEmailDetailsPage from '@/pages/expenses/email-details'
+import AnalyticsPage from '@/pages/expenses/analytics'
+import PatternsPage from '@/pages/expenses/patterns'
+import HoldingsPage from '@/pages/holdings'
+import DividendsPage from '@/pages/dividends'
+import FlightsPage from '@/pages/flights'
+import HotelsPage from '@/pages/hotels'
+import PlaygroundPage from '@/pages/playground'
+import AccountPage from '@/pages/account'
 
 const router = createBrowserRouter([
   {
-    path: "/",
+    path: '/',
     element: <RootLayout />,
     children: [
       // Public Routes
@@ -32,7 +33,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "login",
+        path: 'login',
         element: (
           <ProtectedRoute isPublic>
             <LoginPage />
@@ -40,7 +41,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "register",
+        path: 'register',
         element: (
           <ProtectedRoute isPublic>
             <RegisterPage />
@@ -49,7 +50,7 @@ const router = createBrowserRouter([
       },
       // Protected Routes
       {
-        path: "dashboard",
+        path: 'dashboard',
         element: (
           <ProtectedRoute>
             <Dashboard />
@@ -57,7 +58,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "themes",
+        path: 'themes',
         element: (
           <ProtectedRoute>
             <ThemeSettingsPage />
@@ -65,7 +66,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "analytics",
+        path: 'analytics',
         element: (
           <ProtectedRoute>
             <AnalyticsPage />
@@ -73,7 +74,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "patterns",
+        path: 'patterns',
         element: (
           <ProtectedRoute>
             <PatternsPage />
@@ -82,7 +83,7 @@ const router = createBrowserRouter([
       },
 
       {
-        path: "holdings",
+        path: 'holdings',
         element: (
           <ProtectedRoute>
             <HoldingsPage />
@@ -90,7 +91,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "dividends",
+        path: 'dividends',
         element: (
           <ProtectedRoute>
             <DividendsPage />
@@ -98,7 +99,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "flights",
+        path: 'flights',
         element: (
           <ProtectedRoute>
             <FlightsPage />
@@ -106,7 +107,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "hotels",
+        path: 'hotels',
         element: (
           <ProtectedRoute>
             <HotelsPage />
@@ -114,7 +115,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "playground",
+        path: 'playground',
         element: (
           <ProtectedRoute>
             <PlaygroundPage />
@@ -122,7 +123,15 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "expenses/emails",
+        path: 'account',
+        element: (
+          <ProtectedRoute>
+            <AccountPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'expenses/emails',
         element: (
           <ProtectedRoute>
             <ExpenseEmailsPage />
@@ -130,7 +139,7 @@ const router = createBrowserRouter([
         ),
       },
       {
-        path: "expenses/emails/:id",
+        path: 'expenses/emails/:id',
         element: (
           <ProtectedRoute>
             <ExpenseEmailDetailsPage />
@@ -139,11 +148,11 @@ const router = createBrowserRouter([
       },
       // Fallback Route
       {
-        path: "*",
+        path: '*',
         element: <NotFoundPage />,
       },
     ],
   },
-]);
+])
 
-export const AppRouter = () => <RouterProvider router={router} />;
+export const AppRouter = () => <RouterProvider router={router} />

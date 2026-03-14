@@ -97,7 +97,10 @@ export function DashboardChat() {
 
   if (!hasMessages) {
     return (
-      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+      <div
+        data-slot="badge"
+        className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-card"
+      >
         {/* Greeting */}
         <div className="flex min-h-0 flex-1 items-center justify-center px-4 pb-48 pt-8 sm:px-6 lg:px-8">
           <div className="max-w-xl space-y-2 text-center">
@@ -152,7 +155,7 @@ export function DashboardChat() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background lg:-mt-12">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
       <div className="border-b bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6">
         <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">

@@ -134,6 +134,44 @@ export class WebauthnService {
     return { options }
   }
 
+  async generateRegistrationOptionsForUser(
+    userId: string,
+    email: string,
+  ): Promise<{ options: PublicKeyCredentialCreationOptionsJSON }> {
+    const normalizedEmail = email.toLowerCase()
+    const existingCredentials = await this.credentialRepo.findByUserId(userId)
+
+    const options = await generateRegistrationOptions({
+      rpID: this.rpId,
+      rpName: this.rpName,
+      userID: toWebauthnUserId(userId),
+      userName: normalizedEmail,
+      userDisplayName: normalizedEmail.split('@')[0] ?? normalizedEmail,
+      attestationType: 'none',
+      authenticatorSelection: {
+        residentKey: 'preferred',
+        userVerification: 'preferred',
+      },
+      excludeCredentials: existingCredentials.map((credential) => ({
+        id: credential.credentialId,
+        transports: toWebauthnTransports(credential.transports),
+      })),
+    })
+
+    await this.verificationTokenRepo.create({
+      identifier: this.challengeKey('register', normalizedEmail),
+      value: JSON.stringify({
+        challenge: options.challenge,
+        email: normalizedEmail,
+        userId,
+        name: normalizedEmail,
+      } satisfies ChallengePayload),
+      expiresAt: addMinutes(new Date(), 10),
+    })
+
+    return { options }
+  }
+
   /**
    * Complete passkey registration
    */
@@ -220,6 +258,57 @@ export class WebauthnService {
 
     const role = await this.userRoleRepo.getRole(userId)
     return this.authService.issueTokens(userId, normalizedEmail, role, deviceContext)
+  }
+
+  async verifyRegistrationForUser(
+    userId: string,
+    email: string,
+    credential: RegistrationResponseJSON,
+    _deviceContext?: DeviceContext,
+    requestOrigin?: string,
+  ): Promise<{ credentials: WebauthnCredentialDto[] }> {
+    const normalizedEmail = email.toLowerCase()
+    const challenge = await this.verifyChallenge('register', normalizedEmail)
+
+    if (challenge.userId !== userId) {
+      throw new UnauthorizedException('Passkey challenge does not match the current user')
+    }
+
+    const verification = await verifyRegistrationResponse({
+      response: credential,
+      expectedChallenge: challenge.challenge,
+      expectedOrigin: this.resolveExpectedOrigin(requestOrigin),
+      expectedRPID: this.rpId,
+      requireUserVerification: true,
+    })
+
+    if (!verification.verified || !verification.registrationInfo) {
+      throw new UnauthorizedException('Invalid passkey response')
+    }
+
+    const registrationInfo = verification.registrationInfo
+
+    await this.credentialRepo.save(
+      new WebauthnCredentialDto({
+        id: randomUUID(),
+        userId,
+        credentialId: registrationInfo.credential.id,
+        publicKey: isoBase64URL.fromBuffer(registrationInfo.credential.publicKey),
+        counter: registrationInfo.credential.counter,
+        transports: credential.response.transports ?? null,
+        deviceType: registrationInfo.credentialDeviceType,
+        backedUp: registrationInfo.credentialBackedUp,
+        aaguid: registrationInfo.aaguid ?? null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    )
+
+    await this.verificationTokenRepo.deleteByIdentifier(
+      this.challengeKey('register', normalizedEmail),
+    )
+
+    return this.listCredentials(userId)
   }
 
   /**
@@ -340,6 +429,11 @@ export class WebauthnService {
     const role = await this.userRoleRepo.getRole(storedCredential.userId)
 
     return this.authService.issueTokens(storedCredential.userId, emailToUse, role, deviceContext)
+  }
+
+  async listCredentials(userId: string): Promise<{ credentials: WebauthnCredentialDto[] }> {
+    const credentials = await this.credentialRepo.findByUserId(userId)
+    return { credentials }
   }
 
   private challengeKey(type: 'register' | 'login', key: string): string {

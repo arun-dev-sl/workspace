@@ -8,7 +8,9 @@ import { AUTH_SESSION_REPOSITORY } from '@/modules/auth/application/ports/auth-s
 import { PASSWORD_HASHER } from '@/modules/auth/application/ports/password-hasher.port'
 import { USER_ROLE_REPOSITORY } from '@/modules/auth/application/ports/user-role.repository.port'
 import { VERIFICATION_TOKEN_REPOSITORY } from '@/modules/auth/application/ports/verification-token.repository.port'
+import { WEBAUTHN_CREDENTIAL_REPOSITORY } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
 import { AuthService } from '@/modules/auth/application/services/auth.service'
+import { WebauthnService } from '@/modules/auth/application/services/webauthn.service'
 import { AuthIdentityRepositoryImpl } from '@/modules/auth/infrastructure/repositories/auth-identity.repository'
 import { AuthSessionRepositoryImpl } from '@/modules/auth/infrastructure/repositories/auth-session.repository'
 import { UserRoleRepositoryImpl } from '@/modules/auth/infrastructure/repositories/user-role.repository'
@@ -16,13 +18,12 @@ import { VerificationTokenRepositoryImpl } from '@/modules/auth/infrastructure/r
 import { WebauthnCredentialRepositoryImpl } from '@/modules/auth/infrastructure/repositories/webauthn-credential.repository'
 import { BcryptPasswordHasher } from '@/modules/auth/infrastructure/services/bcrypt-password-hasher'
 import { JwtStrategy } from '@/modules/auth/infrastructure/strategies/jwt.strategy'
+import { AccountWebauthnController } from '@/modules/auth/presentation/controllers/account-webauthn.controller.js'
 import { AuthV2Controller } from '@/modules/auth/presentation/controllers/auth-v2.controller'
 import { AuthController } from '@/modules/auth/presentation/controllers/auth.controller'
 import { WebauthnController } from '@/modules/auth/presentation/controllers/webauthn.controller'
 import { USER_REPOSITORY } from '@/shared/application/ports/user.repository.port'
 import { UserRepositoryImpl } from '@/shared/infrastructure/repositories/user.repository'
-import { WebauthnService } from '@/modules/auth/application/services/webauthn.service'
-import { WEBAUTHN_CREDENTIAL_REPOSITORY } from '@/modules/auth/application/ports/webauthn-credential.repository.port'
 
 import type { Env } from '@/app/config/env.schema'
 
@@ -57,6 +58,7 @@ import type { Env } from '@/app/config/env.schema'
   controllers: [
     AuthController, // v1
     AuthV2Controller, // v2
+    AccountWebauthnController,
     WebauthnController,
   ],
   providers: [

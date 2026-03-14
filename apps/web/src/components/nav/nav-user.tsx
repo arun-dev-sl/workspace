@@ -44,6 +44,11 @@ const NavUser = ({ username }: { username: string | undefined }) => {
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuItem className="text-xs">{username}</DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => navigate(appPaths.auth.account.getHref())}
+        >
+          Account
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={logout}>Logout</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
