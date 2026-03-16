@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
 
 @layer components {
   /* ═══════════════════════════════════════════════════════════════
@@ -7,7 +7,7 @@
      a soft neumorphic surface. Light mode defaults below;
      dark mode overrides further down.
      ═══════════════════════════════════════════════════════════════ */
-  :root[data-theme-preset="neumorphism"] {
+  :root[data-theme-preset='neumorphism'] {
     --neu-text-destructive: oklch(0.58 0.16 25);
     --neu-text-info: oklch(0.5 0.12 250);
     --neu-text-success: oklch(0.5 0.12 155);
@@ -19,7 +19,7 @@
     scroll-behavior: smooth;
   }
 
-  .dark[data-theme-preset="neumorphism"] {
+  .dark[data-theme-preset='neumorphism'] {
     --neu-text-destructive: oklch(0.74 0.14 25);
     --neu-text-info: oklch(0.72 0.11 250);
     --neu-text-success: oklch(0.72 0.11 155);
@@ -30,10 +30,10 @@
     --neu-accent-warning: oklch(0.65 0.14 75);
   }
 
-  :root[data-theme-preset="neumorphism"] body {
+  :root[data-theme-preset='neumorphism'] body {
     font-family: var(
       --font-sans,
-      "DM Sans",
+      'DM Sans',
       ui-sans-serif,
       system-ui,
       sans-serif
@@ -41,16 +41,16 @@
     letter-spacing: var(--tracking-normal, 0em);
   }
 
-  :root[data-theme-preset="neumorphism"] .font-display {
+  :root[data-theme-preset='neumorphism'] .font-display {
     font-family: var(
       --font-display,
-      "Plus Jakarta Sans",
+      'Plus Jakarta Sans',
       var(--font-sans, ui-sans-serif, system-ui, sans-serif)
     );
     letter-spacing: -0.02em;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="button"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='button'] {
     min-height: 2.75rem;
     min-width: 2.75rem;
     border: 0 !important;
@@ -69,29 +69,29 @@
       color 300ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-size="icon"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-size='icon'] {
     height: 3rem;
     width: 3rem;
   }
 
   /* ── Button neutral variants (default, secondary, outline, ghost) ── */
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="secondary"],
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="outline"],
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="ghost"],
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="default"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='secondary'],
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='outline'],
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='ghost'],
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='default'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--foreground) !important;
     border: 0 !important;
   }
 
   /* ── Button destructive – neumorphic surface with muted red text ── */
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="destructive"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='destructive'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-destructive) !important;
     box-shadow: var(
@@ -101,8 +101,8 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="link"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='link'] {
     min-height: auto;
     min-width: auto;
     border-radius: 0;
@@ -111,8 +111,8 @@
     box-shadow: none !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"]:not([data-variant="link"]):hover {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button']:not([data-variant='link']):hover {
     transform: translateY(-1px);
     box-shadow: var(
       --neu-shadow-button-hover,
@@ -121,13 +121,13 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="default"]:hover {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='default']:hover {
     background: var(--muted) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"]:not([data-variant="link"]):active {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button']:not([data-variant='link']):active {
     transform: translateY(0.5px);
     box-shadow: var(
       --neu-shadow-inset-sm,
@@ -136,8 +136,8 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="button"][data-variant="default"]:active {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='button'][data-variant='default']:active {
     box-shadow: var(
       --neu-shadow-inset-sm,
       inset 3px 3px 6px rgb(163 177 198 / 0.6),
@@ -145,7 +145,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="button"]:focus-visible {
+  :root[data-theme-preset='neumorphism'] [data-slot='button']:focus-visible {
     outline: none !important;
     box-shadow:
       var(
@@ -157,15 +157,15 @@
       0 0 0 4px var(--background) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="card"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='card'] {
     border: 0 !important;
     border-color: transparent !important;
-    border-radius: calc(var(--radius) * 2) !important;
+    border-radius: calc(var(--radius) * 1.5) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
     box-shadow: var(
-      --neu-shadow-card,
-      18px 18px 36px rgb(151 165 186 / 0.74),
-      -18px -18px 36px rgb(255 255 255 / 0.9)
+      --neu-shadow-extruded-sm,
+      5px 5px 10px rgb(163 177 198 / 0.6),
+      -5px -5px 10px rgb(255 255 255 / 0.5)
     ) !important;
     color: var(--foreground);
     transition:
@@ -173,7 +173,7 @@
       box-shadow 300ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="card"]:hover {
+  :root[data-theme-preset='neumorphism'] [data-slot='card']:hover {
     transform: translateY(-0.15px);
     box-shadow:
       4px 4px 8px rgb(151 165 186 / 0.2),
@@ -181,7 +181,7 @@
   }
 
   /* Chart (Pie) */
-  :root[data-theme-preset="neumorphism"] [data-slot="chart-pie"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='chart-pie'] {
     border-radius: calc(var(--radius) * 2) !important;
     background: var(--background) !important;
     box-shadow: var(
@@ -192,8 +192,8 @@
     padding: 0.75rem;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="chart-pie"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='chart-pie']
     .recharts-sector {
     stroke: var(--neu-surface-raised, var(--background));
     stroke-width: 2px;
@@ -201,9 +201,9 @@
       drop-shadow(-1px -1px 2px rgb(255 255 255 / 0.24));
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="chart-pie"]
-    [data-slot="chart-tooltip"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='chart-pie']
+    [data-slot='chart-tooltip'] {
     border: 0 !important;
     background: var(--neu-surface-raised, var(--background)) !important;
     box-shadow: var(
@@ -213,14 +213,14 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="blank-layout"][data-bordered] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='blank-layout'][data-bordered] {
     background: var(--background);
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="blank-layout"][data-bordered]
-    [data-slot="blank-layout-content"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='blank-layout'][data-bordered]
+    [data-slot='blank-layout-content'] {
     border-radius: calc(var(--radius) * 2);
     background: var(--background);
     box-shadow: var(
@@ -231,21 +231,21 @@
   }
 
   /* Hide decorative border lines — neumorphism uses depth via box-shadow instead */
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="blank-layout"][data-bordered]
-    [data-slot="blank-layout-border"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='blank-layout'][data-bordered]
+    [data-slot='blank-layout-border'] {
     display: none !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="blank-layout"][data-bordered]
-    [data-slot="blank-layout-footer"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='blank-layout'][data-bordered]
+    [data-slot='blank-layout-footer'] {
     display: none !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="input"],
-  :root[data-theme-preset="neumorphism"] [data-slot="textarea"],
-  :root[data-theme-preset="neumorphism"] [data-slot="select-trigger"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='input'],
+  :root[data-theme-preset='neumorphism'] [data-slot='textarea'],
+  :root[data-theme-preset='neumorphism'] [data-slot='select-trigger'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--background) !important;
@@ -259,27 +259,27 @@
       transform 300ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="input"],
-  :root[data-theme-preset="neumorphism"] [data-slot="select-trigger"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='input'],
+  :root[data-theme-preset='neumorphism'] [data-slot='select-trigger'] {
     min-height: 2.75rem;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="textarea"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='textarea'] {
     min-height: 7rem;
     resize: vertical;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="input"]::placeholder,
-  :root[data-theme-preset="neumorphism"] [data-slot="textarea"]::placeholder {
+  :root[data-theme-preset='neumorphism'] [data-slot='input']::placeholder,
+  :root[data-theme-preset='neumorphism'] [data-slot='textarea']::placeholder {
     color: #a0aec0;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="input"]:focus-visible,
-  :root[data-theme-preset="neumorphism"] [data-slot="textarea"]:focus-visible,
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="select-trigger"]:focus-visible,
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="tabs-trigger"]:focus-visible {
+  :root[data-theme-preset='neumorphism'] [data-slot='input']:focus-visible,
+  :root[data-theme-preset='neumorphism'] [data-slot='textarea']:focus-visible,
+  :root[data-theme-preset='neumorphism']
+    [data-slot='select-trigger']:focus-visible,
+  :root[data-theme-preset='neumorphism']
+    [data-slot='tabs-trigger']:focus-visible {
     outline: none !important;
     box-shadow:
       var(
@@ -291,7 +291,7 @@
       0 0 0 4px var(--background) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="tabs-list"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='tabs-list'] {
     height: auto;
     min-height: 2.75rem;
     border-radius: var(--radius) !important;
@@ -304,7 +304,7 @@
     padding: 0.35rem;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="tabs-trigger"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='tabs-trigger'] {
     min-height: 2.2rem;
     border-radius: calc(var(--radius) - 0.25rem);
     transition:
@@ -313,8 +313,8 @@
       color 300ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="tabs-trigger"][data-state="active"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='tabs-trigger'][data-state='active'] {
     background: var(--background) !important;
     box-shadow: var(
       --neu-shadow-extruded-sm,
@@ -323,7 +323,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="select-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='select-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--background) !important;
@@ -334,12 +334,12 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="select-item"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='select-item'] {
     border-radius: calc(var(--radius) - 0.25rem);
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="select-item"][data-highlighted] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='select-item'][data-highlighted] {
     background: var(--background) !important;
     box-shadow: var(
       --neu-shadow-inset-sm,
@@ -359,11 +359,11 @@
     }
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-float {
+  :root[data-theme-preset='neumorphism'] .neu-float {
     animation: neu-float 3s ease-in-out infinite;
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-orb {
+  :root[data-theme-preset='neumorphism'] .neu-orb {
     border-radius: 9999px;
     background: var(--background);
     box-shadow: var(
@@ -375,11 +375,11 @@
     transition: transform 500ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-orb:hover {
+  :root[data-theme-preset='neumorphism'] .neu-orb:hover {
     transform: scale(1.05);
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-orb-inner {
+  :root[data-theme-preset='neumorphism'] .neu-orb-inner {
     border-radius: 9999px;
     background: var(--background);
     box-shadow: var(
@@ -391,11 +391,11 @@
     transition: transform 500ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-orb:hover .neu-orb-inner {
+  :root[data-theme-preset='neumorphism'] .neu-orb:hover .neu-orb-inner {
     transform: rotate(180deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-orb-core {
+  :root[data-theme-preset='neumorphism'] .neu-orb-core {
     border-radius: 9999px;
     background: var(--primary);
     height: 2.25rem;
@@ -403,7 +403,7 @@
   }
 
   /* Badge */
-  :root[data-theme-preset="neumorphism"] [data-slot="badge"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='badge'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 1.5) !important;
     padding: 0.35rem 0.85rem;
@@ -422,20 +422,20 @@
   }
 
   /* ── Badge neutral variants ── */
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="default"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='default'] {
     background: var(--background) !important;
     color: var(--foreground) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="secondary"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='secondary'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--foreground);
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="outline"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='outline'] {
     background: var(--background) !important;
     color: var(--foreground);
     box-shadow: var(
@@ -446,40 +446,40 @@
   }
 
   /* ── Badge semantic variants – muted colored text on neumorphic surface ── */
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="destructive"],
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="error"],
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="red"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='destructive'],
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='error'],
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='red'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-destructive) !important;
     border: 0 !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="info"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='info'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-info) !important;
     border: 0 !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="success"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='success'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-success) !important;
     border: 0 !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="warning"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='warning'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-warning) !important;
     border: 0 !important;
   }
 
   /* ── Badge hover ── */
-  :root[data-theme-preset="neumorphism"] [data-slot="badge"]:hover {
+  :root[data-theme-preset='neumorphism'] [data-slot='badge']:hover {
     transform: translateY(-1px);
     box-shadow: var(
       --neu-shadow-extruded,
@@ -488,8 +488,8 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="badge"][data-variant="outline"]:hover {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='badge'][data-variant='outline']:hover {
     box-shadow: var(
       --neu-shadow-inset,
       inset 6px 6px 10px rgb(163 177 198 / 0.6),
@@ -498,7 +498,7 @@
   }
 
   /* Progress */
-  :root[data-theme-preset="neumorphism"] [data-slot="progress"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='progress'] {
     height: 0.75rem;
     border-radius: var(--radius) !important;
     background: var(--background) !important;
@@ -510,7 +510,7 @@
     padding: 0.15rem;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="progress-indicator"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='progress-indicator'] {
     border-radius: calc(var(--radius) - 0.15rem) !important;
     background: var(--foreground) !important;
     box-shadow: var(
@@ -525,7 +525,7 @@
      Dialog / Sheet / Drawer – floating overlay panels
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="dialog-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='dialog-content'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 2) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -536,7 +536,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="sheet-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='sheet-content'] {
     border: 0 !important;
     background: var(--neu-surface-raised, var(--background)) !important;
     box-shadow: var(
@@ -546,7 +546,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="drawer-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='drawer-content'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 2) calc(var(--radius) * 2) 0 0 !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -561,7 +561,7 @@
      Dropdown Menu / Popover / Tooltip – floating content
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="dropdown-menu-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='dropdown-menu-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -572,16 +572,16 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="dropdown-menu-item"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='dropdown-menu-item'] {
     border-radius: calc(var(--radius) - 0.25rem);
     transition:
       box-shadow 200ms ease-out,
       background-color 200ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="dropdown-menu-item"]:focus,
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="dropdown-menu-item"][data-highlighted] {
+  :root[data-theme-preset='neumorphism'] [data-slot='dropdown-menu-item']:focus,
+  :root[data-theme-preset='neumorphism']
+    [data-slot='dropdown-menu-item'][data-highlighted] {
     background: var(--background) !important;
     box-shadow: var(
       --neu-shadow-inset-sm,
@@ -591,7 +591,7 @@
     color: var(--foreground);
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="popover-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='popover-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -602,15 +602,15 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="calendar"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='calendar'] {
     color: var(--foreground);
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-nav-button,
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-day-button {
     border: 0 !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -621,11 +621,11 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-day-button:hover,
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-nav-button:hover {
     box-shadow: var(
       --neu-shadow-button-hover,
@@ -634,8 +634,8 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-range-middle {
     background: var(--background) !important;
     box-shadow: var(
@@ -646,14 +646,14 @@
     color: var(--foreground) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-day-selected,
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-day-range-start,
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-day-range-end {
     background: var(--neu-surface-raised, var(--background)) !important;
     box-shadow: var(
@@ -664,8 +664,8 @@
     color: var(--foreground) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-day-today:not(.calendar-day-selected) {
     background: var(--background) !important;
     color: var(--foreground) !important;
@@ -673,13 +673,13 @@
       color-mix(in oklab, var(--foreground) 22%, transparent) inset;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="calendar"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='calendar']
     .calendar-weekday {
     color: color-mix(in oklab, var(--foreground) 65%, transparent);
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="tooltip-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='tooltip-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -695,7 +695,7 @@
      Switch – neumorphic toggle
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="switch"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='switch'] {
     border: 0 !important;
     border-radius: 9999px !important;
     background: var(--background) !important;
@@ -709,8 +709,8 @@
       background-color 300ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="switch"][data-state="checked"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='switch'][data-state='checked'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     box-shadow: var(
       --neu-shadow-inset,
@@ -719,7 +719,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="switch-thumb"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='switch-thumb'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     box-shadow: var(
       --neu-shadow-extruded-sm,
@@ -732,7 +732,7 @@
      Checkbox – inset well with extruded checked state
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="checkbox"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='checkbox'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 0.5) !important;
     background: var(--background) !important;
@@ -748,10 +748,10 @@
       background-color 200ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="checkbox"][data-state="checked"],
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="checkbox"][data-state="indeterminate"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='checkbox'][data-state='checked'],
+  :root[data-theme-preset='neumorphism']
+    [data-slot='checkbox'][data-state='indeterminate'] {
     background: var(--foreground) !important;
     color: var(--background) !important;
     box-shadow: var(
@@ -765,7 +765,7 @@
      Slider – inset track, extruded thumb
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="slider-track"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='slider-track'] {
     height: 0.5rem !important;
     border-radius: 9999px !important;
     background: var(--background) !important;
@@ -776,7 +776,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="slider-thumb"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='slider-thumb'] {
     border: 0 !important;
     width: 1.25rem !important;
     height: 1.25rem !important;
@@ -792,7 +792,7 @@
       box-shadow 200ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="slider-thumb"]:hover {
+  :root[data-theme-preset='neumorphism'] [data-slot='slider-thumb']:hover {
     transform: scale(1.1);
     box-shadow: var(
       --neu-shadow-extruded,
@@ -801,7 +801,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="slider-thumb"]:active {
+  :root[data-theme-preset='neumorphism'] [data-slot='slider-thumb']:active {
     transform: scale(0.95);
     box-shadow: var(
       --neu-shadow-inset-sm,
@@ -814,7 +814,7 @@
      Toggle – extruded off-state, inset on-state
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="toggle"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='toggle'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -829,7 +829,7 @@
       background-color 200ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="toggle"]:hover {
+  :root[data-theme-preset='neumorphism'] [data-slot='toggle']:hover {
     transform: translateY(-1px);
     box-shadow: var(
       --neu-shadow-extruded,
@@ -838,7 +838,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="toggle"][data-state="on"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='toggle'][data-state='on'] {
     background: var(--background) !important;
     box-shadow: var(
       --neu-shadow-inset,
@@ -852,7 +852,7 @@
      Alert – soft extruded container
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="alert"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='alert'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 1.5) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -863,32 +863,32 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="alert"][data-variant="destructive"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='alert'][data-variant='destructive'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-destructive) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="alert"][data-variant="destructive"]
+  :root[data-theme-preset='neumorphism']
+    [data-slot='alert'][data-variant='destructive']
     > svg {
     color: var(--neu-text-destructive) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="alert"][data-variant="warning"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='alert'][data-variant='warning'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-warning) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="alert"][data-variant="success"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='alert'][data-variant='success'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-success) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="alert"][data-variant="info"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='alert'][data-variant='info'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     color: var(--neu-text-info) !important;
   }
@@ -897,14 +897,14 @@
      Accordion – subtle inset content, extruded trigger
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="accordion-item"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='accordion-item'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     margin-bottom: 0.5rem;
     overflow: hidden;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="accordion-trigger"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='accordion-trigger'] {
     border-radius: var(--radius) !important;
     padding: 0.75rem 1rem;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -918,7 +918,7 @@
       background-color 300ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="accordion-trigger"]:hover {
+  :root[data-theme-preset='neumorphism'] [data-slot='accordion-trigger']:hover {
     box-shadow: var(
       --neu-shadow-extruded,
       9px 9px 16px rgb(163 177 198 / 0.6),
@@ -927,7 +927,7 @@
     text-decoration: none !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="accordion-content"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='accordion-content'] {
     border-radius: 0 0 var(--radius) var(--radius) !important;
     background: var(--background) !important;
     box-shadow: var(
@@ -942,7 +942,7 @@
      Avatar – extruded circle with inset fallback
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="avatar"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='avatar'] {
     border: 0 !important;
     border-radius: 9999px !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -953,7 +953,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="avatar-fallback"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='avatar-fallback'] {
     background: var(--background) !important;
     box-shadow: var(
       --neu-shadow-inset-sm,
@@ -966,7 +966,7 @@
      Skeleton – soft inset pulse
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="skeleton"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='skeleton'] {
     background: var(--background) !important;
     box-shadow: var(
       --neu-shadow-inset-sm,
@@ -980,14 +980,14 @@
      Table – soft extruded header, subtle row separators
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="table"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='table'] {
     border-collapse: separate;
     border-spacing: 0;
     overflow: hidden;
     border-radius: var(--radius) !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="table-header"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='table-header'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     box-shadow: var(
       --neu-shadow-extruded-sm,
@@ -996,18 +996,18 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="table-header"]
-    [data-slot="table-row"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='table-header']
+    [data-slot='table-row'] {
     border-bottom: 0 !important;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="table-row"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='table-row'] {
     border-bottom: 0 !important;
     transition: box-shadow 200ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"] [data-slot="table-row"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='table-row'] {
     background: transparent !important;
     box-shadow: var(
       --neu-shadow-inset-sm,
@@ -1016,8 +1016,8 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="table-row"][data-state="selected"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='table-row'][data-state='selected'] {
     background: transparent !important;
     box-shadow: var(
       --neu-shadow-inset,
@@ -1030,7 +1030,7 @@
      Separator – inset groove
      ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] [data-slot="separator"] {
+  :root[data-theme-preset='neumorphism'] [data-slot='separator'] {
     background: transparent !important;
     height: 2px !important;
     box-shadow:
@@ -1038,8 +1038,8 @@
       0 1px 1px rgb(255 255 255 / 0.6) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-slot="separator"][data-orientation="vertical"] {
+  :root[data-theme-preset='neumorphism']
+    [data-slot='separator'][data-orientation='vertical'] {
     height: auto !important;
     width: 2px !important;
     box-shadow:
@@ -1053,7 +1053,7 @@
      ═══════════════════════════════════════════════════════════════ */
 
   /* Base toast – extruded card-like surface */
-  :root[data-theme-preset="neumorphism"] [data-sonner-toast] {
+  :root[data-theme-preset='neumorphism'] [data-sonner-toast] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 1.5) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -1070,106 +1070,106 @@
   }
 
   /* Semantic toast types – muted colored text + left accent bar */
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="success"],
-  :root[data-theme-preset="neumorphism"] [data-sonner-toast][data-type="error"],
-  :root[data-theme-preset="neumorphism"] [data-sonner-toast][data-type="info"],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="warning"] {
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='success'],
+  :root[data-theme-preset='neumorphism'] [data-sonner-toast][data-type='error'],
+  :root[data-theme-preset='neumorphism'] [data-sonner-toast][data-type='info'],
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='warning'] {
     background: var(--neu-surface-raised, var(--background)) !important;
     position: relative;
     overflow: visible !important;
   }
 
   /* Success toast */
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="success"] {
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='success'] {
     color: var(--neu-text-success) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="success"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='success']
     [data-icon]
     svg {
     color: var(--neu-text-success) !important;
   }
 
   /* Error toast */
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="error"] {
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='error'] {
     color: var(--neu-text-destructive) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="error"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='error']
     [data-icon]
     svg {
     color: var(--neu-text-destructive) !important;
   }
 
   /* Info toast */
-  :root[data-theme-preset="neumorphism"] [data-sonner-toast][data-type="info"] {
+  :root[data-theme-preset='neumorphism'] [data-sonner-toast][data-type='info'] {
     color: var(--neu-text-info) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="info"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='info']
     [data-icon]
     svg {
     color: var(--neu-text-info) !important;
   }
 
   /* Warning toast */
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="warning"] {
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='warning'] {
     color: var(--neu-text-warning) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="warning"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='warning']
     [data-icon]
     svg {
     color: var(--neu-text-warning) !important;
   }
 
   /* Toast description text */
-  :root[data-theme-preset="neumorphism"]
+  :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-description] {
     color: var(--muted-foreground) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="success"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='success']
     [data-description],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="error"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='error']
     [data-description],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="info"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='info']
     [data-description],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="warning"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='warning']
     [data-description] {
     color: var(--foreground) !important;
     opacity: 0.7;
   }
 
   /* Toast close button – base & all typed toasts */
-  :root[data-theme-preset="neumorphism"]
+  :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-close-button],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="success"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='success']
     [data-close-button],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="error"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='error']
     [data-close-button],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="info"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='info']
     [data-close-button],
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="warning"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='warning']
     [data-close-button] {
     border: 0 !important;
     border-color: transparent !important;
@@ -1188,44 +1188,44 @@
   }
 
   /* Close button SVG icon – force visible */
-  :root[data-theme-preset="neumorphism"]
+  :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-close-button]
     svg,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="success"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='success']
     [data-close-button]
     svg,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="error"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='error']
     [data-close-button]
     svg,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="info"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='info']
     [data-close-button]
     svg,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="warning"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='warning']
     [data-close-button]
     svg {
     color: var(--foreground) !important;
     opacity: 1 !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
+  :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-close-button]:hover,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="success"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='success']
     [data-close-button]:hover,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="error"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='error']
     [data-close-button]:hover,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="info"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='info']
     [data-close-button]:hover,
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="warning"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='warning']
     [data-close-button]:hover {
     background: var(--background) !important;
     color: var(--foreground) !important;
@@ -1237,7 +1237,7 @@
   }
 
   /* Toast action / cancel buttons */
-  :root[data-theme-preset="neumorphism"] [data-sonner-toast] [data-button] {
+  :root[data-theme-preset='neumorphism'] [data-sonner-toast] [data-button] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--neu-surface-raised, var(--background)) !important;
@@ -1252,7 +1252,7 @@
       box-shadow 200ms ease-out;
   }
 
-  :root[data-theme-preset="neumorphism"]
+  :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-button]:hover {
     transform: translateY(-1px);
@@ -1263,7 +1263,7 @@
     ) !important;
   }
 
-  :root[data-theme-preset="neumorphism"]
+  :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-button]:active {
     transform: translateY(0);
@@ -1275,8 +1275,8 @@
   }
 
   /* Loading toast spinner */
-  :root[data-theme-preset="neumorphism"]
-    [data-sonner-toast][data-type="loading"]
+  :root[data-theme-preset='neumorphism']
+    [data-sonner-toast][data-type='loading']
     [data-icon]
     svg {
     color: var(--muted-foreground) !important;
@@ -1286,7 +1286,7 @@
      Loader
   ═══════════════════════════════════════════════════════════════ */
 
-  :root[data-theme-preset="neumorphism"] {
+  :root[data-theme-preset='neumorphism'] {
     --neu-loader-width: 1.35em;
     --neu-loader-height: 16em;
     --neu-ball-size: 1.35em;
@@ -1408,7 +1408,7 @@
   }
 
   @media (min-width: 768px) {
-    :root[data-theme-preset="neumorphism"] {
+    :root[data-theme-preset='neumorphism'] {
       --neu-loader-width: 1.6em;
       --neu-loader-height: 19em;
       --neu-ball-size: 1.6em;
@@ -1418,7 +1418,7 @@
   }
 
   @media (min-width: 1280px) {
-    :root[data-theme-preset="neumorphism"] {
+    :root[data-theme-preset='neumorphism'] {
       --neu-loader-width: 1.9em;
       --neu-loader-height: 22.4em;
       --neu-ball-size: 1.9em;
@@ -1427,7 +1427,7 @@
     }
   }
 
-  .dark[data-theme-preset="neumorphism"] {
+  .dark[data-theme-preset='neumorphism'] {
     --neu-loader-border: #424852;
     /* Shell — steeper convex gradient for dark surfaces */
     --neu-loader-shell-bg: linear-gradient(
@@ -1541,31 +1541,31 @@
     );
   }
 
-  :root[data-theme-preset="neumorphism"] .main,
-  :root[data-theme-preset="neumorphism"] .neu-main,
-  :root[data-theme-preset="neumorphism"] .neu-up {
+  :root[data-theme-preset='neumorphism'] .main,
+  :root[data-theme-preset='neumorphism'] .neu-main,
+  :root[data-theme-preset='neumorphism'] .neu-up {
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-main {
+  :root[data-theme-preset='neumorphism'] .neu-main {
     padding: 0;
     border-radius: 0;
     background: transparent;
     box-shadow: none;
   }
 
-  :root[data-theme-preset="neumorphism"] .neu-up {
+  :root[data-theme-preset='neumorphism'] .neu-up {
     width: var(--neu-loader-frame-size);
     height: var(--neu-loader-frame-size);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaders,
-  :root[data-theme-preset="neumorphism"] .loadersB,
-  :root[data-theme-preset="neumorphism"] .neu-loaders,
-  :root[data-theme-preset="neumorphism"] .neu-loadersB {
+  :root[data-theme-preset='neumorphism'] .loaders,
+  :root[data-theme-preset='neumorphism'] .loadersB,
+  :root[data-theme-preset='neumorphism'] .neu-loaders,
+  :root[data-theme-preset='neumorphism'] .neu-loadersB {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1573,8 +1573,8 @@
     inset: 0;
   }
 
-  :root[data-theme-preset="neumorphism"] .loader,
-  :root[data-theme-preset="neumorphism"] .neu-loader {
+  :root[data-theme-preset='neumorphism'] .loader,
+  :root[data-theme-preset='neumorphism'] .neu-loader {
     position: absolute;
     width: var(--neu-loader-width);
     height: var(--neu-loader-height);
@@ -1585,9 +1585,9 @@
     overflow: hidden;
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:after,
-  :root[data-theme-preset="neumorphism"] .neu-loader:after {
-    content: "";
+  :root[data-theme-preset='neumorphism'] .loader:after,
+  :root[data-theme-preset='neumorphism'] .neu-loader:after {
+    content: '';
     position: absolute;
     left: 0;
     top: 0;
@@ -1606,9 +1606,9 @@
     );
   }
 
-  :root[data-theme-preset="neumorphism"] .loader::before,
-  :root[data-theme-preset="neumorphism"] .neu-loader::before {
-    content: "";
+  :root[data-theme-preset='neumorphism'] .loader::before,
+  :root[data-theme-preset='neumorphism'] .neu-loader::before {
+    content: '';
     position: absolute;
     bottom: 0;
     right: 0;
@@ -1627,8 +1627,8 @@
     );
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA,
-  :root[data-theme-preset="neumorphism"] .neu-loaderA {
+  :root[data-theme-preset='neumorphism'] .loaderA,
+  :root[data-theme-preset='neumorphism'] .neu-loaderA {
     position: absolute;
     width: var(--neu-loader-width);
     height: var(--neu-loader-height);
@@ -1637,26 +1637,26 @@
     filter: var(--neu-loader-rail-shadow);
   }
 
-  :root[data-theme-preset="neumorphism"] .ball0,
-  :root[data-theme-preset="neumorphism"] .ball1,
-  :root[data-theme-preset="neumorphism"] .ball2,
-  :root[data-theme-preset="neumorphism"] .ball3,
-  :root[data-theme-preset="neumorphism"] .ball4,
-  :root[data-theme-preset="neumorphism"] .ball5,
-  :root[data-theme-preset="neumorphism"] .ball6,
-  :root[data-theme-preset="neumorphism"] .ball7,
-  :root[data-theme-preset="neumorphism"] .ball8,
-  :root[data-theme-preset="neumorphism"] .ball9,
-  :root[data-theme-preset="neumorphism"] .neu-ball0,
-  :root[data-theme-preset="neumorphism"] .neu-ball1,
-  :root[data-theme-preset="neumorphism"] .neu-ball2,
-  :root[data-theme-preset="neumorphism"] .neu-ball3,
-  :root[data-theme-preset="neumorphism"] .neu-ball4,
-  :root[data-theme-preset="neumorphism"] .neu-ball5,
-  :root[data-theme-preset="neumorphism"] .neu-ball6,
-  :root[data-theme-preset="neumorphism"] .neu-ball7,
-  :root[data-theme-preset="neumorphism"] .neu-ball8,
-  :root[data-theme-preset="neumorphism"] .neu-ball9 {
+  :root[data-theme-preset='neumorphism'] .ball0,
+  :root[data-theme-preset='neumorphism'] .ball1,
+  :root[data-theme-preset='neumorphism'] .ball2,
+  :root[data-theme-preset='neumorphism'] .ball3,
+  :root[data-theme-preset='neumorphism'] .ball4,
+  :root[data-theme-preset='neumorphism'] .ball5,
+  :root[data-theme-preset='neumorphism'] .ball6,
+  :root[data-theme-preset='neumorphism'] .ball7,
+  :root[data-theme-preset='neumorphism'] .ball8,
+  :root[data-theme-preset='neumorphism'] .ball9,
+  :root[data-theme-preset='neumorphism'] .neu-ball0,
+  :root[data-theme-preset='neumorphism'] .neu-ball1,
+  :root[data-theme-preset='neumorphism'] .neu-ball2,
+  :root[data-theme-preset='neumorphism'] .neu-ball3,
+  :root[data-theme-preset='neumorphism'] .neu-ball4,
+  :root[data-theme-preset='neumorphism'] .neu-ball5,
+  :root[data-theme-preset='neumorphism'] .neu-ball6,
+  :root[data-theme-preset='neumorphism'] .neu-ball7,
+  :root[data-theme-preset='neumorphism'] .neu-ball8,
+  :root[data-theme-preset='neumorphism'] .neu-ball9 {
     width: var(--neu-ball-size);
     height: var(--neu-ball-size);
     box-shadow: var(--neu-ball-shadow);
@@ -1668,46 +1668,46 @@
   }
 
   /* ── Per-ball theme color overrides ── */
-  :root[data-theme-preset="neumorphism"] .ball0,
-  :root[data-theme-preset="neumorphism"] .neu-ball0 {
+  :root[data-theme-preset='neumorphism'] .ball0,
+  :root[data-theme-preset='neumorphism'] .neu-ball0 {
     background: var(--neu-ball-bg-0, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball1,
-  :root[data-theme-preset="neumorphism"] .neu-ball1 {
+  :root[data-theme-preset='neumorphism'] .ball1,
+  :root[data-theme-preset='neumorphism'] .neu-ball1 {
     background: var(--neu-ball-bg-1, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball2,
-  :root[data-theme-preset="neumorphism"] .neu-ball2 {
+  :root[data-theme-preset='neumorphism'] .ball2,
+  :root[data-theme-preset='neumorphism'] .neu-ball2 {
     background: var(--neu-ball-bg-2, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball3,
-  :root[data-theme-preset="neumorphism"] .neu-ball3 {
+  :root[data-theme-preset='neumorphism'] .ball3,
+  :root[data-theme-preset='neumorphism'] .neu-ball3 {
     background: var(--neu-ball-bg-3, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball4,
-  :root[data-theme-preset="neumorphism"] .neu-ball4 {
+  :root[data-theme-preset='neumorphism'] .ball4,
+  :root[data-theme-preset='neumorphism'] .neu-ball4 {
     background: var(--neu-ball-bg-4, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball5,
-  :root[data-theme-preset="neumorphism"] .neu-ball5 {
+  :root[data-theme-preset='neumorphism'] .ball5,
+  :root[data-theme-preset='neumorphism'] .neu-ball5 {
     background: var(--neu-ball-bg-5, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball6,
-  :root[data-theme-preset="neumorphism"] .neu-ball6 {
+  :root[data-theme-preset='neumorphism'] .ball6,
+  :root[data-theme-preset='neumorphism'] .neu-ball6 {
     background: var(--neu-ball-bg-6, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball7,
-  :root[data-theme-preset="neumorphism"] .neu-ball7 {
+  :root[data-theme-preset='neumorphism'] .ball7,
+  :root[data-theme-preset='neumorphism'] .neu-ball7 {
     background: var(--neu-ball-bg-7, var(--neu-ball-bg));
   }
-  :root[data-theme-preset="neumorphism"] .ball8,
-  :root[data-theme-preset="neumorphism"] .neu-ball8 {
+  :root[data-theme-preset='neumorphism'] .ball8,
+  :root[data-theme-preset='neumorphism'] .neu-ball8 {
     background: var(--neu-ball-bg-8, var(--neu-ball-bg));
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA > div::after,
-  :root[data-theme-preset="neumorphism"] .neu-loaderA > div::after {
-    content: "";
+  :root[data-theme-preset='neumorphism'] .loaderA > div::after,
+  :root[data-theme-preset='neumorphism'] .neu-loaderA > div::after {
+    content: '';
     position: absolute;
     top: 10%;
     left: 12%;
@@ -1719,128 +1719,128 @@
     filter: blur(0.15px);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(2),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(2) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(2),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(2) {
     transform: rotate(20deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(3),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(3) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(3),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(3) {
     transform: rotate(40deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(4),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(4) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(4),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(4) {
     transform: rotate(60deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(5),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(5) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(5),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(5) {
     transform: rotate(80deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(6),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(6) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(6),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(6) {
     transform: rotate(100deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(7),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(7) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(7),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(7) {
     transform: rotate(120deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(8),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(8) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(8),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(8) {
     transform: rotate(140deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loader:nth-child(9),
-  :root[data-theme-preset="neumorphism"] .neu-loader:nth-child(9) {
+  :root[data-theme-preset='neumorphism'] .loader:nth-child(9),
+  :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(9) {
     transform: rotate(160deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(2),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(2) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(2),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(2) {
     transform: rotate(20deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(3),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(3) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(3),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(3) {
     transform: rotate(40deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(4),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(4) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(4),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(4) {
     transform: rotate(60deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(5),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(5) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(5),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(5) {
     transform: rotate(80deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(6),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(6) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(6),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(6) {
     transform: rotate(100deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(7),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(7) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(7),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(7) {
     transform: rotate(120deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(8),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(8) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(8),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(8) {
     transform: rotate(140deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .loaderA:nth-child(9),
-  :root[data-theme-preset="neumorphism"] .neu-loaderA:nth-child(9) {
+  :root[data-theme-preset='neumorphism'] .loaderA:nth-child(9),
+  :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(9) {
     transform: rotate(160deg);
   }
 
-  :root[data-theme-preset="neumorphism"] .ball1,
-  :root[data-theme-preset="neumorphism"] .neu-ball1 {
+  :root[data-theme-preset='neumorphism'] .ball1,
+  :root[data-theme-preset='neumorphism'] .neu-ball1 {
     animation-delay: 0.2s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball2,
-  :root[data-theme-preset="neumorphism"] .neu-ball2 {
+  :root[data-theme-preset='neumorphism'] .ball2,
+  :root[data-theme-preset='neumorphism'] .neu-ball2 {
     animation-delay: 0.4s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball3,
-  :root[data-theme-preset="neumorphism"] .neu-ball3 {
+  :root[data-theme-preset='neumorphism'] .ball3,
+  :root[data-theme-preset='neumorphism'] .neu-ball3 {
     animation-delay: 0.6s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball4,
-  :root[data-theme-preset="neumorphism"] .neu-ball4 {
+  :root[data-theme-preset='neumorphism'] .ball4,
+  :root[data-theme-preset='neumorphism'] .neu-ball4 {
     animation-delay: 0.8s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball5,
-  :root[data-theme-preset="neumorphism"] .neu-ball5 {
+  :root[data-theme-preset='neumorphism'] .ball5,
+  :root[data-theme-preset='neumorphism'] .neu-ball5 {
     animation-delay: 1s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball6,
-  :root[data-theme-preset="neumorphism"] .neu-ball6 {
+  :root[data-theme-preset='neumorphism'] .ball6,
+  :root[data-theme-preset='neumorphism'] .neu-ball6 {
     animation-delay: 1.2s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball7,
-  :root[data-theme-preset="neumorphism"] .neu-ball7 {
+  :root[data-theme-preset='neumorphism'] .ball7,
+  :root[data-theme-preset='neumorphism'] .neu-ball7 {
     animation-delay: 1.4s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball8,
-  :root[data-theme-preset="neumorphism"] .neu-ball8 {
+  :root[data-theme-preset='neumorphism'] .ball8,
+  :root[data-theme-preset='neumorphism'] .neu-ball8 {
     animation-delay: 1.6s;
   }
 
-  :root[data-theme-preset="neumorphism"] .ball9,
-  :root[data-theme-preset="neumorphism"] .neu-ball9 {
+  :root[data-theme-preset='neumorphism'] .ball9,
+  :root[data-theme-preset='neumorphism'] .neu-ball9 {
     animation-delay: 1.8s;
   }
 

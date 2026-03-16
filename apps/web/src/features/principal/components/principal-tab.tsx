@@ -96,7 +96,12 @@ export function PrincipalInvestmentTab() {
       </div>
 
       {/* KPI Cards */}
-      {hasContributions && <PrincipalKpiCards metrics={contributionMetrics} />}
+      {hasContributions && (
+        <PrincipalKpiCards
+          metrics={contributionMetrics}
+          contributions={data.contributions}
+        />
+      )}
 
       {/* Charts Row 1: Monthly + Cumulative */}
       {hasContributions && (

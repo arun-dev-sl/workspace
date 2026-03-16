@@ -131,15 +131,47 @@ export class ExpensesService {
             EXPENSE_QUERY_TERMS,
           ))
 
-    const { jobId } = await this.emailSyncService.startSync({
+    const job = await this.syncJobRepository.create({
       userId: params.userId,
-      query,
       category: EXPENSE_CATEGORY,
+      query,
     })
-    this.runPostSyncProcessing(jobId, params.userId).catch((error) => {
-      this.logger.error(`Post-sync processing for job ${jobId} failed`, error)
+
+    this.runSyncJobPipeline(job.id, params.userId, query).catch(async (error) => {
+      this.logger.error(`Expense sync pipeline for job ${job.id} failed`, error)
+      try {
+        await this.syncJobRepository.update(job.id, {
+          status: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'Unexpected error',
+          completedAt: new Date(),
+        })
+      } catch (updateError) {
+        this.logger.error(`Failed to update expense sync job ${job.id} status`, updateError)
+      }
     })
-    return { jobId }
+
+    return { jobId: job.id }
+  }
+
+  private async runSyncJobPipeline(jobId: string, userId: string, query: string): Promise<void> {
+    await this.emailSyncService.runSyncForExistingJob(
+      jobId,
+      {
+        userId,
+        query,
+        category: EXPENSE_CATEGORY,
+      },
+      {
+        markCompleted: false,
+      },
+    )
+
+    await this.runPostSyncProcessing(jobId, userId)
+
+    await this.syncJobRepository.update(jobId, {
+      status: 'completed',
+      completedAt: new Date(),
+    })
   }
 
   private buildSyncQueryFromDate(fromDate: string): string {
@@ -224,26 +256,23 @@ export class ExpensesService {
 
       let totalTransactions = 0
       let totalStatements = 0
-      let totalEmails = 0
-      let offset = 0
+      const emailsToProcess = forceProcessAll
+        ? await this.rawEmailRepository.listAllByUser(userId, EXPENSE_CATEGORY)
+        : await this.rawEmailRepository.listUnprocessedByUser(userId, EXPENSE_CATEGORY)
+      const totalEmails = emailsToProcess.length
 
       const userRules = await this.buildUserCategorizationRules(userId)
 
-      while (true) {
-        const emails = forceProcessAll
-          ? await this.rawEmailRepository.listAllByUser(userId, EXPENSE_CATEGORY, {
-              limit: ExpensesService.EMAIL_PROCESS_BATCH_SIZE,
-              offset,
-            })
-          : await this.rawEmailRepository.listUnprocessedByUser(userId, EXPENSE_CATEGORY, {
-              limit: ExpensesService.EMAIL_PROCESS_BATCH_SIZE,
-            })
+      await this.syncJobRepository.update(jobId, {
+        totalEmails,
+      })
 
-        if (emails.length === 0) {
-          break
-        }
-
-        totalEmails += emails.length
+      for (
+        let index = 0;
+        index < emailsToProcess.length;
+        index += ExpensesService.EMAIL_PROCESS_BATCH_SIZE
+      ) {
+        const emails = emailsToProcess.slice(index, index + ExpensesService.EMAIL_PROCESS_BATCH_SIZE)
 
         const batchResults = await Promise.all(
           emails.map((email) => this.processEmailForReprocess(jobId, email, userRules)),
@@ -268,15 +297,7 @@ export class ExpensesService {
         if (batchStatements > 0) {
           await this.syncJobRepository.incrementProgress(jobId, 'statements', batchStatements)
         }
-
-        if (forceProcessAll) {
-          offset += emails.length
-        }
       }
-
-      await this.syncJobRepository.update(jobId, {
-        totalEmails,
-      })
 
       this.invalidateUserAnalyticsCache(userId)
 
@@ -313,80 +334,54 @@ export class ExpensesService {
     jobId: string,
     userId: string,
   ): Promise<void> {
-    const MAX_WAIT_MS = 30 * 60 * 1000
-    const POLL_INTERVAL_MS = 5000
-    const startTime = Date.now()
+    const emailsToProcess = await this.rawEmailRepository.listUnprocessedByUser(
+      userId,
+      EXPENSE_CATEGORY,
+    )
 
-    while (Date.now() - startTime < MAX_WAIT_MS) {
-      const job = await this.emailSyncService.getSyncJobStatus(jobId)
-      if (!job) {
-        this.logger.error(`Post-sync processing: job ${jobId} not found`)
-        return
-      }
-      if (job.status === 'completed') {
-        break
-      }
-
-      if (job.status === 'failed') {
-        this.logger.error(`Post-sync processing: job ${jobId} failed, skipping post-processing`)
-        return
-      }
-
-      await this.sleep(POLL_INTERVAL_MS)
-
-      this.logger.log(
-        `Post-sync processing: waiting for job ${jobId} to complete... (current status: ${job.status}, elapsed: ${Math.floor((Date.now() - startTime) / 1000)}s)`,
-      )
-
-      // Only process new emails that haven't been processed yet
-      let totalTransactions = 0
-      let totalStatements = 0
-      let processedEmails = 0
-
-      this.logger.log(
-        `Post-sync processing for job ${jobId}: processing unprocessed emails in batches`,
-      )
-
-      const userRules = await this.buildUserCategorizationRules(userId)
-
-      while (true) {
-        const chunk = await this.rawEmailRepository.listUnprocessedByUser(userId, EXPENSE_CATEGORY, {
-          limit: ExpensesService.EMAIL_PROCESS_BATCH_SIZE,
-        })
-
-        if (chunk.length === 0) {
-          break
-        }
-
-        const chunkResults = await Promise.all(
-          chunk.map((email) => this.processEmailForReprocess(jobId, email, userRules)),
-        )
-
-        const chunkTransactions = chunkResults.reduce(
-          (sum, result) => sum + result.transactions,
-          0,
-        )
-        const chunkStatements = chunkResults.reduce(
-          (sum, result) => sum + result.statements,
-          0,
-        )
-
-        totalTransactions += chunkTransactions
-        totalStatements += chunkStatements
-        processedEmails += chunk.length
-
-        await this.syncJobRepository.incrementProgress(jobId, 'processedEmails', chunk.length)
-        if (chunkTransactions > 0) {
-          await this.syncJobRepository.incrementProgress(jobId, 'transactions', chunkTransactions)
-        }
-        if (chunkStatements > 0) {
-          await this.syncJobRepository.incrementProgress(jobId, 'statements', chunkStatements)
-        }
-      }
-
-      this.invalidateUserAnalyticsCache(userId)
-      this.logger.log(`Post-sync processing for job ${jobId} completed: ${totalTransactions} transactions, ${totalStatements} statements processed from ${processedEmails} synced emails`)
+    if (emailsToProcess.length === 0) {
+      this.logger.log(`Post-sync processing for job ${jobId}: no unprocessed emails found`)
+      return
     }
+
+    // Post-sync parsing runs after Gmail fetch completion and should not mutate fetch progress.
+    let totalTransactions = 0
+    let totalStatements = 0
+    let processedEmails = 0
+
+    this.logger.log(
+      `Post-sync processing for job ${jobId}: processing ${emailsToProcess.length} unprocessed emails in batches`,
+    )
+
+    const userRules = await this.buildUserCategorizationRules(userId)
+
+    for (
+      let index = 0;
+      index < emailsToProcess.length;
+      index += ExpensesService.EMAIL_PROCESS_BATCH_SIZE
+    ) {
+      const chunk = emailsToProcess.slice(index, index + ExpensesService.EMAIL_PROCESS_BATCH_SIZE)
+
+      const chunkResults = await Promise.all(
+        chunk.map((email) => this.processEmailForReprocess(jobId, email, userRules)),
+      )
+
+      const chunkTransactions = chunkResults.reduce(
+        (sum, result) => sum + result.transactions,
+        0,
+      )
+      const chunkStatements = chunkResults.reduce(
+        (sum, result) => sum + result.statements,
+        0,
+      )
+
+      totalTransactions += chunkTransactions
+      totalStatements += chunkStatements
+      processedEmails += chunk.length
+    }
+
+    this.invalidateUserAnalyticsCache(userId)
+    this.logger.log(`Post-sync processing for job ${jobId} completed: ${totalTransactions} transactions, ${totalStatements} statements processed from ${processedEmails} synced emails`)
   }
 
   private async processEmailForReprocess(
@@ -436,10 +431,6 @@ export class ExpensesService {
       )
       return { transactions: 0, statements: 0 }
     }
-  }
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
   private toSyncJob(job: SyncJobRepository['findById'] extends (id: string) => Promise<infer TResult> ? NonNullable<TResult> : never): SyncJob {

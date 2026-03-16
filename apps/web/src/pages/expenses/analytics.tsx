@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { format, parseISO } from 'date-fns'
+import { format, parseISO, subDays } from 'date-fns'
 import {
   Area,
   AreaChart,
@@ -18,10 +18,12 @@ import {
 } from 'recharts'
 
 import { MainLayout } from '@/components/layouts'
+import { MetricTrendCard } from '@/components/metric-trend-card'
 import { useAiPageContext } from '@/features/ai-assistant/ai-assistant-context'
 import { buildExpensesAnalyticsPageContext } from '@/features/ai-assistant/adapters/expenses-analytics-context'
 import {
   fetchSpendingSummary,
+  fetchSpendingSummaryForDate,
   fetchSpendingByCategory,
   fetchSpendingByMode,
   fetchTopMerchants,
@@ -39,7 +41,12 @@ import {
   fetchMilestoneEtas,
   fetchLargestTransactions,
 } from '@/features/expenses/api/analytics'
+import { listExpenses } from '@/features/expenses/api/list-expenses'
 import { useSyncJob } from '@/features/expenses/hooks/use-sync-job'
+import {
+  takeLastMetricTrendPoints,
+  type MetricTrendPoint,
+} from '@/lib/metric-trends'
 
 import type {
   AnalyticsPeriod,
@@ -47,10 +54,12 @@ import type {
   MilestoneEta,
   MilestoneProgress,
   PeriodComparison,
+  Transaction,
 } from '@workspace/domain'
 
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { Button } from '@workspace/ui/components/ui/button'
+import { Calendar as CalendarPicker } from '@workspace/ui/components/ui/calendar'
 import {
   Card,
   CardContent,
@@ -58,6 +67,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/ui/card'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@workspace/ui/components/ui/popover'
 import {
   type ChartConfig,
   ChartContainer,
@@ -67,6 +81,12 @@ import {
   ChartTooltipContent,
 } from '@workspace/ui/components/ui/chart'
 import { Skeleton } from '@workspace/ui/components/ui/skeleton'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@workspace/ui/components/ui/tabs'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -83,6 +103,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { Separator } from '@workspace/ui/components/ui/separator'
+import { cn } from '@workspace/ui/lib/utils'
 
 // ── Helpers ──
 
@@ -121,6 +142,9 @@ const fmtCompact = (n: number) =>
 
 const AnalyticsPage = () => {
   const [period, setPeriod] = useState<AnalyticsPeriod>('month')
+  const [selectedDate, setSelectedDate] = useState(() =>
+    format(new Date(), 'yyyy-MM-dd'),
+  )
   const queryClient = useQueryClient()
 
   const { startReprocess, job, isSyncing } = useSyncJob({
@@ -217,6 +241,24 @@ const AnalyticsPage = () => {
     queryFn: () => fetchLargestTransactions(period, 10),
   })
 
+  const daySummaryQ = useQuery({
+    queryKey: ['expenses', 'analytics', 'day-summary', selectedDate],
+    queryFn: () => fetchSpendingSummaryForDate(selectedDate),
+    enabled: Boolean(selectedDate),
+  })
+
+  const dayTransactionsQ = useQuery({
+    queryKey: ['expenses', 'analytics', 'day-transactions', selectedDate],
+    queryFn: () =>
+      listExpenses({
+        page: 1,
+        page_size: 100,
+        date_from: selectedDate,
+        date_to: selectedDate,
+      }),
+    enabled: Boolean(selectedDate),
+  })
+
   const aiPageContext = useMemo(
     () =>
       buildExpensesAnalyticsPageContext({
@@ -229,6 +271,18 @@ const AnalyticsPage = () => {
   useAiPageContext(aiPageContext)
 
   const summary = summaryQ.data
+  const recentSpentTrend = takeLastMetricTrendPoints(
+    (trendQ.data ?? []).map((item) => ({
+      label: item.month,
+      value: item.debited,
+    })),
+  )
+  const recentReceivedTrend = takeLastMetricTrendPoints(
+    (trendQ.data ?? []).map((item) => ({
+      label: item.month,
+      value: item.credited,
+    })),
+  )
 
   const categoryChartData = (categoryQ.data ?? []).map((category, index) => ({
     ...category,
@@ -322,6 +376,14 @@ const AnalyticsPage = () => {
       .sort((a, b) => a.month.localeCompare(b.month))
   })()
 
+  const dayTransactions = dayTransactionsQ.data?.data ?? []
+  const spentTransactions = dayTransactions.filter(
+    (transaction) => transaction.transactionType === 'debited',
+  )
+  const receivedTransactions = dayTransactions.filter(
+    (transaction) => transaction.transactionType === 'credited',
+  )
+
   return (
     <MainLayout>
       <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
@@ -379,6 +441,8 @@ const AnalyticsPage = () => {
               summary ? `${summary.transactionCount} transactions` : undefined
             }
             loading={summaryQ.isLoading}
+            trendData={recentSpentTrend}
+            formatTrendValue={fmtCurrency}
           />
           <SummaryCard
             title="Total Received"
@@ -388,6 +452,8 @@ const AnalyticsPage = () => {
               summary ? `Net flow: ${fmtCurrency(summary.netFlow)}` : undefined
             }
             loading={summaryQ.isLoading}
+            trendData={recentReceivedTrend}
+            formatTrendValue={fmtCurrency}
           />
           <SummaryCard
             title="Avg Transaction"
@@ -408,6 +474,16 @@ const AnalyticsPage = () => {
             loading={summaryQ.isLoading}
           />
         </div>
+
+        <DaySpendExplorerSection
+          selectedDate={selectedDate}
+          onSelectedDateChange={setSelectedDate}
+          summary={daySummaryQ.data}
+          transactionsTotal={dayTransactionsQ.data?.total ?? 0}
+          spentTransactions={spentTransactions}
+          receivedTransactions={receivedTransactions}
+          loading={daySummaryQ.isLoading || dayTransactionsQ.isLoading}
+        />
 
         {/* ── Charts row 1: Daily spending + Category pie ── */}
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
@@ -1569,36 +1645,267 @@ function SummaryCard({
   icon,
   subtitle,
   loading,
+  trendData,
+  formatTrendValue,
 }: {
   title: string
   value?: string
   icon: React.ReactNode
   subtitle?: string
   loading: boolean
+  trendData?: MetricTrendPoint[]
+  formatTrendValue?: (value: number) => string
 }) {
   return (
+    <MetricTrendCard
+      title={title}
+      value={value}
+      icon={icon}
+      description={subtitle}
+      descriptionClassName="mt-1 truncate text-xs text-muted-foreground"
+      loading={loading}
+      trendData={trendData}
+      formatTrendValue={formatTrendValue}
+      valueClassName="text-2xl font-bold tabular-nums"
+    />
+  )
+}
+
+function DaySpendExplorerSection({
+  selectedDate,
+  onSelectedDateChange,
+  summary,
+  transactionsTotal,
+  spentTransactions,
+  receivedTransactions,
+  loading,
+}: {
+  selectedDate: string
+  onSelectedDateChange: (date: string) => void
+  summary?: {
+    totalSpent: number
+    totalReceived: number
+    netFlow: number
+    transactionCount: number
+  }
+  transactionsTotal: number
+  spentTransactions: Transaction[]
+  receivedTransactions: Transaction[]
+  loading: boolean
+}) {
+  const recentDatePresets = Array.from({ length: 7 }, (_, index) => {
+    const date = subDays(new Date(), index)
+
+    let label: string
+    if (index === 0) {
+      label = 'Today'
+    } else if (index === 1) {
+      label = 'Yesterday'
+    } else {
+      label = format(date, 'do MMM')
+    }
+
+    return {
+      value: format(date, 'yyyy-MM-dd'),
+      label,
+    }
+  })
+
+  return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <span data-slot="badge">{icon}</span>
+      <CardHeader>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="text-base">Day Explorer</CardTitle>
+            <CardDescription>
+              Pick a date to inspect totals and individual transactions.
+            </CardDescription>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="justify-start font-normal">
+                  <Calendar className="mr-2 size-4" />
+                  {format(parseISO(selectedDate), 'dd MMM yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-3">
+                <CalendarPicker
+                  mode="single"
+                  selected={parseISO(selectedDate)}
+                  onSelect={(date) => {
+                    if (!date) {
+                      return
+                    }
+
+                    onSelectedDateChange(format(date, 'yyyy-MM-dd'))
+                  }}
+                  disabled={(date) => date > new Date()}
+                  autoFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+        <Separator className="w-full mt-2" />
       </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-7 w-28" />
-        ) : (
-          <p className="text-2xl font-bold tabular-nums">{value}</p>
-        )}
-        {loading ? (
-          <Skeleton className="mt-1 h-4 w-36" />
-        ) : (
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {subtitle}
-          </p>
-        )}
+      <CardContent className="space-y-6">
+        <div className="flex flex-wrap gap-2">
+          {recentDatePresets.map((preset) => (
+            <Button
+              key={preset.value}
+              variant={preset.value === selectedDate ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onSelectedDateChange(preset.value)}
+            >
+              {preset.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          <SummaryCard
+            title="Spent That Day"
+            value={summary ? fmtCurrency(summary.totalSpent) : undefined}
+            icon={<ArrowDownRight className="size-4 text-red-500" />}
+            subtitle={
+              summary
+                ? `${spentTransactions.length} outgoing transactions`
+                : undefined
+            }
+            loading={loading}
+          />
+          <SummaryCard
+            title="Received That Day"
+            value={summary ? fmtCurrency(summary.totalReceived) : undefined}
+            icon={<ArrowUpRight className="size-4 text-emerald-500" />}
+            subtitle={
+              summary ? `Net: ${fmtCurrency(summary.netFlow)}` : undefined
+            }
+            loading={loading}
+          />
+        </div>
+
+        <Tabs defaultValue="spent" className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <TabsList>
+              <TabsTrigger value="spent">
+                Spent ({spentTransactions.length})
+              </TabsTrigger>
+              <TabsTrigger value="received">
+                Received ({receivedTransactions.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <Badge variant="outline">
+              {transactionsTotal} transactions on{' '}
+              {format(parseISO(selectedDate), 'dd MMM yyyy')}
+            </Badge>
+          </div>
+
+          <TabsContent value="spent" className="mt-0">
+            <DayTransactionsList
+              transactions={spentTransactions}
+              loading={loading}
+              emptyMessage="No spending transactions for this date."
+              amountClassName="text-red-500"
+            />
+          </TabsContent>
+
+          <TabsContent value="received" className="mt-0">
+            <DayTransactionsList
+              transactions={receivedTransactions}
+              loading={loading}
+              emptyMessage="No received transactions for this date."
+              amountClassName="text-emerald-500"
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
+  )
+}
+
+function DayTransactionsList({
+  transactions,
+  loading,
+  emptyMessage,
+  amountClassName,
+}: {
+  transactions: Transaction[]
+  loading: boolean
+  emptyMessage: string
+  amountClassName: string
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-14 w-full" />
+        ))}
+      </div>
+    )
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        {emptyMessage}
+      </p>
+    )
+  }
+
+  return (
+    <div className="divide-y rounded-lg border">
+      {transactions.map((transaction) => (
+        <div
+          key={transaction.id}
+          className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium">{transaction.merchant}</p>
+              <Badge variant="outline" className="text-[10px] capitalize">
+                {transaction.subcategory ||
+                  transaction.category.replace(/_/g, ' ')}
+              </Badge>
+              <Badge variant="secondary" className="text-[10px] uppercase">
+                {transaction.transactionMode.replace(/_/g, ' ')}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {(() => {
+                try {
+                  return format(
+                    parseISO(transaction.transactionDate),
+                    'dd MMM yyyy',
+                  )
+                } catch {
+                  return transaction.transactionDate
+                }
+              })()}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
+            <p
+              className={cn(
+                'text-sm font-semibold tabular-nums',
+                amountClassName,
+              )}
+            >
+              {fmtCurrency(transaction.amount)}
+            </p>
+            {transaction.cardLast4 ? (
+              <p className="text-xs text-muted-foreground">
+                ••{transaction.cardLast4}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

@@ -1,53 +1,58 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
   type ColumnDef,
   type RowSelectionState,
-} from "@tanstack/react-table";
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
-import { format } from "date-fns";
+} from '@tanstack/react-table'
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
+import { format } from 'date-fns'
 
-import { MainLayout } from "@/components/layouts";
-import { connectGmail } from "@/features/expenses/api/connect-gmail";
-import { disconnectGmail } from "@/features/expenses/api/disconnect-gmail";
-import { fetchGmailStatus } from "@/features/expenses/api/gmail-status";
-import { listExpenseEmails } from "@/features/expenses/api/list-expense-emails";
-import { listExpenses } from "@/features/expenses/api/list-expenses";
+import { MainLayout } from '@/components/layouts'
+import { connectGmail } from '@/features/expenses/api/connect-gmail'
+import { disconnectGmail } from '@/features/expenses/api/disconnect-gmail'
+import { fetchGmailStatus } from '@/features/expenses/api/gmail-status'
+import { listExpenseEmails } from '@/features/expenses/api/list-expense-emails'
+import { listExpenses } from '@/features/expenses/api/list-expenses'
 import {
   updateTransaction,
   type UpdateTransactionInput,
-} from "@/features/expenses/api/update-transaction";
-import { useSyncJob } from "@/features/expenses/hooks/use-sync-job";
-import { MerchantCategorizeDialog } from "@/features/expenses/components/merchant-categorize-dialog";
-import { BulkActionsToolbar } from "@/features/expenses/components/bulk-actions-toolbar";
-import { CATEGORY_OPTIONS } from "@/features/expenses/constants/category-options";
-import { Badge } from "@workspace/ui/components/ui/badge";
-import { Button } from "@workspace/ui/components/ui/button";
-import { Calendar } from "@workspace/ui/components/ui/calendar";
+} from '@/features/expenses/api/update-transaction'
+import { useSyncJob } from '@/features/expenses/hooks/use-sync-job'
+import { MerchantCategorizeDialog } from '@/features/expenses/components/merchant-categorize-dialog'
+import { BulkActionsToolbar } from '@/features/expenses/components/bulk-actions-toolbar'
+import { CATEGORY_OPTIONS } from '@/features/expenses/constants/category-options'
+import { Badge } from '@workspace/ui/components/ui/badge'
+import { Button } from '@workspace/ui/components/ui/button'
+import { Calendar } from '@workspace/ui/components/ui/calendar'
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@workspace/ui/components/ui/alert'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
-import { Checkbox } from "@workspace/ui/components/ui/checkbox";
-import { Input } from "@workspace/ui/components/ui/input";
-import { Label } from "@workspace/ui/components/ui/label";
+} from '@workspace/ui/components/ui/card'
+import { Checkbox } from '@workspace/ui/components/ui/checkbox'
+import { Input } from '@workspace/ui/components/ui/input'
+import { Label } from '@workspace/ui/components/ui/label'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@workspace/ui/components/ui/popover";
+} from '@workspace/ui/components/ui/popover'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/ui/select";
+} from '@workspace/ui/components/ui/select'
 import {
   Sheet,
   SheetContent,
@@ -55,7 +60,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from "@workspace/ui/components/ui/sheet";
+} from '@workspace/ui/components/ui/sheet'
 import {
   Table,
   TableBody,
@@ -63,13 +68,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/ui/table";
+} from '@workspace/ui/components/ui/table'
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@workspace/ui/components/ui/tabs";
+} from '@workspace/ui/components/ui/tabs'
 import {
   Dot,
   MailSearch,
@@ -78,135 +83,136 @@ import {
   RotateCw,
   RefreshCcw,
   Unplug,
+  AlertTriangle,
   IndianRupee,
   Send,
   ArrowLeft,
   ArrowRight,
   CreditCard,
-} from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { appPaths } from "@/config/app-paths";
-import type { Transaction } from "@workspace/domain";
+} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { appPaths } from '@/config/app-paths'
+import type { Transaction } from '@workspace/domain'
 import {
   SelectFilter,
   DateRangeFilter,
   SearchFilter,
   type FilterOption,
-} from "@/components/filters";
-import { useDebounce } from "@/hooks/use-debounce";
-import { Separator } from "@workspace/ui/components/ui/separator";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
-import { cn } from "@workspace/ui/lib/utils";
+} from '@/components/filters'
+import { useDebounce } from '@/hooks/use-debounce'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { Skeleton } from '@workspace/ui/components/ui/skeleton'
+import { cn } from '@workspace/ui/lib/utils'
 
-const TRANSACTION_TYPES = ["debited", "credited"] as const;
+const TRANSACTION_TYPES = ['debited', 'credited'] as const
 const TRANSACTION_MODES = [
-  "upi",
-  "credit_card",
-  "neft",
-  "imps",
-  "rtgs",
-] as const;
+  'upi',
+  'credit_card',
+  'neft',
+  'imps',
+  'rtgs',
+] as const
 function getCategoryMeta(value: string) {
-  return CATEGORY_OPTIONS.find((c) => c.value === value);
+  return CATEGORY_OPTIONS.find((c) => c.value === value)
 }
 
 const CATEGORY_FILTER_OPTIONS: FilterOption[] = CATEGORY_OPTIONS.map((c) => ({
   value: c.value,
   label: c.label,
   color: c.color,
-}));
+}))
 
 const MODE_FILTER_OPTIONS: FilterOption[] = TRANSACTION_MODES.map((m) => ({
   value: m,
-  label: m.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-}));
+  label: m.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+}))
 
 const REVIEW_FILTER_OPTIONS: FilterOption[] = [
-  { value: "true", label: "Needs Review" },
-  { value: "false", label: "Reviewed" },
-];
+  { value: 'true', label: 'Needs Review' },
+  { value: 'false', label: 'Reviewed' },
+]
 
-type ExpenseView = "expense" | "emails";
+type ExpenseView = 'expense' | 'emails'
 
 type RawEmail = {
-  id: string;
-  userId: string;
-  provider: string;
-  providerMessageId: string;
-  from: string;
-  subject: string;
-  receivedAt: string;
-  bodyText: string;
-  bodyHtml?: string;
-  rawHeaders: Record<string, string>;
-};
+  id: string
+  userId: string
+  provider: string
+  providerMessageId: string
+  from: string
+  subject: string
+  receivedAt: string
+  bodyText: string
+  bodyHtml?: string
+  rawHeaders: Record<string, string>
+}
 
 const formatDate = (value: string) => {
-  const date = new Date(value);
+  const date = new Date(value)
   if (Number.isNaN(date.getTime())) {
-    return value;
+    return value
   }
 
-  return format(date, "MMM d, yyyy 'at' h:mm a");
-};
+  return format(date, "MMM d, yyyy 'at' h:mm a")
+}
 
 const formatAmount = (transaction: Transaction) => {
   const signedAmount =
-    transaction.transactionType === "debited"
+    transaction.transactionType === 'debited'
       ? -Math.abs(transaction.amount)
-      : Math.abs(transaction.amount);
+      : Math.abs(transaction.amount)
 
   try {
-    return new Intl.NumberFormat("en-IN", {
-      style: "currency",
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
       currency: transaction.currency,
-    }).format(signedAmount);
+    }).format(signedAmount)
   } catch {
-    const sign = signedAmount < 0 ? "-" : "";
-    return `${sign}${transaction.currency} ${Math.abs(signedAmount).toFixed(2)}`;
+    const sign = signedAmount < 0 ? '-' : ''
+    return `${sign}${transaction.currency} ${Math.abs(signedAmount).toFixed(2)}`
   }
-};
+}
 
 const emailColumns: ColumnDef<RawEmail>[] = [
   {
-    accessorKey: "from",
-    header: "From",
+    accessorKey: 'from',
+    header: 'From',
     cell: ({ row }) => (
       <div className="font-medium text-foreground">
-        {row.getValue("from") || "Unknown sender"}
+        {row.getValue('from') || 'Unknown sender'}
       </div>
     ),
   },
   {
-    accessorKey: "subject",
-    header: "Subject",
+    accessorKey: 'subject',
+    header: 'Subject',
     cell: ({ row }) => (
       <div className="max-w-125 truncate">
-        {row.getValue("subject") || "(no subject)"}
+        {row.getValue('subject') || '(no subject)'}
       </div>
     ),
   },
   {
-    accessorKey: "receivedAt",
-    header: "Received",
-    cell: ({ row }) => formatDate(row.getValue("receivedAt")),
+    accessorKey: 'receivedAt',
+    header: 'Received',
+    cell: ({ row }) => formatDate(row.getValue('receivedAt')),
   },
   {
-    accessorKey: "provider",
-    header: "Provider",
+    accessorKey: 'provider',
+    header: 'Provider',
     cell: ({ row }) => (
       <Badge variant="secondary" className="capitalize">
-        {row.getValue("provider")}
+        {row.getValue('provider')}
       </Badge>
     ),
   },
-];
+]
 
 const buildExpenseColumns = (
   onEdit: (transaction: Transaction) => void,
 ): ColumnDef<Transaction>[] => [
   {
-    id: "select",
+    id: 'select',
     header: ({ table }) => (
       <Checkbox
         checked={table.getIsAllPageRowsSelected()}
@@ -231,41 +237,41 @@ const buildExpenseColumns = (
     enableHiding: false,
   },
   {
-    accessorKey: "transactionDate",
-    header: "Date",
+    accessorKey: 'transactionDate',
+    header: 'Date',
     cell: ({ row }) => formatDate(row.original.transactionDate),
   },
   {
-    accessorKey: "merchant",
-    header: "Merchant",
+    accessorKey: 'merchant',
+    header: 'Merchant',
     cell: ({ row }) => (
       <div className="flex gap-2 items-center max-w-72">
         <div className="font-medium text-foreground">
           {row.original.merchant}
         </div>
-        <Badge className="ml-2 text-[10px] p-0.5 px-2" variant={"outline"}>
+        <Badge className="ml-2 text-[10px] p-0.5 px-2" variant={'outline'}>
           <div className="h-fit max-w-30 flex gap-1 items-center">
             <p className="truncate">
               {row.original.cardName ??
                 row.original.vpa ??
                 row.original.merchantRaw ??
-                "Unknown source"}
+                'Unknown source'}
             </p>
-            {row.original.cardName && <CreditCard className={cn("size-3")} />}
+            {row.original.cardName && <CreditCard className={cn('size-3')} />}
           </div>
         </Badge>
       </div>
     ),
   },
   {
-    accessorKey: "amount",
-    header: "Amount",
+    accessorKey: 'amount',
+    header: 'Amount',
     cell: ({ row }) => (
       <div
         className={
-          row.original.transactionType === "debited"
-            ? "font-medium text-red-600"
-            : "font-medium text-emerald-600"
+          row.original.transactionType === 'debited'
+            ? 'font-medium text-red-600'
+            : 'font-medium text-emerald-600'
         }
       >
         {formatAmount(row.original)}
@@ -273,10 +279,10 @@ const buildExpenseColumns = (
     ),
   },
   {
-    accessorKey: "category",
-    header: "Category",
+    accessorKey: 'category',
+    header: 'Category',
     cell: ({ row }) => {
-      const meta = getCategoryMeta(row.original.category);
+      const meta = getCategoryMeta(row.original.category)
       return (
         <Badge
           variant="secondary"
@@ -288,32 +294,32 @@ const buildExpenseColumns = (
         >
           <span
             className="inline-block size-2 rounded-full mr-1.5"
-            style={{ backgroundColor: meta?.color ?? "#95A5A6" }}
+            style={{ backgroundColor: meta?.color ?? '#95A5A6' }}
           />
-          {meta?.label ?? row.original.category.replace(/_/g, " ")}
+          {meta?.label ?? row.original.category.replace(/_/g, ' ')}
         </Badge>
-      );
+      )
     },
   },
   {
-    accessorKey: "transactionMode",
-    header: "Mode",
+    accessorKey: 'transactionMode',
+    header: 'Mode',
     cell: ({ row }) => (
       <span className="capitalize">
-        {row.original.transactionMode.replace(/_/g, " ")}
+        {row.original.transactionMode.replace(/_/g, ' ')}
       </span>
     ),
   },
   {
-    accessorKey: "confidence",
-    header: "Confidence",
+    accessorKey: 'confidence',
+    header: 'Confidence',
     cell: ({ row }) => (
       <span className="capitalize">{row.original.confidence}</span>
     ),
   },
   {
-    accessorKey: "requiresReview",
-    header: "Review",
+    accessorKey: 'requiresReview',
+    header: 'Review',
     cell: ({ row }) =>
       row.original.requiresReview ? (
         <Badge variant="outline">Required</Badge>
@@ -322,16 +328,16 @@ const buildExpenseColumns = (
       ),
   },
   {
-    id: "actions",
-    header: "",
+    id: 'actions',
+    header: '',
     cell: ({ row }) => (
       <Button
         variant="ghost"
         size="icon"
         className="size-8"
         onClick={(e) => {
-          e.stopPropagation();
-          onEdit(row.original);
+          e.stopPropagation()
+          onEdit(row.original)
         }}
       >
         <Pencil className="size-3.5" />
@@ -339,44 +345,44 @@ const buildExpenseColumns = (
       </Button>
     ),
   },
-];
+]
 
 function AnimatedNumber({ value }: { value: number }) {
-  const mv = useMotionValue(0);
-  const rounded = useTransform(mv, (latest) => Math.round(latest));
+  const mv = useMotionValue(0)
+  const rounded = useTransform(mv, (latest) => Math.round(latest))
 
   useEffect(() => {
     const controls = animate(mv, value, {
       duration: 0.4,
-      ease: "easeOut",
-    });
-    return controls.stop;
-  }, [value, mv]);
+      ease: 'easeOut',
+    })
+    return controls.stop
+  }, [value, mv])
 
-  return <motion.span>{rounded}</motion.span>;
+  return <motion.span>{rounded}</motion.span>
 }
 
 const ExpenseEmailsPage = () => {
-  const queryClient = useQueryClient();
-  const [activeView, setActiveView] = useState<ExpenseView>("expense");
-  const [emailPageIndex, setEmailPageIndex] = useState(0);
-  const [expensePageIndex, setExpensePageIndex] = useState(0);
+  const queryClient = useQueryClient()
+  const [activeView, setActiveView] = useState<ExpenseView>('expense')
+  const [emailPageIndex, setEmailPageIndex] = useState(0)
+  const [expensePageIndex, setExpensePageIndex] = useState(0)
   const [editingTransaction, setEditingTransaction] =
-    useState<Transaction | null>(null);
-  const pageSize = 20;
-  const navigate = useNavigate();
+    useState<Transaction | null>(null)
+  const pageSize = 20
+  const navigate = useNavigate()
 
   // ── Row selection ──
-  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   // ── Filter state ──
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterMode, setFilterMode] = useState("");
-  const [filterReview, setFilterReview] = useState("");
-  const [filterDateFrom, setFilterDateFrom] = useState<string | undefined>();
-  const [filterDateTo, setFilterDateTo] = useState<string | undefined>();
-  const [searchInput, setSearchInput] = useState("");
-  const debouncedSearch = useDebounce(searchInput, 300);
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterMode, setFilterMode] = useState('')
+  const [filterReview, setFilterReview] = useState('')
+  const [filterDateFrom, setFilterDateFrom] = useState<string | undefined>()
+  const [filterDateTo, setFilterDateTo] = useState<string | undefined>()
+  const [searchInput, setSearchInput] = useState('')
+  const debouncedSearch = useDebounce(searchInput, 300)
 
   const hasActiveFilters =
     filterCategory ||
@@ -384,12 +390,12 @@ const ExpenseEmailsPage = () => {
     filterReview ||
     filterDateFrom ||
     filterDateTo ||
-    debouncedSearch;
+    debouncedSearch
 
   // Reset to first page and clear selection whenever filters change
   useEffect(() => {
-    setExpensePageIndex(0);
-    setRowSelection({});
+    setExpensePageIndex(0)
+    setRowSelection({})
   }, [
     filterCategory,
     filterMode,
@@ -397,74 +403,74 @@ const ExpenseEmailsPage = () => {
     filterDateFrom,
     filterDateTo,
     debouncedSearch,
-  ]);
+  ])
 
   // ── Edit form state ──
-  const [editForm, setEditForm] = useState<UpdateTransactionInput>({});
+  const [editForm, setEditForm] = useState<UpdateTransactionInput>({})
 
   const openEditSheet = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
+    setEditingTransaction(transaction)
     setEditForm({
       merchant: transaction.merchant,
       category: transaction.category,
-      subcategory: transaction.subcategory ?? "",
+      subcategory: transaction.subcategory ?? '',
       transactionType: transaction.transactionType as
-        | "debited"
-        | "credited"
+        | 'debited'
+        | 'credited'
         | undefined,
       transactionMode: transaction.transactionMode as
-        | "upi"
-        | "credit_card"
-        | "neft"
-        | "imps"
-        | "rtgs"
+        | 'upi'
+        | 'credit_card'
+        | 'neft'
+        | 'imps'
+        | 'rtgs'
         | undefined,
       amount: transaction.amount,
       currency: transaction.currency,
       requiresReview: transaction.requiresReview,
-    });
-  };
+    })
+  }
 
   const closeEditSheet = () => {
-    setEditingTransaction(null);
-    setEditForm({});
-  };
+    setEditingTransaction(null)
+    setEditForm({})
+  }
 
   const updateMutation = useMutation({
     mutationFn: (params: { id: string; data: UpdateTransactionInput }) =>
       updateTransaction(params.id, params.data),
     onSuccess: () => {
       void queryClient.invalidateQueries({
-        queryKey: ["expenses", "transactions"],
-      });
-      closeEditSheet();
+        queryKey: ['expenses', 'transactions'],
+      })
+      closeEditSheet()
     },
-  });
+  })
 
   const handleSaveEdit = () => {
-    if (!editingTransaction) return;
+    if (!editingTransaction) return
     updateMutation.mutate({
       id: editingTransaction.id,
       data: editForm,
-    });
-  };
+    })
+  }
 
   const expenseColumns = useMemo(
     () => buildExpenseColumns(openEditSheet),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
-  );
+  )
 
   const {
     data: emailData,
     isLoading: isEmailsLoading,
     isError: isEmailsError,
   } = useQuery({
-    queryKey: ["expenses", "emails", emailPageIndex + 1],
+    queryKey: ['expenses', 'emails', emailPageIndex + 1],
     queryFn: () =>
       listExpenseEmails({ page: emailPageIndex + 1, page_size: pageSize }),
-    enabled: activeView === "emails",
-  });
+    enabled: activeView === 'emails',
+  })
 
   const {
     data: expensesData,
@@ -472,8 +478,8 @@ const ExpenseEmailsPage = () => {
     isError: isExpensesError,
   } = useQuery({
     queryKey: [
-      "expenses",
-      "transactions",
+      'expenses',
+      'transactions',
       expensePageIndex + 1,
       filterCategory,
       filterMode,
@@ -493,8 +499,8 @@ const ExpenseEmailsPage = () => {
         ...(filterDateTo && { date_to: filterDateTo }),
         ...(debouncedSearch && { search: debouncedSearch }),
       }),
-    enabled: activeView === "expense",
-  });
+    enabled: activeView === 'expense',
+  })
 
   const emailTable = useReactTable({
     data: emailData?.data ?? [],
@@ -507,16 +513,16 @@ const ExpenseEmailsPage = () => {
       },
     },
     onPaginationChange: (updater) => {
-      if (typeof updater === "function") {
-        const newState = updater({ pageIndex: emailPageIndex, pageSize });
-        setEmailPageIndex(newState.pageIndex);
+      if (typeof updater === 'function') {
+        const newState = updater({ pageIndex: emailPageIndex, pageSize })
+        setEmailPageIndex(newState.pageIndex)
       } else {
-        setEmailPageIndex(updater.pageIndex);
+        setEmailPageIndex(updater.pageIndex)
       }
     },
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
-  });
+  })
 
   const expenseTable = useReactTable({
     data: expensesData?.data ?? [],
@@ -532,64 +538,81 @@ const ExpenseEmailsPage = () => {
       rowSelection,
     },
     onPaginationChange: (updater) => {
-      if (typeof updater === "function") {
-        const newState = updater({ pageIndex: expensePageIndex, pageSize });
-        setExpensePageIndex(newState.pageIndex);
+      if (typeof updater === 'function') {
+        const newState = updater({ pageIndex: expensePageIndex, pageSize })
+        setExpensePageIndex(newState.pageIndex)
       } else {
-        setExpensePageIndex(updater.pageIndex);
+        setExpensePageIndex(updater.pageIndex)
       }
-      setRowSelection({});
+      setRowSelection({})
     },
     onRowSelectionChange: setRowSelection,
     getRowId: (row) => row.id,
     enableRowSelection: true,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
-  });
+  })
 
   const statusQuery = useQuery({
-    queryKey: ["expenses", "gmail-status"],
+    queryKey: ['expenses', 'gmail-status'],
     queryFn: fetchGmailStatus,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-  });
+  })
 
   const connectMutation = useMutation({
     mutationFn: connectGmail,
     onSuccess: (data) => {
-      window.location.assign(data.url);
+      window.location.assign(data.url)
     },
-  });
+  })
 
-  const { startSync, startReprocess, job, isSyncing } = useSyncJob();
-  const [syncDateOpen, setSyncDateOpen] = useState(false);
-  const [syncFromDate, setSyncFromDate] = useState<Date | undefined>();
+  const {
+    startSync,
+    startReprocess,
+    job,
+    isSyncing,
+    error: syncError,
+    reset: resetSyncState,
+  } = useSyncJob()
+  const [syncDateOpen, setSyncDateOpen] = useState(false)
+  const [syncFromDate, setSyncFromDate] = useState<Date | undefined>()
+  const requiresGmailReconnect =
+    syncError?.message.includes('Reconnect Gmail') ?? false
+  const displayedProcessedEmails =
+    job?.totalEmails != null
+      ? Math.min(job.processedEmails, job.totalEmails)
+      : (job?.processedEmails ?? 0)
+  const syncProgressWidth =
+    job?.totalEmails && job.totalEmails > 0
+      ? `${Math.min((displayedProcessedEmails / job.totalEmails) * 100, 100)}%`
+      : '5%'
 
   const disconnectMutation = useMutation({
     mutationFn: disconnectGmail,
     onSuccess: () => {
-      queryClient.setQueryData(["expenses", "gmail-status"], {
+      queryClient.setQueryData(['expenses', 'gmail-status'], {
         connected: false,
         email: null,
-      });
+      })
       queryClient
-        .invalidateQueries({ queryKey: ["expenses", "gmail-status"] })
+        .invalidateQueries({ queryKey: ['expenses', 'gmail-status'] })
         .then(() => {
-          void statusQuery.refetch();
-        });
+          void statusQuery.refetch()
+        })
     },
-  });
+  })
 
   const handleSyncFromDate = () => {
     if (!syncFromDate) {
-      startSync();
-      setSyncDateOpen(false);
-      return;
+      startSync()
+      setSyncDateOpen(false)
+      return
     }
 
-    startSync({ fromDate: format(syncFromDate, "yyyy-MM-dd") });
-    setSyncDateOpen(false);
-  };
+    startSync({ fromDate: format(syncFromDate, 'yyyy-MM-dd') })
+    setSyncDateOpen(false)
+  }
 
   return (
     <MainLayout>
@@ -612,8 +635,8 @@ const ExpenseEmailsPage = () => {
             >
               <MailSearch />
               {statusQuery.data?.connected
-                ? "Reconnect Gmail"
-                : "Connect Gmail"}
+                ? 'Reconnect Gmail'
+                : 'Connect Gmail'}
             </Button>
             <Button
               variant="outline"
@@ -634,30 +657,30 @@ const ExpenseEmailsPage = () => {
                   className="relative overflow-hidden"
                 >
                   <RefreshCcw />
-                  {isSyncing && job?.query !== "__reprocess__" && (
+                  {isSyncing && job?.query !== '__reprocess__' && (
                     <div
                       className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-300"
                       style={{
-                        width: job?.totalEmails
-                          ? `${(job.processedEmails / job.totalEmails) * 100}%`
-                          : "5%",
+                        width: syncProgressWidth,
                       }}
                     />
                   )}
 
                   <span className="relative z-10">
-                    {job?.status === "processing" &&
-                    job?.query !== "__reprocess__" &&
+                    {job?.status === 'processing' &&
+                    job?.query !== '__reprocess__' &&
                     job.totalEmails ? (
                       <>
-                        Syncing (<AnimatedNumber value={job.processedEmails} />{" "}
-                        / {job.totalEmails})
+                        Syncing (
+                        <AnimatedNumber
+                          value={displayedProcessedEmails}
+                        /> / {job.totalEmails})
                       </>
-                    ) : job?.status === "completed" &&
-                      job?.query !== "__reprocess__" ? (
-                      "Synced"
+                    ) : job?.status === 'completed' &&
+                      job?.query !== '__reprocess__' ? (
+                      'Synced'
                     ) : (
-                      "Sync"
+                      'Sync'
                     )}
                   </span>
                 </Button>
@@ -692,8 +715,8 @@ const ExpenseEmailsPage = () => {
                         </Button>
                         <Button size="sm" onClick={handleSyncFromDate}>
                           {syncFromDate
-                            ? `Sync from ${format(syncFromDate, "MMM d, yyyy")}`
-                            : "Run default sync"}
+                            ? `Sync from ${format(syncFromDate, 'MMM d, yyyy')}`
+                            : 'Run default sync'}
                         </Button>
                       </div>
                     </div>
@@ -708,29 +731,28 @@ const ExpenseEmailsPage = () => {
               className="relative overflow-hidden"
             >
               <RotateCw />
-              {isSyncing && job?.query === "__reprocess__" && (
+              {isSyncing && job?.query === '__reprocess__' && (
                 <div
                   className="absolute inset-y-0 left-0 bg-primary/20 transition-all duration-300"
                   style={{
-                    width: job?.totalEmails
-                      ? `${(job.processedEmails / job.totalEmails) * 100}%`
-                      : "5%",
+                    width: syncProgressWidth,
                   }}
                 />
               )}
               <span className="relative z-10">
-                {job?.query === "__reprocess__" &&
-                job?.status === "processing" &&
+                {job?.query === '__reprocess__' &&
+                job?.status === 'processing' &&
                 job.totalEmails ? (
                   <>
-                    Reprocessing (<AnimatedNumber value={job.processedEmails} />{" "}
-                    / {job.totalEmails})
+                    Reprocessing (
+                    <AnimatedNumber value={displayedProcessedEmails} /> /{' '}
+                    {job.totalEmails})
                   </>
-                ) : job?.query === "__reprocess__" &&
-                  job?.status === "completed" ? (
-                  "Reprocessed"
+                ) : job?.query === '__reprocess__' &&
+                  job?.status === 'completed' ? (
+                  'Reprocessed'
                 ) : (
-                  "Reprocess"
+                  'Reprocess'
                 )}
               </span>
             </Button>
@@ -738,18 +760,46 @@ const ExpenseEmailsPage = () => {
             {statusQuery.data?.connected ? (
               <Badge
                 className="flex gap-0 items-center p-1 pr-2"
-                variant={"outline"}
+                variant={'outline'}
               >
                 <Dot className="text-teal-500 size-6" />
-                <p className="-ml-[8px]">
+                <p className="-ml-2">
                   Connected
-                  {statusQuery.data.email ? ` • ${statusQuery.data.email}` : ""}
+                  {statusQuery.data.email ? ` • ${statusQuery.data.email}` : ''}
                 </p>
               </Badge>
             ) : (
               <Badge variant="outline">Not connected</Badge>
             )}
           </div>
+
+          {syncError ? (
+            <Alert variant="destructive" className="max-w-2xl">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>
+                {requiresGmailReconnect ? 'Reconnect Gmail' : 'Sync failed'}
+              </AlertTitle>
+              <AlertDescription className="flex flex-wrap items-center gap-2">
+                <span>{syncError.message}</span>
+                {requiresGmailReconnect ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      resetSyncState()
+                      connectMutation.mutate()
+                    }}
+                    disabled={connectMutation.isPending}
+                  >
+                    Reconnect Gmail
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="ghost" onClick={resetSyncState}>
+                  Dismiss
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
         </header>
 
         <Tabs
@@ -759,10 +809,10 @@ const ExpenseEmailsPage = () => {
           <Card className="border-border/60">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-base font-semibold">
-                {activeView === "expense" ? "All Expenses" : "Recent Emails"}
+                {activeView === 'expense' ? 'All Expenses' : 'Recent Emails'}
               </CardTitle>
               <div className="flex flex-wrap items-center gap-2 justify-center">
-                {activeView === "expense" && <MerchantCategorizeDialog />}
+                {activeView === 'expense' && <MerchantCategorizeDialog />}
                 <TabsList className="ml-2">
                   <TabsTrigger value="expense" className="flex gap-1">
                     <IndianRupee className="size-4" />
@@ -774,18 +824,18 @@ const ExpenseEmailsPage = () => {
                   </TabsTrigger>
                 </TabsList>
                 <Badge variant="outline">
-                  {activeView === "expense"
+                  {activeView === 'expense'
                     ? (expensesData?.total ?? 0)
-                    : (emailData?.total ?? 0)}{" "}
+                    : (emailData?.total ?? 0)}{' '}
                   total
                 </Badge>
                 <Badge variant="secondary">
-                  Page{" "}
-                  {activeView === "expense"
+                  Page{' '}
+                  {activeView === 'expense'
                     ? expensePageIndex + 1
-                    : emailPageIndex + 1}{" "}
-                  of{" "}
-                  {activeView === "expense"
+                    : emailPageIndex + 1}{' '}
+                  of{' '}
+                  {activeView === 'expense'
                     ? expenseTable.getPageCount() || 1
                     : emailTable.getPageCount() || 1}
                 </Badge>
@@ -793,7 +843,7 @@ const ExpenseEmailsPage = () => {
             </CardHeader>
             <CardContent>
               {/* ── Filter bar (expense tab only) ── */}
-              {activeView === "expense" && (
+              {activeView === 'expense' && (
                 <div className="flex flex-wrap items-center gap-2 mb-4">
                   <SearchFilter
                     value={searchInput}
@@ -823,8 +873,8 @@ const ExpenseEmailsPage = () => {
                     dateFrom={filterDateFrom}
                     dateTo={filterDateTo}
                     onChange={({ from, to }) => {
-                      setFilterDateFrom(from);
-                      setFilterDateTo(to);
+                      setFilterDateFrom(from)
+                      setFilterDateTo(to)
                     }}
                   />
                   {hasActiveFilters && (
@@ -833,12 +883,12 @@ const ExpenseEmailsPage = () => {
                       size="sm"
                       className="h-9 text-xs text-muted-foreground"
                       onClick={() => {
-                        setFilterCategory("");
-                        setFilterMode("");
-                        setFilterReview("");
-                        setFilterDateFrom(undefined);
-                        setFilterDateTo(undefined);
-                        setSearchInput("");
+                        setFilterCategory('')
+                        setFilterMode('')
+                        setFilterReview('')
+                        setFilterDateFrom(undefined)
+                        setFilterDateTo(undefined)
+                        setSearchInput('')
                       }}
                     >
                       Clear all
@@ -894,7 +944,7 @@ const ExpenseEmailsPage = () => {
                         {expenseTable.getRowModel().rows.map((row) => (
                           <TableRow
                             key={row.id}
-                            data-state={row.getIsSelected() && "selected"}
+                            data-state={row.getIsSelected() && 'selected'}
                           >
                             {row.getVisibleCells().map((cell) => (
                               <TableCell key={cell.id}>
@@ -912,11 +962,11 @@ const ExpenseEmailsPage = () => {
                     {expenseTable.getPageCount() > 1 && (
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">
-                          Showing {expensePageIndex * pageSize + 1} to{" "}
+                          Showing {expensePageIndex * pageSize + 1} to{' '}
                           {Math.min(
                             (expensePageIndex + 1) * pageSize,
                             expensesData?.total ?? 0,
-                          )}{" "}
+                          )}{' '}
                           of {expensesData?.total ?? 0} expenses
                         </div>
                         <div className="flex items-center gap-2">
@@ -998,24 +1048,24 @@ const ExpenseEmailsPage = () => {
                             role="link"
                             tabIndex={0}
                             onClick={() => {
-                              const email = row.original;
+                              const email = row.original
                               navigate(
                                 appPaths.auth.expensesEmailDetails.getHref(
                                   email.id,
                                 ),
-                              );
+                              )
                             }}
                             onKeyDown={(event) => {
-                              if (event.key !== "Enter" && event.key !== " ") {
-                                return;
+                              if (event.key !== 'Enter' && event.key !== ' ') {
+                                return
                               }
-                              event.preventDefault();
-                              const email = row.original;
+                              event.preventDefault()
+                              const email = row.original
                               navigate(
                                 appPaths.auth.expensesEmailDetails.getHref(
                                   email.id,
                                 ),
-                              );
+                              )
                             }}
                           >
                             {row.getVisibleCells().map((cell) => (
@@ -1034,11 +1084,11 @@ const ExpenseEmailsPage = () => {
                     {emailTable.getPageCount() > 1 && (
                       <div className="flex items-center justify-between">
                         <div className="text-sm text-muted-foreground">
-                          Showing {emailPageIndex * pageSize + 1} to{" "}
+                          Showing {emailPageIndex * pageSize + 1} to{' '}
                           {Math.min(
                             (emailPageIndex + 1) * pageSize,
                             emailData?.total ?? 0,
-                          )}{" "}
+                          )}{' '}
                           of {emailData?.total ?? 0} emails
                         </div>
                         <div className="flex items-center gap-2">
@@ -1089,7 +1139,7 @@ const ExpenseEmailsPage = () => {
               <Label htmlFor="edit-merchant">Merchant</Label>
               <Input
                 id="edit-merchant"
-                value={editForm.merchant ?? ""}
+                value={editForm.merchant ?? ''}
                 onChange={(e) =>
                   setEditForm((f) => ({ ...f, merchant: e.target.value }))
                 }
@@ -1105,7 +1155,7 @@ const ExpenseEmailsPage = () => {
                   type="number"
                   step="0.01"
                   min="0.01"
-                  value={editForm.amount ?? ""}
+                  value={editForm.amount ?? ''}
                   onChange={(e) =>
                     setEditForm((f) => ({
                       ...f,
@@ -1120,7 +1170,7 @@ const ExpenseEmailsPage = () => {
                 <Label htmlFor="edit-currency">Currency</Label>
                 <Input
                   id="edit-currency"
-                  value={editForm.currency ?? ""}
+                  value={editForm.currency ?? ''}
                   onChange={(e) =>
                     setEditForm((f) => ({
                       ...f,
@@ -1135,11 +1185,11 @@ const ExpenseEmailsPage = () => {
             <div className="grid gap-2">
               <Label>Type</Label>
               <Select
-                value={editForm.transactionType ?? ""}
+                value={editForm.transactionType ?? ''}
                 onValueChange={(value) =>
                   setEditForm((f) => ({
                     ...f,
-                    transactionType: value as "debited" | "credited",
+                    transactionType: value as 'debited' | 'credited',
                   }))
                 }
               >
@@ -1160,16 +1210,16 @@ const ExpenseEmailsPage = () => {
             <div className="grid gap-2">
               <Label>Mode</Label>
               <Select
-                value={editForm.transactionMode ?? ""}
+                value={editForm.transactionMode ?? ''}
                 onValueChange={(value) =>
                   setEditForm((f) => ({
                     ...f,
                     transactionMode: value as
-                      | "upi"
-                      | "credit_card"
-                      | "neft"
-                      | "imps"
-                      | "rtgs",
+                      | 'upi'
+                      | 'credit_card'
+                      | 'neft'
+                      | 'imps'
+                      | 'rtgs',
                   }))
                 }
               >
@@ -1179,7 +1229,7 @@ const ExpenseEmailsPage = () => {
                 <SelectContent>
                   {TRANSACTION_MODES.map((m) => (
                     <SelectItem key={m} value={m} className="capitalize">
-                      {m.replace(/_/g, " ")}
+                      {m.replace(/_/g, ' ')}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1190,7 +1240,7 @@ const ExpenseEmailsPage = () => {
             <div className="grid gap-2">
               <Label>Category</Label>
               <Select
-                value={editForm.category ?? ""}
+                value={editForm.category ?? ''}
                 onValueChange={(value) =>
                   setEditForm((f) => ({ ...f, category: value }))
                 }
@@ -1219,7 +1269,7 @@ const ExpenseEmailsPage = () => {
               <Label htmlFor="edit-subcategory">Subcategory</Label>
               <Input
                 id="edit-subcategory"
-                value={editForm.subcategory ?? ""}
+                value={editForm.subcategory ?? ''}
                 onChange={(e) =>
                   setEditForm((f) => ({ ...f, subcategory: e.target.value }))
                 }
@@ -1253,13 +1303,13 @@ const ExpenseEmailsPage = () => {
               onClick={handleSaveEdit}
               disabled={updateMutation.isPending}
             >
-              {updateMutation.isPending ? "Saving…" : "Save changes"}
+              {updateMutation.isPending ? 'Saving…' : 'Save changes'}
             </Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>
     </MainLayout>
-  );
-};
+  )
+}
 
-export default ExpenseEmailsPage;
+export default ExpenseEmailsPage

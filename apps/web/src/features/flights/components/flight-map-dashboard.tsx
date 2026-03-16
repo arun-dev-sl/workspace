@@ -77,6 +77,8 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from '@workspace/ui/components/ui/toggle-group'
+import { MetricTrendCard } from '@/components/metric-trend-card'
+import { normalizeRecentMonthlySeries } from '@/lib/metric-trends'
 
 import type { FlightMap, HotelStay } from '@workspace/domain'
 import type { LayerSpecification } from 'maplibre-gl'
@@ -1868,6 +1870,18 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
     )
   }, [mapQuery.data])
 
+  const cityByIata = useMemo(() => {
+    if (!mapQuery.data) {
+      return new Map<string, string>()
+    }
+
+    return new Map(
+      mapQuery.data.airports
+        .filter((airport) => Boolean(airport.city))
+        .map((airport) => [airport.iata, airport.city ?? ''] as const),
+    )
+  }, [mapQuery.data])
+
   const airlineOptions = useMemo(
     () =>
       Array.from(
@@ -2001,6 +2015,86 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
 
     return filteredFlights[boundedPlaybackIndex] ?? null
   }, [boundedPlaybackIndex, filteredFlights, isPlaybackEnabled])
+
+  const distanceTrendData = useMemo(() => {
+    if (!displayData || displayData.flights.length === 0) {
+      return []
+    }
+
+    return normalizeRecentMonthlySeries({
+      entries: displayData.flights,
+      getMonthKey: (flight) => flight.date.slice(0, 7),
+      getValue: (flight) =>
+        haversineDistanceKm(
+          flight.fromLat,
+          flight.fromLng,
+          flight.toLat,
+          flight.toLng,
+        ),
+    })
+  }, [displayData])
+
+  const citiesTrendData = useMemo(() => {
+    if (!displayData || displayData.flights.length === 0) {
+      return []
+    }
+
+    const monthlyCities = new Map<string, Set<string>>()
+
+    for (const flight of displayData.flights) {
+      const monthKey = flight.date.slice(0, 7)
+      const citySet = monthlyCities.get(monthKey) ?? new Set<string>()
+      const fromCity = cityByIata.get(flight.from)
+      const toCity = cityByIata.get(flight.to)
+
+      if (fromCity) {
+        citySet.add(fromCity)
+      }
+
+      if (toCity) {
+        citySet.add(toCity)
+      }
+
+      monthlyCities.set(monthKey, citySet)
+    }
+
+    return normalizeRecentMonthlySeries({
+      entries: Array.from(monthlyCities.entries()).map(
+        ([monthKey, cities]) => ({
+          monthKey,
+          value: cities.size,
+        }),
+      ),
+      getMonthKey: (entry) => entry.monthKey,
+      getValue: (entry) => entry.value,
+    })
+  }, [cityByIata, displayData])
+
+  const routeTrendData = useMemo(() => {
+    if (!displayData || displayData.flights.length === 0) {
+      return []
+    }
+
+    const monthlyRoutes = new Map<string, Set<string>>()
+
+    for (const flight of displayData.flights) {
+      const monthKey = flight.date.slice(0, 7)
+      const routeSet = monthlyRoutes.get(monthKey) ?? new Set<string>()
+      routeSet.add(getRouteKey(flight.from, flight.to))
+      monthlyRoutes.set(monthKey, routeSet)
+    }
+
+    return normalizeRecentMonthlySeries({
+      entries: Array.from(monthlyRoutes.entries()).map(
+        ([monthKey, routes]) => ({
+          monthKey,
+          value: routes.size,
+        }),
+      ),
+      getMonthKey: (entry) => entry.monthKey,
+      getValue: (entry) => entry.value,
+    })
+  }, [displayData])
 
   const airportHoverStats = useMemo(() => {
     if (!displayData) {
@@ -2313,6 +2407,8 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
             ? 'Across the current filtered selection'
             : 'Across all mapped routes',
         icon: Globe2,
+        trendData: distanceTrendData,
+        formatTrendValue: formatDistance,
       },
       {
         title: 'Cities Reached',
@@ -2323,15 +2419,24 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
             ? 'Unique cities in the current filter'
             : 'Unique airport cities across your history',
         icon: MapPinned,
+        trendData: citiesTrendData,
       },
       {
         title: 'Routes Visualized',
         value: displayData.routes.length.toLocaleString(),
         description: `${displayData.summary.totalFlights.toLocaleString()} mapped flights`,
         icon: Route,
+        trendData: routeTrendData,
       },
     ]
-  }, [displayData, hasActiveFilters, isPlaybackEnabled])
+  }, [
+    citiesTrendData,
+    displayData,
+    distanceTrendData,
+    hasActiveFilters,
+    isPlaybackEnabled,
+    routeTrendData,
+  ])
 
   useEffect(() => {
     hasFittedRef.current = false
@@ -2825,24 +2930,16 @@ export function FlightMapDashboard({ isActive }: FlightMapDashboardProps) {
 
       <div className="grid gap-4 md:grid-cols-3">
         {summaryCards.map((item) => (
-          <Card key={item.title} className="border-border/60 bg-card/95">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {item.title}
-              </CardTitle>
-              <span data-slot="badge">
-                <item.icon className="h-4 w-4 text-primary" />
-              </span>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-semibold text-foreground">
-                {item.value}
-              </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {item.description}
-              </p>
-            </CardContent>
-          </Card>
+          <MetricTrendCard
+            key={item.title}
+            className="border-border/60 bg-card/95"
+            title={item.title}
+            value={item.value}
+            description={item.description}
+            icon={<item.icon className="h-4 w-4 text-primary" />}
+            trendData={item.trendData}
+            formatTrendValue={item.formatTrendValue}
+          />
         ))}
       </div>
 

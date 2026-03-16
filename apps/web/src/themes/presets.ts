@@ -2552,7 +2552,7 @@ const neumorphismPreset: ThemePreset = {
     '--sidebar-border': 'transparent',
     '--sidebar-ring': '#6C63FF',
     '--font-sans':
-      '"Playwrite AT", cursive, "DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
+      'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
     '--font-serif':
       'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
     '--font-mono':
@@ -2645,7 +2645,7 @@ const neumorphismPreset: ThemePreset = {
     '--sidebar-border': 'transparent',
     '--sidebar-ring': '#8B84FF',
     '--font-sans':
-      '"Playwrite AT", cursive, "DM Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
+      'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif',
     '--font-serif':
       'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif',
     '--font-mono':
