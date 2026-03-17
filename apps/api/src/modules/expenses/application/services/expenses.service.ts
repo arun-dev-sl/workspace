@@ -10,17 +10,9 @@ import {
 
 } from '@/modules/expenses/application/ports/merchant-rule.repository.port'
 import {
-  RAW_EMAIL_REPOSITORY,
-
-} from '@/modules/expenses/application/ports/raw-email.repository.port'
-import {
   STATEMENT_REPOSITORY,
 
 } from '@/modules/expenses/application/ports/statement.repository.port'
-import {
-  SYNC_JOB_REPOSITORY,
-
-} from '@/modules/expenses/application/ports/sync-job.repository.port'
 import {
   TRANSACTION_REPOSITORY,
 
@@ -30,15 +22,17 @@ import {
   TransactionCategorizer,
 
 } from '@/modules/expenses/infrastructure/categorization/transaction-categorizer'
+import { RAW_EMAIL_REPOSITORY  } from '@/shared/application/ports/raw-email.repository.port'
+import { SYNC_JOB_REPOSITORY  } from '@/shared/application/ports/sync-job.repository.port'
 import { EmailSyncService } from '@/shared/application/services/email-sync.service'
 
 import type { EmailParser } from '@/modules/expenses/application/ports/email-parser.port'
 import type { MerchantCategoryRuleRepository } from '@/modules/expenses/application/ports/merchant-rule.repository.port'
-import type { RawEmailRepository } from '@/modules/expenses/application/ports/raw-email.repository.port'
 import type { StatementRepository } from '@/modules/expenses/application/ports/statement.repository.port'
-import type { SyncJobRepository, SyncJob } from '@/modules/expenses/application/ports/sync-job.repository.port'
 import type { TransactionRepository, TransactionFilters, DateRange } from '@/modules/expenses/application/ports/transaction.repository.port'
 import type { UserCategorizationRules } from '@/modules/expenses/infrastructure/categorization/transaction-categorizer'
+import type {RawEmailRepository} from '@/shared/application/ports/raw-email.repository.port';
+import type {SyncJobRepository} from '@/shared/application/ports/sync-job.repository.port';
 import type {
   RawEmail,
   Transaction,
@@ -62,6 +56,7 @@ import type {
   SpendingVelocityItem,
   MilestoneEta,
   LargestTransactionItem,
+  SyncJob,
 } from '@workspace/domain'
 
 const EXPENSE_CATEGORY = 'expenses'
@@ -76,7 +71,6 @@ export class ExpensesService {
   private readonly logger = new Logger(ExpensesService.name)
   private readonly transactionCategorizer = TransactionCategorizer.getInstance()
   private readonly cardResolver = CardResolver.getInstance()
-  private readonly analyticsCache = new Map<string, { expiresAt: number, value: unknown }>()
 
   constructor(
     @Inject(EMAIL_PARSERS)
@@ -94,28 +88,28 @@ export class ExpensesService {
     private readonly emailSyncService: EmailSyncService,
   ) {}
 
-  private getCachedOrCompute<T>(key: string, compute: () => Promise<T>): Promise<T> {
-    const existing = this.analyticsCache.get(key)
-    const now = Date.now()
-    if (existing && existing.expiresAt > now) {
-      return Promise.resolve(existing.value as T)
+  private readonly analyticsCache = new Map<string, { expiresAt: number, value: unknown }>()
+
+  private async getCachedOrCompute<T>(key: string, compute: () => Promise<T>): Promise<T> {
+    const entry = this.analyticsCache.get(key)
+    if (entry && entry.expiresAt > Date.now()) {
+      return entry.value as T
     }
 
-    return compute().then((value) => {
-      this.analyticsCache.set(key, {
-        value,
-        expiresAt: now + ExpensesService.ANALYTICS_CACHE_TTL_MS,
-      })
-      return value
+    const value = await compute()
+    this.analyticsCache.set(key, {
+      expiresAt: Date.now() + ExpensesService.ANALYTICS_CACHE_TTL_MS,
+      value,
     })
+    return value
   }
 
   private cacheKey(userId: string, method: string, params: Record<string, unknown>): string {
-    return `${userId}:${method}:${JSON.stringify(params)}`
+    return `expenses:${userId}:${method}:${JSON.stringify(params)}`
   }
 
   private invalidateUserAnalyticsCache(userId: string): void {
-    const prefix = `${userId}:`
+    const prefix = `expenses:${userId}:`
     for (const key of this.analyticsCache.keys()) {
       if (key.startsWith(prefix)) {
         this.analyticsCache.delete(key)
@@ -162,14 +156,25 @@ export class ExpensesService {
      * Get the status of a sync job
      */
   async getSyncJobStatus(jobId: string): Promise<SyncJob | null> {
-    return this.emailSyncService.getSyncJobStatus(jobId)
+    const job = await this.emailSyncService.getSyncJobStatus(jobId)
+    if (job?.category !== EXPENSE_CATEGORY) {
+      return null
+    }
+
+    return this.toSyncJob(job)
   }
 
   /**
      * Get recent sync jobs for a user
      */
   async getUserSyncJobs(userId: string, limit = 10): Promise<SyncJob[]> {
-    return this.emailSyncService.getUserSyncJobs(userId, limit)
+    const jobs = await this.emailSyncService.getUserSyncJobs(
+      userId,
+      limit,
+      EXPENSE_CATEGORY,
+    )
+
+    return jobs.map((job) => this.toSyncJob(job))
   }
 
   /**
@@ -437,6 +442,25 @@ export class ExpensesService {
     return new Promise((resolve) => setTimeout(resolve, ms))
   }
 
+  private toSyncJob(job: SyncJobRepository['findById'] extends (id: string) => Promise<infer TResult> ? NonNullable<TResult> : never): SyncJob {
+    return {
+      id: job.id,
+      userId: job.userId,
+      status: job.status,
+      query: job.query,
+      totalEmails: job.totalEmails,
+      processedEmails: job.processedEmails,
+      newEmails: job.newEmails,
+      transactions: job.transactions,
+      statements: job.statements,
+      errorMessage: job.errorMessage,
+      startedAt: job.startedAt?.toISOString() ?? null,
+      completedAt: job.completedAt?.toISOString() ?? null,
+      createdAt: job.createdAt.toISOString(),
+      updatedAt: job.updatedAt.toISOString(),
+    }
+  }
+
   async listExpenseEmails(params: {
     userId: string
     limit: number
@@ -460,6 +484,15 @@ export class ExpensesService {
       this.transactionRepository.countByUser(params.userId, params.filters),
     ])
     return { data, total }
+  }
+
+  async listExpensesCursor(params: {
+    userId: string
+    pageSize: number
+    cursor?: string
+    filters?: TransactionFilters
+  }): Promise<{ data: Transaction[], nextCursor?: string, hasMore: boolean }> {
+    return this.transactionRepository.listByUserCursor(params)
   }
 
   async getTransactionById(params: { userId: string, id: string }): Promise<Transaction | null> {

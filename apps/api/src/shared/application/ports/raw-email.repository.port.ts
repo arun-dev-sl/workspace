@@ -1,10 +1,5 @@
 import type { RawEmail } from '@workspace/domain'
 
-/**
- * Raw Email Repository interface
- *
- * Stores raw email payloads for reprocessing
- */
 export interface RawEmailRepository {
   upsert(email: RawEmail): Promise<{ isNew: boolean, id: string }>
   findById(params: { userId: string, id: string }): Promise<RawEmail | null>
@@ -19,9 +14,6 @@ export interface RawEmailRepository {
     category?: string,
     options?: { limit?: number, offset?: number },
   ): Promise<RawEmail[]>
-  /**
-   * Find emails that haven't been processed yet (no transactions created from them)
-   */
   listUnprocessedByUser(
     userId: string,
     category?: string,

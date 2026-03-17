@@ -4,11 +4,10 @@ import type { FastifyCorsOptions } from '@fastify/cors'
  * CORS configuration
  */
 export const corsConfig: FastifyCorsOptions = {
-  // Allowed origins (production should specify exact domains)
   origin:
         process.env.NODE_ENV === 'production'
-          ? (process.env.ALLOWED_ORIGINS?.split(',') ?? [])
-          : true, // Allow all origins in dev
+          ? (process.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) ?? [])
+          : true,
   // Allowed HTTP methods
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   // Allowed request headers

@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common'
 
 import { AuthModule } from '@/modules/auth/auth.module'
-import { GMAIL_PROVIDER } from '@/modules/expenses/application/ports/gmail-provider.port'
-import { RAW_EMAIL_REPOSITORY } from '@/modules/expenses/application/ports/raw-email.repository.port'
-import { SYNC_JOB_REPOSITORY } from '@/modules/expenses/application/ports/sync-job.repository.port'
 import { GoogleApisGmailProvider } from '@/modules/expenses/infrastructure/providers/googleapis-gmail.provider'
 import { RawEmailRepositoryImpl } from '@/modules/expenses/infrastructure/repositories/raw-email.repository'
 import { SyncJobRepositoryImpl } from '@/modules/expenses/infrastructure/repositories/sync-job.repository'
+import { GMAIL_PROVIDER } from '@/shared/application/ports/gmail-provider.port'
+import { RAW_EMAIL_REPOSITORY } from '@/shared/application/ports/raw-email.repository.port'
+import { SYNC_JOB_REPOSITORY } from '@/shared/application/ports/sync-job.repository.port'
 import { EmailSyncService } from '@/shared/application/services/email-sync.service'
 
 /**

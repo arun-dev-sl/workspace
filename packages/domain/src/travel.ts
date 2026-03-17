@@ -413,3 +413,205 @@ export const StartFlightSyncJobResponseSchema = z.object({
 export type StartFlightSyncJobResponse = z.infer<
   typeof StartFlightSyncJobResponseSchema
 >;
+
+export const HotelRecordedExtractionMethodSchema = z.enum(['llm', 'manual']);
+export type HotelRecordedExtractionMethod = z.infer<
+  typeof HotelRecordedExtractionMethodSchema
+>;
+
+export const HotelRecordedExtractionMethodsSchema = z.array(
+  HotelRecordedExtractionMethodSchema,
+);
+
+export const HotelProcessingStatusSchema = z.enum([
+  'matched',
+  'no_match',
+  'failed',
+]);
+export type HotelProcessingStatus = z.infer<
+  typeof HotelProcessingStatusSchema
+>;
+
+export const HotelPricingSchema = z.object({
+  currency: z.string().trim().min(1).max(16).nullable(),
+  total: z.number().nonnegative().nullable(),
+  nightly: z.number().nonnegative().nullable(),
+});
+export type HotelPricing = z.infer<typeof HotelPricingSchema>;
+
+export const HotelStaySchema: ZodType<HotelStay> = z.object({
+  id: z.string(),
+  userId: z.string(),
+  sourceEmailId: z.string().nullable(),
+  extractionMethod: HotelRecordedExtractionMethodsSchema,
+  canonicalHash: z.string(),
+  hotelName: z.string(),
+  lat: z.number().nullable(),
+  lng: z.number().nullable(),
+  city: z.string().nullable(),
+  country: z.string().nullable(),
+  timezone: z.string().nullable(),
+  checkInDate: z.string().nullable(),
+  checkOutDate: z.string().nullable(),
+  nights: z.number().int().nonnegative().nullable(),
+  extractionMetadata: z.record(z.string(), z.unknown()),
+  confidence: z.number(),
+  pricing: HotelPricingSchema,
+  archivedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export interface HotelStay {
+  id: string;
+  userId: string;
+  sourceEmailId: string | null;
+  extractionMethod: HotelRecordedExtractionMethod[];
+  canonicalHash: string;
+  hotelName: string;
+  lat: number | null;
+  lng: number | null;
+  city: string | null;
+  country: string | null;
+  timezone: string | null;
+  checkInDate: string | null;
+  checkOutDate: string | null;
+  nights: number | null;
+  extractionMetadata: Record<string, unknown>;
+  confidence: number;
+  pricing: HotelPricing;
+  archivedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const HotelEmailProcessingSchema: ZodType<HotelEmailProcessing> = z.object({
+  id: z.string(),
+  userId: z.string(),
+  sourceEmailId: z.string(),
+  status: HotelProcessingStatusSchema,
+  extractionMethod: HotelRecordedExtractionMethodsSchema,
+  matchedStays: z.number().int().nonnegative(),
+  llmAttempts: z.number().int().nonnegative(),
+  lastError: z.string().nullable(),
+  processedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export interface HotelEmailProcessing {
+  id: string;
+  userId: string;
+  sourceEmailId: string;
+  status: HotelProcessingStatus;
+  extractionMethod: HotelRecordedExtractionMethod[];
+  matchedStays: number;
+  llmAttempts: number;
+  lastError: string | null;
+  processedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const HotelSyncJobStatusSchema: ZodType<HotelSyncJobStatus> = z.object({
+  id: z.string(),
+  userId: z.string(),
+  status: z.enum(['pending', 'processing', 'completed', 'failed']),
+  query: z.string().nullable(),
+  totalEmails: z.number().nullable(),
+  processedEmails: z.number().int().nonnegative(),
+  matchedStays: z.number().int().nonnegative(),
+  errorMessage: z.string().nullable(),
+  startedAt: z.string().nullable(),
+  completedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export interface HotelSyncJobStatus {
+  id: string;
+  userId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  query: string | null;
+  totalEmails: number | null;
+  processedEmails: number;
+  matchedStays: number;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const HotelLlmReviewCandidateStatusSchema = z.enum([
+  'unprocessed',
+  'no_match',
+  'failed',
+]);
+export type HotelLlmReviewCandidateStatus = z.infer<
+  typeof HotelLlmReviewCandidateStatusSchema
+>;
+
+export const HotelLlmReviewCandidateSchema: ZodType<HotelLlmReviewCandidate> =
+  z.object({
+    email: RawEmailSchema,
+    status: HotelLlmReviewCandidateStatusSchema,
+    extractionMethod: HotelRecordedExtractionMethodsSchema,
+    llmAttempts: z.number().int().nonnegative(),
+    lastError: z.string().nullable(),
+  });
+
+export interface HotelLlmReviewCandidate {
+  email: RawEmail;
+  status: HotelLlmReviewCandidateStatus;
+  extractionMethod: HotelRecordedExtractionMethod[];
+  llmAttempts: number;
+  lastError: string | null;
+}
+
+export const HotelLlmReviewCandidatesResponseSchema = z.object({
+  data: z.array(HotelLlmReviewCandidateSchema),
+});
+export type HotelLlmReviewCandidatesResponse = z.infer<
+  typeof HotelLlmReviewCandidatesResponseSchema
+>;
+
+export const ProcessHotelLlmReviewRequestSchema = z.object({
+  emailIds: z.array(z.string().uuid()).min(1).max(100),
+});
+export type ProcessHotelLlmReviewRequest = z.infer<
+  typeof ProcessHotelLlmReviewRequestSchema
+>;
+
+export const CreateHotelStayInputSchema = z.object({
+  hotelName: z.string().trim().min(1).max(200),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
+  city: z.string().trim().min(1).max(120).nullable().optional(),
+  country: z.string().trim().min(1).max(120).nullable().optional(),
+  timezone: z.string().trim().min(1).max(64).nullable().optional(),
+  checkInDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  checkOutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  nights: z.number().int().nonnegative().nullable().optional(),
+  pricing: HotelPricingSchema.partial().optional(),
+  sourceEmailId: z.string().uuid().nullable().optional(),
+});
+export type CreateHotelStayInput = z.infer<typeof CreateHotelStayInputSchema>;
+
+export const UpdateHotelStayInputSchema = z
+  .object({
+    hotelName: z.string().trim().min(1).max(200).optional(),
+    lat: z.number().min(-90).max(90).nullable().optional(),
+    lng: z.number().min(-180).max(180).nullable().optional(),
+    city: z.string().trim().min(1).max(120).nullable().optional(),
+    country: z.string().trim().min(1).max(120).nullable().optional(),
+    timezone: z.string().trim().min(1).max(64).nullable().optional(),
+    checkInDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    checkOutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    nights: z.number().int().nonnegative().nullable().optional(),
+    pricing: HotelPricingSchema.partial().optional(),
+  })
+  .refine((value) => Object.values(value).some((field) => field !== undefined), {
+    message: 'At least one field must be provided',
+  });
+export type UpdateHotelStayInput = z.infer<typeof UpdateHotelStayInputSchema>;

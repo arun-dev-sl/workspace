@@ -34,6 +34,9 @@ export const appPaths = {
     flights: {
       getHref: () => '/flights',
     },
+    hotels: {
+      getHref: () => '/hotels',
+    },
     playground: {
       getHref: () => '/playground',
     },

@@ -4,7 +4,7 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 
 import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
 
-import type { RawEmailRepository } from '@/modules/expenses/application/ports/raw-email.repository.port'
+import type { RawEmailRepository } from '@/shared/application/ports/raw-email.repository.port'
 import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
 import type { InsertRawEmail } from '@workspace/database'
 import type { RawEmail } from '@workspace/domain'

@@ -85,6 +85,34 @@
       "when": 1772892000000,
       "tag": "0011_flight_activity_method_history",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773241091896,
+      "tag": "0012_bent_zaran",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1773242393776,
+      "tag": "0013_sudden_adam_warlock",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1773244198504,
+      "tag": "0014_nervous_eternals",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1773332792761,
+      "tag": "0015_furry_captain_stacy",
+      "breakpoints": true
     }
   ]
 }

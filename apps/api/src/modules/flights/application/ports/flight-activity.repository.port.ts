@@ -14,6 +14,11 @@ export interface FlightActivityRepository {
     sourceEmailId: string
   }): Promise<FlightActivity[]>
   countByUser(userId: string): Promise<number>
+  listByUserCursor(params: {
+    userId: string
+    pageSize: number
+    cursor?: string
+  }): Promise<{ data: FlightActivity[], nextCursor?: string, hasMore: boolean }>
   findById(params: { userId: string, id: string }): Promise<FlightActivity | null>
 }
 

@@ -56,26 +56,32 @@ export const rawEmailsTable = pgTable(
 /**
  * Statements table definition
  */
-export const statementsTable = pgTable('statements', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => usersTable.id, { onDelete: 'cascade' }),
-  issuer: text('issuer').notNull(),
-  periodStart: date('period_start').notNull(),
-  periodEnd: date('period_end').notNull(),
-  totalDue: numeric('total_due', { precision: 12, scale: 2 }).notNull(),
-  sourceEmailId: uuid('source_email_id')
-    .notNull()
-    .references(() => rawEmailsTable.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-})
+export const statementsTable = pgTable(
+  'statements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => usersTable.id, { onDelete: 'cascade' }),
+    issuer: text('issuer').notNull(),
+    periodStart: date('period_start').notNull(),
+    periodEnd: date('period_end').notNull(),
+    totalDue: numeric('total_due', { precision: 12, scale: 2 }).notNull(),
+    sourceEmailId: uuid('source_email_id')
+      .notNull()
+      .references(() => rawEmailsTable.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('statements_user_id_idx').on(table.userId),
+  ],
+)
 
 /**
  * Transactions table definition
@@ -167,35 +173,42 @@ export type SyncJobStatus = (typeof SyncJobStatus)[keyof typeof SyncJobStatus]
  *
  * Tracks async email sync jobs
  */
-export const syncJobsTable = pgTable('sync_jobs', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => usersTable.id, { onDelete: 'cascade' }),
-  status: text('status').notNull().$type<SyncJobStatus>().default('pending'),
-  category: text('category').notNull().default('expenses'),
-  query: text('query'),
-  totalEmails: numeric('total_emails', { precision: 10, scale: 0 }),
-  processedEmails: numeric('processed_emails', {
-    precision: 10,
-    scale: 0,
-  }).default('0'),
-  newEmails: numeric('new_emails', { precision: 10, scale: 0 }).default('0'),
-  transactions: numeric('transactions', { precision: 10, scale: 0 }).default(
-    '0',
-  ),
-  statements: numeric('statements', { precision: 10, scale: 0 }).default('0'),
-  errorMessage: text('error_message'),
-  startedAt: timestamp('started_at', { withTimezone: true }),
-  completedAt: timestamp('completed_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-})
+export const syncJobsTable = pgTable(
+  'sync_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => usersTable.id, { onDelete: 'cascade' }),
+    status: text('status').notNull().$type<SyncJobStatus>().default('pending'),
+    category: text('category').notNull().default('expenses'),
+    query: text('query'),
+    totalEmails: numeric('total_emails', { precision: 10, scale: 0 }),
+    processedEmails: numeric('processed_emails', {
+      precision: 10,
+      scale: 0,
+    }).default('0'),
+    newEmails: numeric('new_emails', { precision: 10, scale: 0 }).default('0'),
+    transactions: numeric('transactions', { precision: 10, scale: 0 }).default(
+      '0',
+    ),
+    statements: numeric('statements', { precision: 10, scale: 0 }).default('0'),
+    errorMessage: text('error_message'),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('sync_jobs_user_id_idx').on(table.userId),
+    index('sync_jobs_user_status_category_idx').on(table.userId, table.status, table.category),
+  ],
+)
 
 export type SyncJobRecord = typeof syncJobsTable.$inferSelect
 export type InsertSyncJob = typeof syncJobsTable.$inferInsert

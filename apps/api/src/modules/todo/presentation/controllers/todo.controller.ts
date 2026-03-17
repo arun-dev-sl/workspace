@@ -11,11 +11,12 @@ import {
 } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 
+import { ZodValidationPipe } from '@/app/pipes/zod-validation.pipe'
 import { TodoService } from '@/modules/todo/application/services/todo.service'
-import { CreateTodoDto } from '@/modules/todo/presentation/dtos/create-todo.dto'
 import { TodoResponseDto } from '@/modules/todo/presentation/dtos/todo-response.dto'
-import { UpdateTodoDto } from '@/modules/todo/presentation/dtos/update-todo.dto'
+import { CreateTodoSchema, UpdateTodoSchema } from '@/modules/todo/presentation/dtos/todo.schema'
 
+import type { CreateTodoInput, UpdateTodoInput } from '@/modules/todo/presentation/dtos/todo.schema'
 import type { Todo } from '@workspace/database'
 
 /**
@@ -75,8 +76,8 @@ export class TodoController {
     status: 422,
     description: 'Validation failed',
   })
-  async create(@Body() createTodoDto: CreateTodoDto): Promise<Todo> {
-    return this.todoService.create(createTodoDto)
+  async create(@Body(new ZodValidationPipe(CreateTodoSchema)) body: CreateTodoInput): Promise<Todo> {
+    return this.todoService.create(body)
   }
 
   /**
@@ -99,9 +100,9 @@ export class TodoController {
   })
   async update(
     @Param('id') id: string,
-    @Body() updateTodoDto: UpdateTodoDto,
+    @Body(new ZodValidationPipe(UpdateTodoSchema)) body: UpdateTodoInput,
   ): Promise<Todo> {
-    return this.todoService.update(id, updateTodoDto)
+    return this.todoService.update(id, body)
   }
 
   /**

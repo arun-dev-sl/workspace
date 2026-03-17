@@ -1,0 +1,8 @@
+dist
+.turbo
+coverage
+pnpm-lock.yaml
+apps/web/playwright-report
+apps/web/test-results
+packages/database/drizzle
+apps/web/src/types/openapi.d.ts

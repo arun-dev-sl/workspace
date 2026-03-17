@@ -7,9 +7,10 @@ import {
   transactionsTable,
 
 } from '@workspace/database'
-import { and, desc, eq, gte, ilike, inArray, lt, lte, ne, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, ilike, inArray, lt, lte, ne, or, sql } from 'drizzle-orm'
 
 import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
+import { decodeCursor, encodeCursor } from '@/shared/infrastructure/utils/cursor.utils'
 
 import type {
   TransactionRepository,
@@ -335,6 +336,76 @@ export class TransactionRepositoryImpl implements TransactionRepository {
       .where(where)
 
     return result[0]?.count ?? 0
+  }
+
+  async listByUserCursor(params: {
+    userId: string
+    pageSize: number
+    cursor?: string
+    filters?: TransactionFilters
+  }): Promise<{ data: Transaction[], nextCursor?: string, hasMore: boolean }> {
+    const conditions = this.buildFilterConditions(params.userId, params.filters)
+
+    if (params.cursor) {
+      const decoded = decodeCursor<{ d: string, id: string }>(params.cursor)
+      if (decoded) {
+        conditions.push(
+          or(
+            lt(transactionsTable.transactionDate, new Date(decoded.d)),
+            and(
+              eq(transactionsTable.transactionDate, new Date(decoded.d)),
+              lt(transactionsTable.id, decoded.id),
+            ),
+          )!,
+        )
+      }
+    }
+
+    const records = await this.db
+      .select()
+      .from(transactionsTable)
+      .where(and(...conditions))
+      .orderBy(desc(transactionsTable.transactionDate), desc(transactionsTable.id))
+      .limit(params.pageSize + 1)
+
+    const hasMore = records.length > params.pageSize
+    const page = hasMore ? records.slice(0, params.pageSize) : records
+    const data = page.map((r) => this.toDomain(r))
+
+    let nextCursor: string | undefined
+    if (hasMore && page.length > 0) {
+      const last = page[page.length - 1]!
+      nextCursor = encodeCursor({ d: last.transactionDate.toISOString(), id: last.id })
+    }
+
+    return { data, nextCursor, hasMore }
+  }
+
+  private buildFilterConditions(userId: string, filters?: TransactionFilters) {
+    const conditions = [eq(transactionsTable.userId, userId)]
+
+    if (filters?.category) {
+      conditions.push(eq(transactionsTable.category, filters.category))
+    }
+    if (filters?.mode) {
+      conditions.push(eq(transactionsTable.transactionMode, filters.mode))
+    }
+    if (filters?.requiresReview !== undefined) {
+      conditions.push(eq(transactionsTable.requiresReview, filters.requiresReview))
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(transactionsTable.transactionDate, filters.dateFrom))
+    }
+    if (filters?.dateTo) {
+      const endOfDay = new Date(filters.dateTo)
+      endOfDay.setUTCHours(23, 59, 59, 999)
+      conditions.push(lte(transactionsTable.transactionDate, endOfDay))
+    }
+    if (filters?.search) {
+      conditions.push(ilike(transactionsTable.merchant, `%${filters.search}%`))
+    }
+
+    return conditions
   }
 
   // ── Analytics ──

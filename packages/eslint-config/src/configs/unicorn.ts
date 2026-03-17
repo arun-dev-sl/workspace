@@ -42,6 +42,8 @@ export function unicorn(options: UnicornOptions = {}): Linter.Config[] {
     rules: defu(overrides, {
       // Modern libraries like drizzle, react-query use null by default, incompatible with data operations
       'unicorn/no-null': 'off',
+      // Avoid conflicts with current TS/lib targets that do not support Array.prototype.at in all packages
+      'unicorn/prefer-at': 'off',
       'unicorn/prevent-abbreviations': 'off',
     }),
   })

@@ -3,13 +3,15 @@ import {
   principalContributionsTable,
   principalDistributionTable,
 } from '@workspace/database'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 import { DB_TOKEN } from '@/shared/infrastructure/db/db.port'
 
 import type { PrincipalRepositoryPort } from '@/modules/principal/application/ports/principal.repository.port'
 import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
 import type { PrincipalContribution, PrincipalDistribution } from '@workspace/database'
+
+const UPSERT_BATCH_SIZE = 250
 
 @Injectable()
 export class PrincipalRepository implements PrincipalRepositoryPort {
@@ -44,20 +46,28 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
       salaryLakhs?: string | null
     }[],
   ): Promise<{ imported: number, updated: number }> {
+    if (entries.length === 0) {
+      return { imported: 0, updated: 0 }
+    }
+
     let imported = 0
     let updated = 0
 
-    for (const entry of entries) {
-      const result = await this.db
+    for (let i = 0; i < entries.length; i += UPSERT_BATCH_SIZE) {
+      const chunk = entries.slice(i, i + UPSERT_BATCH_SIZE)
+
+      const results = await this.db
         .insert(principalContributionsTable)
-        .values({
-          userId,
-          month: entry.month,
-          year: entry.year,
-          label: entry.label,
-          amountLakhs: entry.amountLakhs,
-          salaryLakhs: entry.salaryLakhs ?? null,
-        })
+        .values(
+          chunk.map((entry) => ({
+            userId,
+            month: entry.month,
+            year: entry.year,
+            label: entry.label,
+            amountLakhs: entry.amountLakhs,
+            salaryLakhs: entry.salaryLakhs ?? null,
+          })),
+        )
         .onConflictDoUpdate({
           target: [
             principalContributionsTable.userId,
@@ -65,9 +75,9 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
             principalContributionsTable.year,
           ],
           set: {
-            label: entry.label,
-            amountLakhs: entry.amountLakhs,
-            salaryLakhs: entry.salaryLakhs ?? null,
+            label: sql`EXCLUDED.label`,
+            amountLakhs: sql`EXCLUDED.amount_lakhs`,
+            salaryLakhs: sql`EXCLUDED.salary_lakhs`,
             updatedAt: new Date(),
           },
         })
@@ -77,8 +87,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
           updatedAt: principalContributionsTable.updatedAt,
         })
 
-      if (result[0]) {
-        const r = result[0]
+      for (const r of results) {
         const diff = Math.abs(
           new Date(r.updatedAt).getTime() - new Date(r.createdAt).getTime(),
         )
@@ -100,24 +109,32 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
       value: string
     }[],
   ): Promise<{ imported: number, updated: number }> {
+    if (entries.length === 0) {
+      return { imported: 0, updated: 0 }
+    }
+
     let imported = 0
     let updated = 0
 
-    for (const entry of entries) {
-      const result = await this.db
+    for (let i = 0; i < entries.length; i += UPSERT_BATCH_SIZE) {
+      const chunk = entries.slice(i, i + UPSERT_BATCH_SIZE)
+
+      const results = await this.db
         .insert(principalDistributionTable)
-        .values({
-          userId,
-          name: entry.name,
-          value: entry.value,
-        })
+        .values(
+          chunk.map((entry) => ({
+            userId,
+            name: entry.name,
+            value: entry.value,
+          })),
+        )
         .onConflictDoUpdate({
           target: [
             principalDistributionTable.userId,
             principalDistributionTable.name,
           ],
           set: {
-            value: entry.value,
+            value: sql`EXCLUDED.value`,
             updatedAt: new Date(),
           },
         })
@@ -127,8 +144,7 @@ export class PrincipalRepository implements PrincipalRepositoryPort {
           updatedAt: principalDistributionTable.updatedAt,
         })
 
-      if (result[0]) {
-        const r = result[0]
+      for (const r of results) {
         const diff = Math.abs(
           new Date(r.updatedAt).getTime() - new Date(r.createdAt).getTime(),
         )

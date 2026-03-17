@@ -1,5 +1,6 @@
 import fastifyCors from '@fastify/cors'
 import fastifyEtag from '@fastify/etag'
+import fastifyHelmet from '@fastify/helmet'
 import { RequestMethod } from '@nestjs/common'
 import { NestFactory, Reflector } from '@nestjs/core'
 import { FastifyAdapter } from '@nestjs/platform-fastify'
@@ -35,6 +36,11 @@ async function bootstrap() {
 
   // CORS config
   await app.register(fastifyCors, corsConfig)
+
+  // Security headers
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: false,
+  })
 
   // ETag support (production only)
   if (process.env.NODE_ENV === 'production') {

@@ -9,7 +9,7 @@ import type {
   SyncJob,
   CreateSyncJobParams,
   UpdateSyncJobParams,
-} from '@/modules/expenses/application/ports/sync-job.repository.port'
+} from '@/shared/application/ports/sync-job.repository.port'
 import type { DrizzleDb } from '@/shared/infrastructure/db/db.port'
 
 @Injectable()

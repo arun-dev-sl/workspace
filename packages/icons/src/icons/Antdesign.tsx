@@ -1,4 +1,4 @@
-import type { SVGProps } from "react";
+import type { SVGProps } from 'react'
 const SvgAntdesign = (props: SVGProps<SVGSVGElement>) => (
   <svg width="1em" height="1em" viewBox="0 0 128 128" {...props}>
     <defs>
@@ -72,5 +72,5 @@ const SvgAntdesign = (props: SVGProps<SVGSVGElement>) => (
       d="M79.438 64.281c0-8.336-6.762-15.094-15.106-15.094-8.34 0-15.105 6.758-15.105 15.094 0 8.332 6.765 15.09 15.105 15.09 8.344 0 15.106-6.758 15.106-15.09m0 0"
     />
   </svg>
-);
-export default SvgAntdesign;
+)
+export default SvgAntdesign

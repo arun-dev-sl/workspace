@@ -4,6 +4,7 @@ const baseConfig = composeConfig({
   typescript: {
     tsconfigRootDir: import.meta.dirname,
   },
+  stylistic: false,
   prettier: false,
   packageJson: {
     overrides: {
@@ -109,6 +110,30 @@ export default [
                 'app',
                 'shared-kernel',
                 ['module', { moduleName: 'flights' }],
+                ['module', { moduleName: 'auth' }],
+                ['module', { moduleName: 'expenses' }],
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Allow hotels module to depend on auth and expenses module plumbing
+  {
+    files: ['src/modules/hotels/**/*.ts'],
+    rules: {
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            {
+              from: ['module'],
+              allow: [
+                'app',
+                'shared-kernel',
+                ['module', { moduleName: 'hotels' }],
                 ['module', { moduleName: 'auth' }],
                 ['module', { moduleName: 'expenses' }],
               ],
