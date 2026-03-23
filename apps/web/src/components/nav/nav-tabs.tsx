@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useMemo } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   ChartArea,
   LayoutDashboard,
@@ -9,75 +9,75 @@ import {
   Banknote,
   Plane,
   FlaskConical,
-} from "lucide-react";
+} from 'lucide-react'
 
-import { appPaths } from "@/config/app-paths";
-import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/ui/tabs";
+import { appPaths } from '@/config/app-paths'
+import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/ui/tabs'
 
 export interface NavSubItem {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  label: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
 }
 
 export interface NavItem {
-  label: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  children?: NavSubItem[];
+  label: string
+  href: string
+  icon: React.ComponentType<{ className?: string }>
+  children?: NavSubItem[]
 }
 
 export const navItems: NavItem[] = [
   {
-    label: "Dashboard",
+    label: 'Dashboard',
     href: appPaths.auth.dashboard.getHref(),
     icon: LayoutDashboard,
   },
-  { label: "Themes", href: appPaths.auth.themes.getHref(), icon: Paintbrush },
+  { label: 'Themes', href: appPaths.auth.themes.getHref(), icon: Paintbrush },
   {
-    label: "Analytics",
+    label: 'Analytics',
     href: appPaths.auth.analytics.getHref(),
     icon: ChartArea,
   },
   {
-    label: "Patterns",
+    label: 'Patterns',
     href: appPaths.auth.patterns.getHref(),
     icon: ChartArea,
   },
   {
-    label: "Holdings",
+    label: 'Holdings',
     href: appPaths.auth.holdings.getHref(),
     icon: Briefcase,
   },
   {
-    label: "Dividends",
+    label: 'Dividends',
     href: appPaths.auth.dividends.getHref(),
     icon: Banknote,
   },
   {
-    label: "Flights and Hotels",
+    label: 'Flights and Hotels',
     href: appPaths.auth.flights.getHref(),
     icon: Plane,
   },
   {
-    label: "Emails",
+    label: 'Emails',
     href: appPaths.auth.expensesEmails.getHref(),
     icon: Mail,
   },
   {
-    label: "Playground",
+    label: 'Playground',
     href: appPaths.auth.playground.getHref(),
     icon: FlaskConical,
   },
-];
+]
 
 function isItemActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === href || pathname.startsWith(`${href}/`)
 }
 
 const NavTabs = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
+  const location = useLocation()
+  const navigate = useNavigate()
 
   const activeItem = useMemo(() => {
     const match = navItems.find(
@@ -85,24 +85,24 @@ const NavTabs = () => {
         item.children?.some((child) =>
           isItemActive(location.pathname, child.href),
         ) || isItemActive(location.pathname, item.href),
-    );
+    )
 
-    return match ?? navItems[0];
-  }, [location.pathname]);
+    return match ?? navItems[0]
+  }, [location.pathname])
 
-  const current = activeItem?.href ?? "/";
+  const current = activeItem?.href ?? '/'
 
   const currentChild = useMemo(() => {
     if (!activeItem?.children) {
-      return null;
+      return null
     }
 
     const match = activeItem.children.find((child) =>
       isItemActive(location.pathname, child.href),
-    );
+    )
 
-    return match?.href ?? activeItem.children[0]?.href ?? null;
-  }, [activeItem, location.pathname]);
+    return match?.href ?? activeItem.children[0]?.href ?? null
+  }, [activeItem, location.pathname])
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -117,7 +117,7 @@ const NavTabs = () => {
             >
               <Link to={item.href} className="flex items-center gap-1">
                 {current === item.href ? (
-                  <item.icon className="size-4 text-foreground transition-all duration-200" />
+                  <item.icon className="size-4 text-primary transition-all duration-200" />
                 ) : null}
                 <span className="transition-all duration-200">
                   {item.label}
@@ -150,7 +150,7 @@ const NavTabs = () => {
         </Tabs>
       ) : null}
     </div>
-  );
-};
+  )
+}
 
-export default NavTabs;
+export default NavTabs

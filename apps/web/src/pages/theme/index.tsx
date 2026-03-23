@@ -4,13 +4,36 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
+} from '@workspace/ui/components/ui/card'
 
-import { ThemeEditorPanel } from "./components/theme-editor-panel";
-import { MainLayout } from "@/components/layouts/main-layout";
-import { PreviewSandbox } from "./components/preview-sandbox";
+import { ThemeEditorPanel } from './components/theme-editor-panel'
+import { MainLayout } from '@/components/layouts/main-layout'
+import { PreviewSandbox } from './components/preview-sandbox'
+import { useThemeCustomization } from '@/themes/context'
+import { PresetGallery } from './components/preset-gallery'
+import { ScrollArea } from '@workspace/ui/components/ui/scroll-area'
+import { Button } from '@workspace/ui/components/ui/button'
 
 export default function ThemeSettingsPage() {
+  const {
+    currentPreset,
+    overrides,
+    availablePresets,
+    setPreset,
+    clearOverrides,
+    reset,
+  } = useThemeCustomization()
+  const handleReset = () => {
+    if (confirm('Reset all theme customizations to default?')) {
+      reset()
+    }
+  }
+
+  const handleClearOverrides = () => {
+    if (confirm('Clear all overrides and return to preset defaults?')) {
+      clearOverrides()
+    }
+  }
   return (
     <MainLayout>
       <div className="flex flex-1 flex-col gap-6 p-4 sm:p-6">
@@ -35,23 +58,53 @@ export default function ThemeSettingsPage() {
               <CardDescription>Presets and variables</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 overflow-hidden py-4">
-              <ThemeEditorPanel />
+              <ScrollArea className="h-full">
+                <PresetGallery
+                  presets={availablePresets}
+                  currentPreset={currentPreset}
+                  onSelect={setPreset}
+                />
+              </ScrollArea>
             </CardContent>
           </Card>
           {/* RIGHT: Live Preview */}
           <Card>
             <CardHeader>
-              <CardTitle>Live Preview</CardTitle>
-              <CardDescription>
-                Your components using this theme
-              </CardDescription>
+              <div className="flex w-full justify-between">
+                <div>
+                  <CardTitle>Live Preview and Customization</CardTitle>
+                  <CardDescription>
+                    Your components using this theme
+                  </CardDescription>
+                </div>
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleClearOverrides}
+                    >
+                      Clear
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={handleReset}>
+                      Reset
+                    </Button>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {Object.keys(overrides.light).length +
+                      Object.keys(overrides.dark).length}{' '}
+                    overrides
+                  </div>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
+              <ThemeEditorPanel />
               <PreviewSandbox />
             </CardContent>
           </Card>
         </div>
       </div>
     </MainLayout>
-  );
+  )
 }

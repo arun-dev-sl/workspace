@@ -14,7 +14,8 @@ import {
 } from 'react'
 
 import { applyThemeWithPreset, mergeThemeWithOverrides } from './apply'
-import { DEFAULT_PRESET_NAME, presets } from './presets'
+import { DEFAULT_PRESET_NAME } from './presets'
+import { presetDefinitions, presetMetas } from './registry'
 import {
     clearThemeConfig,
     loadThemeConfig,
@@ -48,8 +49,9 @@ export function ThemeCustomizationProvider({
 
     // Get computed theme (preset + overrides)
     const getComputedTheme = useCallback((): ThemePreset => {
-        const preset = presets[currentPreset] ?? presets[DEFAULT_PRESET_NAME]
-        return mergeThemeWithOverrides(preset, overrides)
+        const presetDefinition =
+            presetDefinitions[currentPreset] ?? presetDefinitions[DEFAULT_PRESET_NAME]
+        return mergeThemeWithOverrides(presetDefinition.theme, overrides)
     }, [currentPreset, overrides])
 
     // Apply theme whenever it changes
@@ -68,13 +70,17 @@ export function ThemeCustomizationProvider({
 
     // Switch preset
     const setPreset = useCallback((name: string) => {
-        if (!presets[name]) {
+        if (!presetDefinitions[name]) {
             console.warn(`Preset "${name}" not found, using default`)
             setCurrentPreset(DEFAULT_PRESET_NAME)
             return
         }
         setCurrentPreset(name)
     }, [])
+
+    const currentPresetMeta =
+        presetDefinitions[currentPreset]?.meta ??
+        presetDefinitions[DEFAULT_PRESET_NAME].meta
 
     // Set single override
     const setOverride = useCallback(
@@ -135,8 +141,9 @@ export function ThemeCustomizationProvider({
 
     const value: ThemeContextValue = {
         currentPreset,
+        currentPresetMeta,
         overrides,
-        availablePresets: Object.keys(presets),
+        availablePresets: presetMetas,
         setPreset,
         setOverride,
         setOverrides: setOverridesForMode,

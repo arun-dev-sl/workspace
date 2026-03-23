@@ -1,0 +1,1009 @@
+@layer components {
+  /* ═══════════════════════════════════════════════════════════════
+     DESIGN TOKENS
+     ─────────────────────────────────────────────────────────────
+     Original vars were all cyclic (self-referential fallbacks are
+     invalid CSS). Defined directly here.
+
+     The Bauhaus triad: primary red, yellow, blue on black + white.
+     These anchors carry through every component.
+
+     Block shadow interaction model:
+       Rest:   element sits raised  → shadow at full Y offset
+       Hover:  element lifts more   → shadow grows
+       Active: element snaps down   → translateY(shadow-y), shadow → 0
+     This is the "physical key" feel intrinsic to the Bauhaus block.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] {
+    --bauhaus-shape-radius: 1.2rem;
+    --bauhaus-shadow-y: 12px;
+    --bauhaus-grid-angle: -4deg;
+    --bauhaus-accent-balance: 0.5;
+    --bauhaus-border-width: 2px;
+
+    /* Triad anchors — authentic Bauhaus primaries */
+    --bh-red: rgb(204 36 29);
+    --bh-yellow: rgb(245 185 0);
+    --bh-blue: rgb(0 92 171);
+
+    /* Shadow color: near-black with slight warm cast */
+    --bh-shadow: rgb(20 16 12);
+
+    /* Tinted field colors for body background blocks */
+    --bh-red-field: rgb(204 36 29 / 0.12);
+    --bh-yellow-field: rgb(245 185 0 / 0.14);
+    --bh-blue-field: rgb(0 92 171 / 0.1);
+  }
+
+  /* ─── Dark mode ──────────────────────────────────────────────── */
+  /* Deep charcoal field. Triad colors stay saturated — Bauhaus     */
+  /* primaries don't mute in dark mode, they glow against the dark. */
+  .dark[data-theme-preset='bauhaus'] {
+    --bh-red: rgb(230 55 45);
+    --bh-yellow: rgb(255 205 0);
+    --bh-blue: rgb(30 115 210);
+    --bh-shadow: rgb(0 0 0);
+
+    --bh-red-field: rgb(230 55 45 / 0.14);
+    --bh-yellow-field: rgb(255 205 0 / 0.1);
+    --bh-blue-field: rgb(30 115 210 / 0.12);
+    --bauhaus-shadow-y: 10px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     BODY
+     ─────────────────────────────────────────────────────────────
+     Hard-edged geometric color fields — NOT gradients on the grid.
+     Three flat triangular/diagonal blocks at the corners/edges.
+     Bauhaus compositions divide the field with straight lines.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] body {
+    font-family: var(--font-sans);
+    background:
+      /* red wedge — top left */
+      linear-gradient(
+        135deg,
+        var(--bh-red-field) 0%,
+        var(--bh-red-field) 20%,
+        transparent 20%
+      ),
+      /* yellow wedge — bottom right */
+        linear-gradient(
+          135deg,
+          transparent 78%,
+          var(--bh-yellow-field) 78%,
+          var(--bh-yellow-field) 100%
+        ),
+      /* blue accent — bottom left strip */
+        linear-gradient(
+          to right,
+          var(--bh-blue-field) 0%,
+          var(--bh-blue-field) 4px,
+          transparent 4px
+        ),
+      var(--background);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SHARED BLOCK SURFACE
+     ─────────────────────────────────────────────────────────────
+     The Bauhaus block: thick border, rounded geometry, hard vertical
+     shadow (no blur), flat background. Applied to all raised elements.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='button'],
+  :root[data-theme-preset='bauhaus'] [data-slot='card'],
+  :root[data-theme-preset='bauhaus'] [data-slot='tabs-list'],
+  :root[data-theme-preset='bauhaus'] [data-slot='badge'],
+  :root[data-theme-preset='bauhaus'] [data-slot='select-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='dropdown-menu-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='popover-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='dialog-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='sheet-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='drawer-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='alert'],
+  :root[data-theme-preset='bauhaus'] [data-slot='toggle'],
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast] {
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: var(--bauhaus-shape-radius) !important;
+    box-shadow: 0 var(--bauhaus-shadow-y) 0 var(--bh-shadow) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     INTERACTION MODEL
+     ─────────────────────────────────────────────────────────────
+     Hover:  lift 2px, shadow grows by 2px
+     Active: snap down full shadow-y, shadow collapses to 0
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button']:not([data-variant='link']):hover,
+  :root[data-theme-preset='bauhaus'] [data-slot='card']:hover,
+  :root[data-theme-preset='bauhaus'] [data-slot='toggle']:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 calc(var(--bauhaus-shadow-y) + 2px) 0 var(--bh-shadow) !important;
+    transition:
+      transform 120ms cubic-bezier(0.2, 0, 0, 1),
+      box-shadow 120ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button']:not([data-variant='link']):active,
+  :root[data-theme-preset='bauhaus'] [data-slot='toggle']:active {
+    transform: translateY(var(--bauhaus-shadow-y));
+    box-shadow: 0 0 0 var(--bh-shadow) !important;
+    transition:
+      transform 60ms ease-in,
+      box-shadow 60ms ease-in;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='button'] {
+    transition:
+      transform 180ms ease-out,
+      box-shadow 180ms ease-out,
+      background-color 160ms ease-out;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     CARD
+     ─────────────────────────────────────────────────────────────
+     Flat fill. A thin geometric color bar at the top edge is the
+     only decoration — a ruled band, not a gradient wash.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='card'] {
+    background: var(--card) !important;
+    position: relative;
+    overflow: hidden;
+    transition:
+      transform 200ms ease-out,
+      box-shadow 200ms ease-out;
+  }
+
+  /* Colored top bar — geometric accent strip */
+  :root[data-theme-preset='bauhaus'] [data-slot='card']::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      var(--bh-red) 0% 33%,
+      var(--bh-yellow) 33% 66%,
+      var(--bh-blue) 66% 100%
+    );
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='card-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='card-header'],
+  :root[data-theme-preset='bauhaus'] [data-slot='card-footer'] {
+    position: relative;
+    z-index: 2;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='card-header'] {
+    border-bottom: var(--bauhaus-border-width) solid var(--border);
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='card-footer'] {
+    border-top: var(--bauhaus-border-width) solid var(--border);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     BUTTON — full variant set
+     ─────────────────────────────────────────────────────────────
+     Bold uppercase, wide tracking. Each variant is a flat color
+     block — no gradients, no softness.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='button'] {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+
+  /* Default / Primary */
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button'][data-variant='default'] {
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    border-color: var(--primary) !important;
+  }
+
+  /* Secondary */
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button'][data-variant='secondary'] {
+    background: var(--secondary) !important;
+    color: var(--secondary-foreground) !important;
+    border-color: var(--secondary) !important;
+  }
+
+  /* Outline — white/card block, dark border */
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button'][data-variant='outline'] {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    border-color: var(--border) !important;
+  }
+
+  /* Ghost — no shadow, transparent until hover */
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button'][data-variant='ghost'] {
+    background: transparent !important;
+    color: var(--foreground) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button'][data-variant='ghost']:hover {
+    background: var(--muted) !important;
+    border-color: var(--border) !important;
+    box-shadow: 0 var(--bauhaus-shadow-y) 0 var(--bh-shadow) !important;
+  }
+
+  /* Destructive — Bauhaus red */
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button'][data-variant='destructive'] {
+    background: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+    border-color: var(--destructive) !important;
+  }
+
+  /* Link — no block, just bold text */
+  :root[data-theme-preset='bauhaus'] [data-slot='button'][data-variant='link'] {
+    background: transparent !important;
+    color: var(--primary) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='button'][data-variant='link']:hover {
+    transform: none;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='button']:focus-visible {
+    outline: 3px solid var(--ring) !important;
+    outline-offset: 2px !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='button'][data-size='icon'] {
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     INPUT / TEXTAREA / SELECT TRIGGER
+     ─────────────────────────────────────────────────────────────
+     Inputs are recessed blocks — thick border, flat fill, no shadow.
+     Focus lifts them with the block shadow to match buttons.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='input'],
+  :root[data-theme-preset='bauhaus'] [data-slot='textarea'],
+  :root[data-theme-preset='bauhaus'] [data-slot='select-trigger'] {
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: var(--bauhaus-shape-radius) !important;
+    background: var(--input) !important;
+    color: var(--foreground) !important;
+    box-shadow: none !important;
+    transition:
+      border-color 140ms ease-out,
+      box-shadow 140ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='input'],
+  :root[data-theme-preset='bauhaus'] [data-slot='select-trigger'] {
+    min-height: 2.5rem;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='textarea'] {
+    min-height: 7rem;
+    resize: vertical;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='input']::placeholder,
+  :root[data-theme-preset='bauhaus'] [data-slot='textarea']::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.8em;
+  }
+
+  /* Focus: gains block shadow — input lifts into the field */
+  :root[data-theme-preset='bauhaus'] [data-slot='input']:focus-visible,
+  :root[data-theme-preset='bauhaus'] [data-slot='textarea']:focus-visible,
+  :root[data-theme-preset='bauhaus'] [data-slot='select-trigger']:focus-visible,
+  :root[data-theme-preset='bauhaus'] [data-slot='tabs-trigger']:focus-visible {
+    outline: none !important;
+    border-color: var(--foreground) !important;
+    box-shadow: 0 var(--bauhaus-shadow-y) 0 var(--bh-shadow) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SELECT CONTENT / ITEM
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='select-content'] {
+    background: var(--popover) !important;
+    color: var(--popover-foreground) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='select-item'] {
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.5) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.82rem;
+    transition: background-color 100ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='select-item'][data-highlighted] {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     TABS
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='tabs-list'] {
+    background: var(--muted) !important;
+    padding: 0.3rem;
+    height: auto;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='tabs-trigger'] {
+    border-radius: calc(var(--bauhaus-shape-radius) - 0.2rem) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.82rem;
+    transition:
+      background-color 140ms ease-out,
+      color 140ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='tabs-trigger'][data-state='active'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     BADGE — all variants
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='badge'] {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-size: 0.68rem;
+    /* Badge shadow is smaller than full components */
+    box-shadow: 0 4px 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='badge'][data-variant='default'] {
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    border-color: var(--primary) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='badge'][data-variant='secondary'] {
+    background: var(--secondary) !important;
+    color: var(--secondary-foreground) !important;
+    border-color: var(--secondary) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='badge'][data-variant='outline'] {
+    background: transparent !important;
+    color: var(--foreground) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='badge'][data-variant='destructive'],
+  :root[data-theme-preset='bauhaus'] [data-slot='badge'][data-variant='error'],
+  :root[data-theme-preset='bauhaus'] [data-slot='badge'][data-variant='red'] {
+    background: var(--bh-red) !important;
+    color: #fff !important;
+    border-color: var(--bh-red) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='badge'][data-variant='success'] {
+    background: oklch(0.52 0.16 155) !important;
+    color: #fff !important;
+    border-color: oklch(0.4 0.16 155) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='badge'][data-variant='warning'] {
+    background: var(--bh-yellow) !important;
+    color: #000 !important;
+    border-color: oklch(0.68 0.18 75) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='badge'][data-variant='info'] {
+    background: var(--bh-blue) !important;
+    color: #fff !important;
+    border-color: oklch(0.32 0.12 250) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     PROGRESS
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='progress'] {
+    height: 1rem;
+    border-radius: var(--bauhaus-shape-radius) !important;
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    background: var(--background) !important;
+    box-shadow: 0 4px 0 var(--bh-shadow) !important;
+    padding: 2px;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='progress-indicator'] {
+    border-radius: calc(var(--bauhaus-shape-radius) - 4px) !important;
+    background: var(--foreground) !important;
+    transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     DIALOG / SHEET / DRAWER
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='dialog-content'] {
+    background: var(--background) !important;
+    border-radius: var(--bauhaus-shape-radius) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='sheet-content'] {
+    background: var(--background) !important;
+    border-radius: 0 !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='drawer-content'] {
+    background: var(--background) !important;
+    border-radius: var(--bauhaus-shape-radius) var(--bauhaus-shape-radius) 0 0 !important;
+    /* Drawer rises from below, shadow on top edge */
+    box-shadow: 0 calc(-1 * var(--bauhaus-shadow-y)) 0 var(--bh-shadow) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     DROPDOWN MENU / POPOVER
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='dropdown-menu-content'],
+  :root[data-theme-preset='bauhaus'] [data-slot='popover-content'] {
+    background: var(--popover) !important;
+    color: var(--popover-foreground) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='dropdown-menu-item'] {
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.5) !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.82rem;
+    transition: background-color 100ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='dropdown-menu-item']:focus,
+  :root[data-theme-preset='bauhaus']
+    [data-slot='dropdown-menu-item'][data-highlighted] {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     TOOLTIP
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='tooltip-content'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border: var(--bauhaus-border-width) solid var(--foreground) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.6) !important;
+    box-shadow: 0 4px 0 var(--bh-shadow) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 0.72rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     CALENDAR
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='calendar'] {
+    color: var(--foreground);
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-nav-button,
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-day-button {
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.6) !important;
+    font-weight: 700;
+    transition:
+      background-color 100ms ease-out,
+      box-shadow 100ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-day-button:hover,
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-nav-button:hover {
+    background: var(--accent) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-day-selected,
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-day-range-start,
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-day-range-end {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.6) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-range-middle {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+    border-radius: 0 !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='calendar']
+    .calendar-day-today:not(.calendar-day-selected) {
+    border: var(--bauhaus-border-width) solid var(--foreground) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.6) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='calendar'] .calendar-weekday {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.7rem;
+    color: var(--muted-foreground);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SWITCH
+     ─────────────────────────────────────────────────────────────
+     Pill track but thumb is a hard square — geometric contrast.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='switch'] {
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: 9999px !important;
+    background: var(--muted) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+    transition:
+      background-color 180ms ease-out,
+      border-color 180ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='switch'][data-state='checked'] {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+  }
+
+  /* Square thumb — geometric contrast against the round track */
+  :root[data-theme-preset='bauhaus'] [data-slot='switch-thumb'] {
+    border-radius: 3px !important;
+    background: var(--background) !important;
+    box-shadow: 0 1px 0 var(--bh-shadow) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     CHECKBOX
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='checkbox'] {
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.3) !important;
+    background: var(--input) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+    width: 1.25rem;
+    height: 1.25rem;
+    transition:
+      background-color 140ms ease-out,
+      transform 60ms ease-in;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='checkbox']:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='checkbox'][data-state='checked'],
+  :root[data-theme-preset='bauhaus']
+    [data-slot='checkbox'][data-state='indeterminate'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border-color: var(--foreground) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='checkbox']:focus-visible {
+    outline: 3px solid var(--ring) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SLIDER
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='slider-track'] {
+    height: 0.55rem !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.3) !important;
+    background: var(--muted) !important;
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='slider-range'] {
+    background: var(--foreground) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.3) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='slider-thumb'] {
+    border: var(--bauhaus-border-width) solid var(--foreground) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.35) !important;
+    background: var(--background) !important;
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+    box-shadow: 0 4px 0 var(--bh-shadow) !important;
+    transition:
+      transform 80ms ease-in,
+      box-shadow 80ms ease-in;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='slider-thumb']:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='slider-thumb']:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='slider-thumb']:focus-visible {
+    outline: 3px solid var(--ring) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     TOGGLE
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='toggle'] {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.82rem;
+    transition:
+      transform 180ms ease-out,
+      box-shadow 180ms ease-out,
+      background-color 140ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='toggle'][data-state='on'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border-color: var(--foreground) !important;
+    box-shadow: 0 var(--bauhaus-shadow-y) 0
+      color-mix(in oklab, var(--bh-shadow) 60%, transparent) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ALERT
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='alert'] {
+    background: var(--card) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='alert'][data-variant='destructive'] {
+    background: var(--bh-red) !important;
+    color: #fff !important;
+    border-color: var(--bh-red) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='alert'][data-variant='destructive']
+    > svg {
+    color: #fff !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     ACCORDION
+     ─────────────────────────────────────────────────────────────
+     Each item is a full raised block. The tricolor top bar on
+     the trigger reinforces the Bauhaus palette.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='accordion-item'] {
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: var(--bauhaus-shape-radius) !important;
+    margin-bottom: 0.65rem;
+    overflow: hidden;
+    box-shadow: 0 var(--bauhaus-shadow-y) 0 var(--bh-shadow);
+    background: var(--card);
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='accordion-trigger'] {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.88rem;
+    border-radius: var(--bauhaus-shape-radius) !important;
+    background: var(--card);
+    transition: background-color 120ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='accordion-trigger']:hover {
+    background: var(--accent) !important;
+    text-decoration: none !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='accordion-content'] {
+    background: var(--background);
+    border-top: var(--bauhaus-border-width) solid var(--border);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     AVATAR
+     ─────────────────────────────────────────────────────────────
+     Circle stays (Bauhaus circle) with the block shadow.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='avatar'] {
+    border: var(--bauhaus-border-width) solid var(--border);
+    border-radius: 9999px !important;
+    box-shadow: 0 4px 0 var(--bh-shadow);
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='avatar-fallback'] {
+    background: var(--muted) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SKELETON
+     ─────────────────────────────────────────────────────────────
+     Flat muted block with a tricolor sweep shimmer.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='skeleton'] {
+    border-radius: var(--bauhaus-shape-radius) !important;
+    border: var(--bauhaus-border-width) solid var(--border);
+    background: var(--muted) !important;
+    background-image: linear-gradient(
+      90deg,
+      transparent 20%,
+      color-mix(in oklab, var(--bh-yellow) 18%, transparent) 40%,
+      color-mix(in oklab, var(--bh-red) 12%, transparent) 50%,
+      color-mix(in oklab, var(--bh-blue) 12%, transparent) 60%,
+      transparent 80%
+    ) !important;
+    background-size: 300% 100% !important;
+    animation: bauhaus-skeleton 1.6s ease-in-out infinite;
+  }
+
+  @keyframes bauhaus-skeleton {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     TABLE
+     ─────────────────────────────────────────────────────────────
+     Full-width raised block. Header uses the tricolor bar.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='table'] {
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: var(--bauhaus-shape-radius) !important;
+    background: var(--background) !important;
+    overflow: hidden;
+    box-shadow: 0 var(--bauhaus-shadow-y) 0 var(--bh-shadow);
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='table-header'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='table-head'] {
+    color: var(--background) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    border-right: 1px solid
+      color-mix(in oklab, var(--background) 20%, transparent);
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='table-head']:last-child {
+    border-right: 0;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='table-row'] {
+    border-bottom: var(--bauhaus-border-width) solid var(--border) !important;
+    transition: background-color 100ms ease-out;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='table-row']:hover {
+    background: var(--accent) !important;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='table-row'][data-state='selected'] {
+    background: var(--muted) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='table-cell'] {
+    border-right: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
+    font-weight: 500;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-slot='table-cell']:last-child {
+    border-right: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SEPARATOR
+     ─────────────────────────────────────────────────────────────
+     Tricolor bar — red, yellow, blue in equal thirds.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='separator'] {
+    height: 4px !important;
+    background: linear-gradient(
+      90deg,
+      var(--bh-red) 0% 33%,
+      var(--bh-yellow) 33% 66%,
+      var(--bh-blue) 66% 100%
+    ) !important;
+    border-radius: 2px;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-slot='separator'][data-orientation='vertical'] {
+    height: auto !important;
+    width: 4px !important;
+    background: linear-gradient(
+      180deg,
+      var(--bh-red) 0% 33%,
+      var(--bh-yellow) 33% 66%,
+      var(--bh-blue) 66% 100%
+    ) !important;
+    border-radius: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SIDEBAR
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-slot='sidebar'] {
+    background: var(--card) !important;
+    border-right: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: 0 !important;
+    /* Left-panel block shadow casts rightward */
+    box-shadow: var(--bauhaus-shadow-y) 0 0 var(--bh-shadow) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SONNER TOASTS
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast] {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    font-weight: 600;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast][data-type='success'] {
+    background: oklch(0.52 0.16 155) !important;
+    color: #fff !important;
+    border-color: oklch(0.4 0.16 155) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast][data-type='error'] {
+    background: var(--bh-red) !important;
+    color: #fff !important;
+    border-color: oklch(0.36 0.18 25) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast][data-type='warning'] {
+    background: var(--bh-yellow) !important;
+    color: #000 !important;
+    border-color: oklch(0.68 0.18 75) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast][data-type='info'] {
+    background: var(--bh-blue) !important;
+    color: #fff !important;
+    border-color: oklch(0.32 0.12 250) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast] [data-description] {
+    opacity: 0.75;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast] [data-close-button] {
+    border: var(--bauhaus-border-width) solid var(--border) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.5) !important;
+    background: var(--background) !important;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+    transition:
+      transform 60ms ease-in,
+      box-shadow 60ms ease-in;
+  }
+
+  :root[data-theme-preset='bauhaus']
+    [data-sonner-toast]
+    [data-close-button]:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--bh-shadow) !important;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast] [data-button] {
+    border: var(--bauhaus-border-width) solid var(--foreground) !important;
+    border-radius: calc(var(--bauhaus-shape-radius) * 0.5) !important;
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    box-shadow: 0 3px 0 var(--bh-shadow) !important;
+    transition:
+      transform 60ms ease-in,
+      box-shadow 60ms ease-in;
+  }
+
+  :root[data-theme-preset='bauhaus'] [data-sonner-toast] [data-button]:active {
+    transform: translateY(3px);
+    box-shadow: 0 0 0 var(--bh-shadow) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     REDUCED MOTION
+     ═══════════════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-theme-preset='bauhaus'] [data-slot='skeleton'] {
+      animation: none;
+    }
+
+    :root[data-theme-preset='bauhaus'] [data-slot='button'],
+    :root[data-theme-preset='bauhaus'] [data-slot='card'],
+    :root[data-theme-preset='bauhaus'] [data-slot='toggle'],
+    :root[data-theme-preset='bauhaus'] [data-slot='checkbox'],
+    :root[data-theme-preset='bauhaus'] [data-slot='slider-thumb'],
+    :root[data-theme-preset='bauhaus'] [data-slot='switch'] {
+      transition: none;
+    }
+  }
+}

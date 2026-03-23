@@ -5,9 +5,9 @@
  */
 
 import type { ThemePreset } from './types'
+import { presetDefinitions } from './registry'
 
-let neumorphismStylesLoader: Promise<unknown> | null = null
-let glassmorphismStylesLoader: Promise<unknown> | null = null
+const presetStyleLoaders = new Map<string, Promise<unknown>>()
 let previousPresetName: string | null = null
 
 /**
@@ -38,23 +38,12 @@ export function applyThemeWithPreset(
   theme: ThemePreset,
   presetName: string,
 ): void {
-  // Clean up neumorphism-specific inline CSS variables when switching away
-  if (previousPresetName === 'neumorphism' && presetName !== 'neumorphism') {
-    cleanupNeumorphismInlineStyles()
+  if (previousPresetName && previousPresetName !== presetName) {
+    const previousDefinition = presetDefinitions[previousPresetName]
+    cleanupPresetInlineStyles(previousDefinition?.cleanupPrefixes)
   }
 
-  // Clean up glassmorphism-specific inline CSS variables when switching away
-  if (previousPresetName === 'glassmorphism' && presetName !== 'glassmorphism') {
-    cleanupGlassmorphismInlineStyles()
-  }
-
-  if (presetName === 'neumorphism') {
-    ensureNeumorphismStyles()
-  }
-
-  if (presetName === 'glassmorphism') {
-    ensureGlassmorphismStyles()
-  }
+  ensurePresetStyles(presetName)
 
   const root = document.documentElement
   root.dataset.themePreset = presetName
@@ -64,16 +53,20 @@ export function applyThemeWithPreset(
 }
 
 /**
- * Remove all --neu-* inline style properties from <html>
- * so they don't bleed into non-neumorphic presets.
+ * Remove preset-specific inline style properties from <html>
+ * so they don't bleed into the next selected preset.
  */
-function cleanupNeumorphismInlineStyles(): void {
+function cleanupPresetInlineStyles(prefixes?: string[]): void {
+  if (!prefixes?.length) {
+    return
+  }
+
   const root = document.documentElement
   const style = root.style
   const keysToRemove: string[] = []
 
   for (const prop of style) {
-    if (prop.startsWith('--neu-')) {
+    if (prefixes.some((prefix) => prop.startsWith(prefix))) {
       keysToRemove.push(prop)
     }
   }
@@ -83,40 +76,14 @@ function cleanupNeumorphismInlineStyles(): void {
   }
 }
 
-function ensureNeumorphismStyles(): void {
-  if (neumorphismStylesLoader) {
+function ensurePresetStyles(presetName: string): void {
+  const definition = presetDefinitions[presetName]
+
+  if (!definition?.loadStyles || presetStyleLoaders.has(presetName)) {
     return
   }
 
-  neumorphismStylesLoader = import('@workspace/ui/styles/neumorphism.css')
-}
-
-/**
- * Remove all --glass-* inline style properties from <html>
- * so they don't bleed into non-glassmorphic presets.
- */
-function cleanupGlassmorphismInlineStyles(): void {
-  const root = document.documentElement
-  const style = root.style
-  const keysToRemove: string[] = []
-
-  for (const prop of style) {
-    if (prop.startsWith('--glass-')) {
-      keysToRemove.push(prop)
-    }
-  }
-
-  for (const key of keysToRemove) {
-    root.style.removeProperty(key)
-  }
-}
-
-function ensureGlassmorphismStyles(): void {
-  if (glassmorphismStylesLoader) {
-    return
-  }
-
-  glassmorphismStylesLoader = import('@workspace/ui/styles/glassmorphism.css')
+  presetStyleLoaders.set(presetName, definition.loadStyles())
 }
 
 /**
@@ -126,7 +93,7 @@ function ensureGlassmorphismStyles(): void {
  */
 function applyDarkModeVariables(darkVars: Record<string, string>): void {
   const styleId = 'workspace-theme-dark-vars'
-  let styleEl = document.getElementById(styleId) as HTMLStyleElement | null
+  let styleEl = document.querySelector<HTMLStyleElement>(`#${styleId}`)
 
   if (!styleEl) {
     styleEl = document.createElement('style')
@@ -149,7 +116,7 @@ function applyDarkModeVariables(darkVars: Record<string, string>): void {
 export function removeTheme(): void {
   // Remove the dynamic style element for dark mode
   const styleId = 'workspace-theme-dark-vars'
-  const styleEl = document.getElementById(styleId)
+  const styleEl = document.querySelector(`#${styleId}`)
   if (styleEl) {
     styleEl.remove()
   }

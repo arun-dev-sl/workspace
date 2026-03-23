@@ -1,27 +1,27 @@
-import { useState } from "react";
+import { useState } from 'react'
 import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@workspace/ui/components/ui/avatar";
-import { Badge } from "@workspace/ui/components/ui/badge";
+} from '@workspace/ui/components/ui/avatar'
+import { Badge } from '@workspace/ui/components/ui/badge'
 
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@workspace/ui/components/ui/popover";
-import { Switch } from "@workspace/ui/components/ui/switch";
-import { Button } from "@workspace/ui/components/ui/button";
+} from '@workspace/ui/components/ui/popover'
+import { Switch } from '@workspace/ui/components/ui/switch'
+import { Button } from '@workspace/ui/components/ui/button'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
-import { Input } from "@workspace/ui/components/ui/input";
-import { Textarea } from "@workspace/ui/components/ui/textarea";
+} from '@workspace/ui/components/ui/card'
+import { Input } from '@workspace/ui/components/ui/input'
+import { Textarea } from '@workspace/ui/components/ui/textarea'
 import {
   AlertTriangle,
   Bell,
@@ -32,39 +32,39 @@ import {
   Settings,
   Underline,
   User,
-} from "lucide-react";
-import { toast } from "sonner";
+} from 'lucide-react'
+import { toast } from 'sonner'
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@workspace/ui/components/ui/tabs";
-import { Progress } from "@workspace/ui/components/ui/progress";
-import { Slider } from "@workspace/ui/components/ui/slider";
-import { Checkbox } from "@workspace/ui/components/ui/checkbox";
-import { Label } from "@workspace/ui/components/ui/label";
-import { Toggle } from "@workspace/ui/components/ui/toggle";
-import { Separator } from "@workspace/ui/components/ui/separator";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
+} from '@workspace/ui/components/ui/tabs'
+import { Progress } from '@workspace/ui/components/ui/progress'
+import { Slider } from '@workspace/ui/components/ui/slider'
+import { Checkbox } from '@workspace/ui/components/ui/checkbox'
+import { Label } from '@workspace/ui/components/ui/label'
+import { Toggle } from '@workspace/ui/components/ui/toggle'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { Skeleton } from '@workspace/ui/components/ui/skeleton'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/ui/select";
+} from '@workspace/ui/components/ui/select'
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@workspace/ui/components/ui/accordion";
+} from '@workspace/ui/components/ui/accordion'
 import {
   Alert,
   AlertDescription,
   AlertTitle,
-} from "@workspace/ui/components/ui/alert";
+} from '@workspace/ui/components/ui/alert'
 import {
   Table,
   TableBody,
@@ -72,13 +72,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/ui/table";
+} from '@workspace/ui/components/ui/table'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@workspace/ui/components/ui/tooltip";
+} from '@workspace/ui/components/ui/tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -86,19 +86,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/ui/dropdown-menu";
-import { NotionPromptForm } from "./preview-notion";
+} from '@workspace/ui/components/ui/dropdown-menu'
+import { NotionPromptForm } from './preview-notion'
 
 export function PreviewSandbox() {
-  const [progress, setProgress] = useState(60);
-  const [sliderVal, setSliderVal] = useState([40]);
+  const [progress, setProgress] = useState(60)
+  const [sliderVal, setSliderVal] = useState([40])
   // Animate progress on mount
   useState(() => {
-    const timer = setTimeout(() => setProgress(72), 500);
-    return () => clearTimeout(timer);
-  });
+    const timer = setTimeout(() => setProgress(72), 500)
+    return () => clearTimeout(timer)
+  })
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-4">
       {/* ── Buttons ── */}
       <section className="space-y-2">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -480,8 +480,8 @@ export function PreviewSandbox() {
             variant="outline"
             size="sm"
             onClick={() =>
-              toast("Default toast", {
-                description: "This is a default notification.",
+              toast('Default toast', {
+                description: 'This is a default notification.',
               })
             }
           >
@@ -491,7 +491,7 @@ export function PreviewSandbox() {
             variant="outline"
             size="sm"
             onClick={() =>
-              toast.success("Success", { description: "Operation completed." })
+              toast.success('Success', { description: 'Operation completed.' })
             }
           >
             Success
@@ -500,7 +500,7 @@ export function PreviewSandbox() {
             variant="outline"
             size="sm"
             onClick={() =>
-              toast.error("Error", { description: "Something went wrong." })
+              toast.error('Error', { description: 'Something went wrong.' })
             }
           >
             Error
@@ -509,7 +509,7 @@ export function PreviewSandbox() {
             variant="outline"
             size="sm"
             onClick={() =>
-              toast.info("Info", { description: "Here is some information." })
+              toast.info('Info', { description: 'Here is some information.' })
             }
           >
             Info
@@ -518,7 +518,7 @@ export function PreviewSandbox() {
             variant="outline"
             size="sm"
             onClick={() =>
-              toast.warning("Warning", { description: "Please be careful." })
+              toast.warning('Warning', { description: 'Please be careful.' })
             }
           >
             Warning
@@ -550,5 +550,5 @@ export function PreviewSandbox() {
         </div>
       </div>
     </div>
-  );
+  )
 }

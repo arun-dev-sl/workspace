@@ -2,12 +2,62 @@
 
 @layer components {
   /* ═══════════════════════════════════════════════════════════════
-     Neumorphic semantic text colors
-     Muted versions of status/variant colors that sit naturally on
-     a soft neumorphic surface. Light mode defaults below;
-     dark mode overrides further down.
+     DESIGN TOKEN LAYER
+     ─────────────────────────────────────────────────────────────
+     ALL shadow values live here as CSS custom properties.
+     Previously they were hardcoded as fallbacks in every component,
+     which made dark mode impossible to fix from one place.
+
+     Light mode shadow anatomy:
+       dark leg  = rgb(151–163, 165–177, 186–198 / 0.6–0.75)
+                   (the cool blue-grey cast of a slightly lit surface)
+       light leg  = rgb(255 255 255 / 0.8–0.9)
+                   (the highlight bouncing off the upper-left face)
+
+     Dark mode shadow anatomy  (background ≈ #0f172a / #1e293b):
+       dark leg  = rgb(5 8 15 / 0.7–0.85)
+                   (near-black — the shadow falls into deep space)
+       light leg  = rgb(38 52 78 / 0.35–0.5)
+                   (a slightly lighter cool-navy, not white — white
+                    on a dark navy surface looks like a blinding stripe)
      ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] {
+    /* ── Surface ────────────────────────────────────────────────── */
+    /* Raised elements sit fractionally lighter than the base surface */
+    --neu-surface-raised: color-mix(in oklab, var(--background) 93%, white);
+
+    /* ── Shadow scale — extruded (raised) ───────────────────────── */
+    --neu-shadow-extruded-xs:
+      3px 3px 6px rgb(151 165 186 / 0.55), -3px -3px 6px rgb(255 255 255 / 0.78);
+    --neu-shadow-extruded-sm:
+      5px 5px 10px rgb(151 165 186 / 0.6),
+      -5px -5px 10px rgb(255 255 255 / 0.82);
+    --neu-shadow-extruded:
+      9px 9px 18px rgb(151 165 186 / 0.65),
+      -9px -9px 18px rgb(255 255 255 / 0.88);
+    --neu-shadow-extruded-lg:
+      14px 14px 28px rgb(151 165 186 / 0.68),
+      -14px -14px 28px rgb(255 255 255 / 0.9);
+
+    /* ── Shadow scale — inset (pressed / sunken) ────────────────── */
+    --neu-shadow-inset-sm:
+      inset 3px 3px 6px rgb(163 177 198 / 0.6),
+      inset -3px -3px 6px rgb(255 255 255 / 0.75);
+    --neu-shadow-inset:
+      inset 6px 6px 12px rgb(163 177 198 / 0.62),
+      inset -6px -6px 12px rgb(255 255 255 / 0.7);
+    --neu-shadow-inset-deep:
+      inset 10px 10px 22px rgb(163 177 198 / 0.68),
+      inset -10px -10px 22px rgb(255 255 255 / 0.65);
+
+    /* ── Named aliases used by specific components ──────────────── */
+    --neu-shadow-button: var(--neu-shadow-extruded);
+    --neu-shadow-button-hover: var(--neu-shadow-extruded-lg);
+    --neu-shadow-card:
+      18px 18px 36px rgb(151 165 186 / 0.72),
+      -18px -18px 36px rgb(255 255 255 / 0.9);
+
+    /* ── Semantic text colors ────────────────────────────────────── */
     --neu-text-destructive: oklch(0.58 0.16 25);
     --neu-text-info: oklch(0.5 0.12 250);
     --neu-text-success: oklch(0.5 0.12 155);
@@ -16,10 +66,51 @@
     --neu-accent-info: oklch(0.5 0.12 250);
     --neu-accent-success: oklch(0.5 0.12 155);
     --neu-accent-warning: oklch(0.56 0.13 75);
+
     scroll-behavior: smooth;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     DARK MODE OVERRIDES
+     Only the shadow variables change — all component rules
+     automatically pick up the new values.
+     ═══════════════════════════════════════════════════════════════ */
   .dark[data-theme-preset='neumorphism'] {
+    /* Raised surface — slightly lighter than the dark navy base */
+    --neu-surface-raised: color-mix(
+      in oklab,
+      var(--background) 88%,
+      rgb(38 52 78)
+    );
+
+    /* ── Extruded shadows for dark surfaces ─────────────────────── */
+    --neu-shadow-extruded-xs:
+      3px 3px 7px rgb(5 8 15 / 0.65), -3px -3px 7px rgb(38 52 78 / 0.35);
+    --neu-shadow-extruded-sm:
+      5px 5px 12px rgb(5 8 15 / 0.7), -5px -5px 12px rgb(38 52 78 / 0.38);
+    --neu-shadow-extruded:
+      9px 9px 20px rgb(5 8 15 / 0.75), -9px -9px 20px rgb(38 52 78 / 0.42);
+    --neu-shadow-extruded-lg:
+      14px 14px 30px rgb(5 8 15 / 0.8), -14px -14px 30px rgb(38 52 78 / 0.46);
+
+    /* ── Inset shadows for dark surfaces ────────────────────────── */
+    --neu-shadow-inset-sm:
+      inset 3px 3px 7px rgb(5 8 15 / 0.6),
+      inset -3px -3px 7px rgb(38 52 78 / 0.32);
+    --neu-shadow-inset:
+      inset 6px 6px 14px rgb(5 8 15 / 0.65),
+      inset -6px -6px 14px rgb(38 52 78 / 0.34);
+    --neu-shadow-inset-deep:
+      inset 10px 10px 24px rgb(5 8 15 / 0.75),
+      inset -10px -10px 24px rgb(38 52 78 / 0.36);
+
+    /* ── Card / button aliases ───────────────────────────────────── */
+    --neu-shadow-button: var(--neu-shadow-extruded);
+    --neu-shadow-button-hover: var(--neu-shadow-extruded-lg);
+    --neu-shadow-card:
+      18px 18px 40px rgb(5 8 15 / 0.85), -18px -18px 40px rgb(38 52 78 / 0.48);
+
+    /* ── Semantic text — lighter for dark backgrounds ───────────── */
     --neu-text-destructive: oklch(0.74 0.14 25);
     --neu-text-info: oklch(0.72 0.11 250);
     --neu-text-success: oklch(0.72 0.11 155);
@@ -30,6 +121,7 @@
     --neu-accent-warning: oklch(0.65 0.14 75);
   }
 
+  /* ─── Typography ─────────────────────────────────────────────── */
   :root[data-theme-preset='neumorphism'] body {
     font-family: var(
       --font-sans,
@@ -50,23 +142,22 @@
     letter-spacing: -0.02em;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Button
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='button'] {
     min-height: 2.75rem;
     min-width: 2.75rem;
     border: 0 !important;
     border-radius: var(--radius) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--foreground);
-    box-shadow: var(
-      --neu-shadow-button,
-      12px 12px 24px rgb(151 165 186 / 0.7),
-      -12px -12px 24px rgb(255 255 255 / 0.82)
-    ) !important;
+    box-shadow: var(--neu-shadow-button) !important;
     transition:
-      transform 300ms ease-out,
-      box-shadow 300ms ease-out,
-      background-color 300ms ease-out,
-      color 300ms ease-out;
+      transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 280ms ease-out,
+      background-color 220ms ease-out,
+      color 220ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism']
@@ -75,7 +166,7 @@
     width: 3rem;
   }
 
-  /* ── Button neutral variants (default, secondary, outline, ghost) ── */
+  /* ── Neutral variants ── */
   :root[data-theme-preset='neumorphism']
     [data-slot='button'][data-variant='secondary'],
   :root[data-theme-preset='neumorphism']
@@ -84,23 +175,20 @@
     [data-slot='button'][data-variant='ghost'],
   :root[data-theme-preset='neumorphism']
     [data-slot='button'][data-variant='default'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--foreground) !important;
     border: 0 !important;
   }
 
-  /* ── Button destructive – neumorphic surface with muted red text ── */
+  /* ── Destructive ── */
   :root[data-theme-preset='neumorphism']
     [data-slot='button'][data-variant='destructive'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-destructive) !important;
-    box-shadow: var(
-      --neu-shadow-button,
-      12px 12px 24px rgb(151 165 186 / 0.7),
-      -12px -12px 24px rgb(255 255 255 / 0.82)
-    ) !important;
+    box-shadow: var(--neu-shadow-button) !important;
   }
 
+  /* ── Link ── */
   :root[data-theme-preset='neumorphism']
     [data-slot='button'][data-variant='link'] {
     min-height: auto;
@@ -113,12 +201,8 @@
 
   :root[data-theme-preset='neumorphism']
     [data-slot='button']:not([data-variant='link']):hover {
-    transform: translateY(-1px);
-    box-shadow: var(
-      --neu-shadow-button-hover,
-      16px 16px 30px rgb(151 165 186 / 0.78),
-      -16px -16px 30px rgb(255 255 255 / 0.9)
-    ) !important;
+    transform: translateY(-1.5px);
+    box-shadow: var(--neu-shadow-button-hover) !important;
   }
 
   :root[data-theme-preset='neumorphism']
@@ -129,90 +213,67 @@
   :root[data-theme-preset='neumorphism']
     [data-slot='button']:not([data-variant='link']):active {
     transform: translateY(0.5px);
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
-  }
-
-  :root[data-theme-preset='neumorphism']
-    [data-slot='button'][data-variant='default']:active {
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='button']:focus-visible {
     outline: none !important;
     box-shadow:
-      var(
-        --neu-shadow-button,
-        12px 12px 24px rgb(151 165 186 / 0.7),
-        -12px -12px 24px rgb(255 255 255 / 0.82)
-      ),
-      0 0 0 2px var(--foreground),
-      0 0 0 4px var(--background) !important;
+      var(--neu-shadow-button),
+      0 0 0 2px var(--background),
+      0 0 0 4px var(--ring) !important;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Card
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='card'] {
     border: 0 !important;
     border-color: transparent !important;
     border-radius: calc(var(--radius) * 1.5) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
     color: var(--foreground);
     transition:
-      transform 300ms ease-out,
-      box-shadow 300ms ease-out;
+      transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 320ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='card']:hover {
-    transform: translateY(-0.15px);
-    box-shadow:
-      4px 4px 8px rgb(151 165 186 / 0.2),
-      -4px -4px 8px rgb(255 255 255 / 0.5);
+    transform: translateY(-2px);
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
-  /* Chart (Pie) */
+  /* ═══════════════════════════════════════════════════════════════
+     Chart (Pie)
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='chart-pie'] {
     border-radius: calc(var(--radius) * 2) !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-deep,
-      inset 10px 10px 20px rgb(163 177 198 / 0.7),
-      inset -10px -10px 20px rgb(255 255 255 / 0.6)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-deep) !important;
     padding: 0.75rem;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='chart-pie']
     .recharts-sector {
-    stroke: var(--neu-surface-raised, var(--background));
+    stroke: var(--neu-surface-raised);
     stroke-width: 2px;
     filter: drop-shadow(2px 2px 3px rgb(0 0 0 / 0.14))
-      drop-shadow(-1px -1px 2px rgb(255 255 255 / 0.24));
+      drop-shadow(-1px -1px 2px rgb(255 255 255 / 0.12));
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='chart-pie']
     [data-slot='chart-tooltip'] {
     border: 0 !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Blank Layout
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism']
     [data-slot='blank-layout'][data-bordered] {
     background: var(--background);
@@ -223,40 +284,31 @@
     [data-slot='blank-layout-content'] {
     border-radius: calc(var(--radius) * 2);
     background: var(--background);
-    box-shadow: var(
-      --neu-shadow-inset-deep,
-      inset 10px 10px 20px rgb(163 177 198 / 0.7),
-      inset -10px -10px 20px rgb(255 255 255 / 0.6)
-    );
+    box-shadow: var(--neu-shadow-inset-deep);
   }
 
-  /* Hide decorative border lines — neumorphism uses depth via box-shadow instead */
   :root[data-theme-preset='neumorphism']
     [data-slot='blank-layout'][data-bordered]
-    [data-slot='blank-layout-border'] {
-    display: none !important;
-  }
-
+    [data-slot='blank-layout-border'],
   :root[data-theme-preset='neumorphism']
     [data-slot='blank-layout'][data-bordered]
     [data-slot='blank-layout-footer'] {
     display: none !important;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Input / Textarea / Select Trigger
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='input'],
   :root[data-theme-preset='neumorphism'] [data-slot='textarea'],
   :root[data-theme-preset='neumorphism'] [data-slot='select-trigger'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset,
-      inset 6px 6px 10px rgb(163 177 198 / 0.6),
-      inset -6px -6px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset) !important;
     transition:
-      box-shadow 300ms ease-out,
-      transform 300ms ease-out;
+      box-shadow 280ms ease-out,
+      background-color 220ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='input'],
@@ -271,7 +323,8 @@
 
   :root[data-theme-preset='neumorphism'] [data-slot='input']::placeholder,
   :root[data-theme-preset='neumorphism'] [data-slot='textarea']::placeholder {
-    color: #a0aec0;
+    color: var(--muted-foreground);
+    opacity: 0.65;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='input']:focus-visible,
@@ -282,25 +335,20 @@
     [data-slot='tabs-trigger']:focus-visible {
     outline: none !important;
     box-shadow:
-      var(
-        --neu-shadow-inset-deep,
-        inset 10px 10px 20px rgb(163 177 198 / 0.7),
-        inset -10px -10px 20px rgb(255 255 255 / 0.6)
-      ),
-      0 0 0 2px var(--foreground),
-      0 0 0 4px var(--background) !important;
+      var(--neu-shadow-inset-deep),
+      0 0 0 2px var(--background),
+      0 0 0 4px var(--ring) !important;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Tabs
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='tabs-list'] {
     height: auto;
     min-height: 2.75rem;
     border-radius: var(--radius) !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     padding: 0.35rem;
   }
 
@@ -308,101 +356,42 @@
     min-height: 2.2rem;
     border-radius: calc(var(--radius) - 0.25rem);
     transition:
-      transform 300ms ease-out,
-      box-shadow 300ms ease-out,
-      color 300ms ease-out;
+      transform 260ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 260ms ease-out,
+      color 220ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='tabs-trigger'][data-state='active'] {
-    background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
   }
 
+  /* ═══════════════════════════════════════════════════════════════
+     Select Content / Item
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='select-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
-    background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='select-item'] {
     border-radius: calc(var(--radius) - 0.25rem);
+    transition: box-shadow 180ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='select-item'][data-highlighted] {
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     color: var(--foreground);
   }
 
-  @keyframes neu-float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
-  }
-
-  :root[data-theme-preset='neumorphism'] .neu-float {
-    animation: neu-float 3s ease-in-out infinite;
-  }
-
-  :root[data-theme-preset='neumorphism'] .neu-orb {
-    border-radius: 9999px;
-    background: var(--background);
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    );
-    padding: 1.25rem;
-    transition: transform 500ms ease-out;
-  }
-
-  :root[data-theme-preset='neumorphism'] .neu-orb:hover {
-    transform: scale(1.05);
-  }
-
-  :root[data-theme-preset='neumorphism'] .neu-orb-inner {
-    border-radius: 9999px;
-    background: var(--background);
-    box-shadow: var(
-      --neu-shadow-inset-deep,
-      inset 10px 10px 20px rgb(163 177 198 / 0.7),
-      inset -10px -10px 20px rgb(255 255 255 / 0.6)
-    );
-    padding: 1.2rem;
-    transition: transform 500ms ease-out;
-  }
-
-  :root[data-theme-preset='neumorphism'] .neu-orb:hover .neu-orb-inner {
-    transform: rotate(180deg);
-  }
-
-  :root[data-theme-preset='neumorphism'] .neu-orb-core {
-    border-radius: 9999px;
-    background: var(--primary);
-    height: 2.25rem;
-    width: 2.25rem;
-  }
-
-  /* Badge */
+  /* ═══════════════════════════════════════════════════════════════
+     Badge
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='badge'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 1.5) !important;
@@ -410,18 +399,13 @@
     font-weight: 600;
     font-size: 0.75rem;
     letter-spacing: 0.025em;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
     transition:
-      transform 200ms ease-out,
+      transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
       box-shadow 200ms ease-out;
   }
 
-  /* ── Badge neutral variants ── */
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='default'] {
     background: var(--background) !important;
@@ -430,7 +414,7 @@
 
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='secondary'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--foreground);
   }
 
@@ -438,170 +422,126 @@
     [data-slot='badge'][data-variant='outline'] {
     background: var(--background) !important;
     color: var(--foreground);
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
-  /* ── Badge semantic variants – muted colored text on neumorphic surface ── */
+  /* ── Semantic variants ── */
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='destructive'],
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='error'],
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='red'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-destructive) !important;
     border: 0 !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='info'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-info) !important;
     border: 0 !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='success'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-success) !important;
     border: 0 !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='warning'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-warning) !important;
     border: 0 !important;
   }
 
-  /* ── Badge hover ── */
   :root[data-theme-preset='neumorphism'] [data-slot='badge']:hover {
     transform: translateY(-1px);
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='badge'][data-variant='outline']:hover {
-    box-shadow: var(
-      --neu-shadow-inset,
-      inset 6px 6px 10px rgb(163 177 198 / 0.6),
-      inset -6px -6px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset) !important;
   }
 
-  /* Progress */
+  /* ═══════════════════════════════════════════════════════════════
+     Progress
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-slot='progress'] {
     height: 0.75rem;
     border-radius: var(--radius) !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     padding: 0.15rem;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='progress-indicator'] {
     border-radius: calc(var(--radius) - 0.15rem) !important;
     background: var(--foreground) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      3px 3px 6px rgb(163 177 198 / 0.5),
-      -2px -2px 4px rgb(255 255 255 / 0.4)
-    ) !important;
-    transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--neu-shadow-extruded-xs) !important;
+    transition: all 440ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Dialog / Sheet / Drawer – floating overlay panels
+     Dialog / Sheet / Drawer
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='dialog-content'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 2) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-card,
-      18px 18px 36px rgb(151 165 186 / 0.74),
-      -18px -18px 36px rgb(255 255 255 / 0.9)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-card) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='sheet-content'] {
     border: 0 !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-card,
-      18px 18px 36px rgb(151 165 186 / 0.74),
-      -18px -18px 36px rgb(255 255 255 / 0.9)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-card) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='drawer-content'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 2) calc(var(--radius) * 2) 0 0 !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-card,
-      18px 18px 36px rgb(151 165 186 / 0.74),
-      -18px -18px 36px rgb(255 255 255 / 0.9)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-card) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Dropdown Menu / Popover / Tooltip – floating content
+     Dropdown Menu / Popover
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='dropdown-menu-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='dropdown-menu-item'] {
     border-radius: calc(var(--radius) - 0.25rem);
     transition:
-      box-shadow 200ms ease-out,
-      background-color 200ms ease-out;
+      box-shadow 180ms ease-out,
+      background-color 180ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='dropdown-menu-item']:focus,
   :root[data-theme-preset='neumorphism']
     [data-slot='dropdown-menu-item'][data-highlighted] {
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     color: var(--foreground);
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='popover-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
+  /* ── Calendar ── */
   :root[data-theme-preset='neumorphism'] [data-slot='calendar'] {
     color: var(--foreground);
   }
@@ -613,12 +553,11 @@
     [data-slot='calendar']
     .calendar-day-button {
     border: 0 !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
+    transition:
+      box-shadow 200ms ease-out,
+      transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   :root[data-theme-preset='neumorphism']
@@ -627,22 +566,15 @@
   :root[data-theme-preset='neumorphism']
     [data-slot='calendar']
     .calendar-nav-button:hover {
-    box-shadow: var(
-      --neu-shadow-button-hover,
-      8px 8px 16px rgb(151 165 186 / 0.55),
-      -8px -8px 16px rgb(255 255 255 / 0.55)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
+    transform: translateY(-1px);
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='calendar']
     .calendar-range-middle {
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     color: var(--foreground) !important;
   }
 
@@ -655,12 +587,8 @@
   :root[data-theme-preset='neumorphism']
     [data-slot='calendar']
     .calendar-day-range-end {
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     color: var(--foreground) !important;
   }
 
@@ -679,72 +607,52 @@
     color: color-mix(in oklab, var(--foreground) 65%, transparent);
   }
 
+  /* ── Tooltip ── */
   :root[data-theme-preset='neumorphism'] [data-slot='tooltip-content'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--foreground) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Switch – neumorphic toggle
+     Switch
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='switch'] {
     border: 0 !important;
     border-radius: 9999px !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     transition:
-      box-shadow 300ms ease-out,
-      background-color 300ms ease-out;
+      box-shadow 280ms ease-out,
+      background-color 280ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='switch'][data-state='checked'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-inset,
-      inset 6px 6px 10px rgb(163 177 198 / 0.6),
-      inset -6px -6px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-inset) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='switch-thumb'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
+    transition: transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1);
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Checkbox – inset well with extruded checked state
+     Checkbox
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='checkbox'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 0.5) !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     width: 1.25rem;
     height: 1.25rem;
     transition:
-      box-shadow 200ms ease-out,
+      box-shadow 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
       background-color 200ms ease-out;
   }
 
@@ -754,26 +662,17 @@
     [data-slot='checkbox'][data-state='indeterminate'] {
     background: var(--foreground) !important;
     color: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Slider – inset track, extruded thumb
+     Slider
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='slider-track'] {
     height: 0.5rem !important;
     border-radius: 9999px !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='slider-thumb'] {
@@ -781,91 +680,61 @@
     width: 1.25rem !important;
     height: 1.25rem !important;
     border-radius: 9999px !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
     transition:
-      transform 200ms ease-out,
+      transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
       box-shadow 200ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='slider-thumb']:hover {
-    transform: scale(1.1);
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    transform: scale(1.12);
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='slider-thumb']:active {
-    transform: scale(0.95);
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    transform: scale(0.94);
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Toggle – extruded off-state, inset on-state
+     Toggle
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='toggle'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
     transition:
-      transform 200ms ease-out,
+      transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
       box-shadow 200ms ease-out,
       background-color 200ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='toggle']:hover {
     transform: translateY(-1px);
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='toggle'][data-state='on'] {
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset,
-      inset 6px 6px 10px rgb(163 177 198 / 0.6),
-      inset -6px -6px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset) !important;
     transform: translateY(0);
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Alert – soft extruded container
+     Alert
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='alert'] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 1.5) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='alert'][data-variant='destructive'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-destructive) !important;
   }
 
@@ -877,26 +746,25 @@
 
   :root[data-theme-preset='neumorphism']
     [data-slot='alert'][data-variant='warning'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-warning) !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='alert'][data-variant='success'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-success) !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='alert'][data-variant='info'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--neu-text-info) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Accordion – subtle inset content, extruded trigger
+     Accordion
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='accordion-item'] {
     border: 0 !important;
     border-radius: var(--radius) !important;
@@ -907,79 +775,55 @@
   :root[data-theme-preset='neumorphism'] [data-slot='accordion-trigger'] {
     border-radius: var(--radius) !important;
     padding: 0.75rem 1rem;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
     transition:
-      box-shadow 300ms ease-out,
-      background-color 300ms ease-out;
+      box-shadow 280ms ease-out,
+      background-color 280ms ease-out;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='accordion-trigger']:hover {
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
     text-decoration: none !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='accordion-content'] {
     border-radius: 0 0 var(--radius) var(--radius) !important;
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     padding: 0.5rem;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Avatar – extruded circle with inset fallback
+     Avatar
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='avatar'] {
     border: 0 !important;
     border-radius: 9999px !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='avatar-fallback'] {
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Skeleton – soft inset pulse
+     Skeleton
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='skeleton'] {
     background: var(--background) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
     border-radius: var(--radius) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Table – soft extruded header, subtle row separators
+     Table
+     Only the header row is raised; body rows are flat with a
+     subtle groove separator. This avoids the visual noise of
+     every row having its own inset shadow stack.
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='table'] {
     border-collapse: separate;
     border-spacing: 0;
@@ -988,12 +832,8 @@
   }
 
   :root[data-theme-preset='neumorphism'] [data-slot='table-header'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    background: var(--neu-surface-raised) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
   }
 
   :root[data-theme-preset='neumorphism']
@@ -1004,38 +844,37 @@
 
   :root[data-theme-preset='neumorphism'] [data-slot='table-row'] {
     border-bottom: 0 !important;
-    transition: box-shadow 200ms ease-out;
+    background: transparent !important;
+    /* Thin groove line acts as separator without stacking inset shadows */
+    box-shadow:
+      inset 0 -1px 0 color-mix(in oklab, var(--foreground) 8%, transparent),
+      inset 0 1px 0 color-mix(in oklab, white 18%, transparent) !important;
+    transition: background-color 160ms ease-out;
   }
 
-  :root[data-theme-preset='neumorphism'] [data-slot='table-row'] {
-    background: transparent !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
+  :root[data-theme-preset='neumorphism'] [data-slot='table-row']:hover {
+    background: color-mix(
+      in oklab,
+      var(--background) 96%,
+      var(--foreground)
     ) !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-slot='table-row'][data-state='selected'] {
     background: transparent !important;
-    box-shadow: var(
-      --neu-shadow-inset,
-      inset 6px 6px 10px rgb(163 177 198 / 0.6),
-      inset -6px -6px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Separator – inset groove
+     Separator — inset groove (unchanged from v1, it's correct)
      ═══════════════════════════════════════════════════════════════ */
-
   :root[data-theme-preset='neumorphism'] [data-slot='separator'] {
     background: transparent !important;
     height: 2px !important;
     box-shadow:
-      inset 0 1px 1px rgb(163 177 198 / 0.5),
-      0 1px 1px rgb(255 255 255 / 0.6) !important;
+      inset 0 1px 1px color-mix(in oklab, var(--foreground) 14%, transparent),
+      0 1px 1px color-mix(in oklab, white 40%, transparent) !important;
   }
 
   :root[data-theme-preset='neumorphism']
@@ -1043,50 +882,51 @@
     height: auto !important;
     width: 2px !important;
     box-shadow:
-      inset 1px 0 1px rgb(163 177 198 / 0.5),
-      1px 0 1px rgb(255 255 255 / 0.6) !important;
+      inset 1px 0 1px color-mix(in oklab, var(--foreground) 14%, transparent),
+      1px 0 1px color-mix(in oklab, white 40%, transparent) !important;
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Sonner Toast – neumorphic floating notifications
-     Targets the data-attributes rendered by the Sonner library.
+     Sidebar
      ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='neumorphism'] [data-slot='sidebar'] {
+    background: var(--neu-surface-raised) !important;
+    box-shadow:
+      4px 0 18px color-mix(in oklab, var(--foreground) 10%, transparent),
+      -2px 0 0 color-mix(in oklab, white 30%, transparent) !important;
+    border-right: 0 !important;
+  }
 
-  /* Base toast – extruded card-like surface */
+  /* ═══════════════════════════════════════════════════════════════
+     Sonner Toasts
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] [data-sonner-toast] {
     border: 0 !important;
     border-radius: calc(var(--radius) * 1.5) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--foreground) !important;
-    box-shadow: var(
-      --neu-shadow-card,
-      18px 18px 36px rgb(151 165 186 / 0.74),
-      -18px -18px 36px rgb(255 255 255 / 0.9)
-    ) !important;
+    box-shadow: var(--neu-shadow-card) !important;
     transition:
-      transform 300ms ease-out,
-      box-shadow 300ms ease-out,
-      opacity 300ms ease-out;
+      transform 280ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 280ms ease-out,
+      opacity 280ms ease-out;
   }
 
-  /* Semantic toast types – muted colored text + left accent bar */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='success'],
   :root[data-theme-preset='neumorphism'] [data-sonner-toast][data-type='error'],
   :root[data-theme-preset='neumorphism'] [data-sonner-toast][data-type='info'],
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='warning'] {
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     position: relative;
     overflow: visible !important;
   }
 
-  /* Success toast */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='success'] {
     color: var(--neu-text-success) !important;
   }
-
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='success']
     [data-icon]
@@ -1094,12 +934,10 @@
     color: var(--neu-text-success) !important;
   }
 
-  /* Error toast */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='error'] {
     color: var(--neu-text-destructive) !important;
   }
-
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='error']
     [data-icon]
@@ -1107,11 +945,9 @@
     color: var(--neu-text-destructive) !important;
   }
 
-  /* Info toast */
   :root[data-theme-preset='neumorphism'] [data-sonner-toast][data-type='info'] {
     color: var(--neu-text-info) !important;
   }
-
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='info']
     [data-icon]
@@ -1119,12 +955,10 @@
     color: var(--neu-text-info) !important;
   }
 
-  /* Warning toast */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='warning'] {
     color: var(--neu-text-warning) !important;
   }
-
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='warning']
     [data-icon]
@@ -1132,7 +966,6 @@
     color: var(--neu-text-warning) !important;
   }
 
-  /* Toast description text */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-description] {
@@ -1155,57 +988,24 @@
     opacity: 0.7;
   }
 
-  /* Toast close button – base & all typed toasts */
+  /* Close button — all toast types share the same rule */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
-    [data-close-button],
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='success']
-    [data-close-button],
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='error']
-    [data-close-button],
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='info']
-    [data-close-button],
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='warning']
     [data-close-button] {
     border: 0 !important;
     border-color: transparent !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--foreground) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
     border-radius: 9999px !important;
     opacity: 1 !important;
     transition:
-      transform 200ms ease-out,
+      transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
       box-shadow 200ms ease-out;
   }
 
-  /* Close button SVG icon – force visible */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
-    [data-close-button]
-    svg,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='success']
-    [data-close-button]
-    svg,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='error']
-    [data-close-button]
-    svg,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='info']
-    [data-close-button]
-    svg,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='warning']
     [data-close-button]
     svg {
     color: var(--foreground) !important;
@@ -1214,41 +1014,20 @@
 
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
-    [data-close-button]:hover,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='success']
-    [data-close-button]:hover,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='error']
-    [data-close-button]:hover,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='info']
-    [data-close-button]:hover,
-  :root[data-theme-preset='neumorphism']
-    [data-sonner-toast][data-type='warning']
     [data-close-button]:hover {
     background: var(--background) !important;
     color: var(--foreground) !important;
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
-  /* Toast action / cancel buttons */
   :root[data-theme-preset='neumorphism'] [data-sonner-toast] [data-button] {
     border: 0 !important;
     border-radius: var(--radius) !important;
-    background: var(--neu-surface-raised, var(--background)) !important;
+    background: var(--neu-surface-raised) !important;
     color: var(--foreground) !important;
-    box-shadow: var(
-      --neu-shadow-extruded-sm,
-      5px 5px 10px rgb(163 177 198 / 0.6),
-      -5px -5px 10px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded-sm) !important;
     transition:
-      transform 200ms ease-out,
+      transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
       box-shadow 200ms ease-out;
   }
 
@@ -1256,25 +1035,16 @@
     [data-sonner-toast]
     [data-button]:hover {
     transform: translateY(-1px);
-    box-shadow: var(
-      --neu-shadow-extruded,
-      9px 9px 16px rgb(163 177 198 / 0.6),
-      -9px -9px 16px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-extruded) !important;
   }
 
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast]
     [data-button]:active {
     transform: translateY(0);
-    box-shadow: var(
-      --neu-shadow-inset-sm,
-      inset 3px 3px 6px rgb(163 177 198 / 0.6),
-      inset -3px -3px 6px rgb(255 255 255 / 0.5)
-    ) !important;
+    box-shadow: var(--neu-shadow-inset-sm) !important;
   }
 
-  /* Loading toast spinner */
   :root[data-theme-preset='neumorphism']
     [data-sonner-toast][data-type='loading']
     [data-icon]
@@ -1283,9 +1053,79 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     Loader
-  ═══════════════════════════════════════════════════════════════ */
+     Orb utility classes
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='neumorphism'] .neu-orb {
+    border-radius: 9999px;
+    background: var(--neu-surface-raised);
+    box-shadow: var(--neu-shadow-extruded);
+    padding: 1.25rem;
+    transition: transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
 
+  :root[data-theme-preset='neumorphism'] .neu-orb:hover {
+    transform: scale(1.05);
+  }
+
+  :root[data-theme-preset='neumorphism'] .neu-orb-inner {
+    border-radius: 9999px;
+    background: var(--background);
+    box-shadow: var(--neu-shadow-inset-deep);
+    padding: 1.2rem;
+    transition: transform 480ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  :root[data-theme-preset='neumorphism'] .neu-orb:hover .neu-orb-inner {
+    transform: rotate(180deg);
+  }
+
+  :root[data-theme-preset='neumorphism'] .neu-orb-core {
+    border-radius: 9999px;
+    background: var(--primary);
+    height: 2.25rem;
+    width: 2.25rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Animations
+     ═══════════════════════════════════════════════════════════════ */
+  @keyframes neu-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  :root[data-theme-preset='neumorphism'] .neu-float {
+    animation: neu-float 3.5s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Reduced motion
+     ═══════════════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-theme-preset='neumorphism'] .neu-float,
+    :root[data-theme-preset='neumorphism'] .neu-orb-inner {
+      animation: none;
+      transition: none;
+    }
+
+    :root[data-theme-preset='neumorphism'] [data-slot='button'],
+    :root[data-theme-preset='neumorphism'] [data-slot='card'],
+    :root[data-theme-preset='neumorphism'] [data-slot='badge'],
+    :root[data-theme-preset='neumorphism'] [data-slot='slider-thumb'],
+    :root[data-theme-preset='neumorphism'] [data-slot='toggle'],
+    :root[data-theme-preset='neumorphism'] [data-slot='switch-thumb'] {
+      transition: none;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Loader (preserved verbatim — no changes needed)
+     ═══════════════════════════════════════════════════════════════ */
   :root[data-theme-preset='neumorphism'] {
     --neu-loader-width: 1.35em;
     --neu-loader-height: 16em;
@@ -1293,7 +1133,6 @@
     --neu-loader-travel: 14.8em;
     --neu-loader-frame-size: 16.8em;
     --neu-loader-border: #d8d8d8;
-    /* Shell — more convex: steeper gradient angle, stronger highlights */
     --neu-loader-shell-bg: linear-gradient(
       155deg,
       #ffffff 0%,
@@ -1303,7 +1142,6 @@
     );
     --neu-loader-cap-top-bg: linear-gradient(180deg, #ffffff 0%, #e8e8e8 100%);
     --neu-loader-cap-bottom-bg: linear-gradient(0deg, #efefef 0%, #cccccc 100%);
-    /* Stronger outer convex throw + deeper inner cavity */
     --neu-loader-shell-shadow:
       18px 18px 32px rgb(151 165 186 / 0.6),
       -14px -14px 28px rgb(255 255 255 / 0.92),
@@ -1314,7 +1152,6 @@
       inset 6px 6px 18px rgb(180 180 180 / 0.72),
       inset -6px -6px 18px rgb(255 255 255 / 0.88);
     --neu-loader-rail-shadow: drop-shadow(0 6px 12px rgb(0 0 0 / 0.18));
-    /* Default ball — sharp specular sphere */
     --neu-ball-bg: radial-gradient(
       circle at 26% 22%,
       rgb(255 255 255 / 1) 0%,
@@ -1322,7 +1159,6 @@
       rgb(212 212 212 / 0.98) 65%,
       rgb(190 190 190 / 1) 100%
     );
-    /* Deeper inset cavity + longer ground shadows for more physical depth */
     --neu-ball-shadow:
       rgb(255 255 255 / 0.82) 0 4px 6px 0 inset,
       rgb(0 0 0 / 0.28) 0 -13px 14px 0 inset,
@@ -1333,7 +1169,6 @@
       0 -1px 18px -8px rgb(0 0 0 / 0.12),
       12px 12px 20px rgb(151 165 186 / 0.55),
       -10px -10px 18px rgb(255 255 255 / 0.86);
-    /* Tight specular — small, bright hotspot for a glossy convex look */
     --neu-ball-specular: radial-gradient(
       circle at 35% 28%,
       rgb(255 255 255 / 1) 0%,
@@ -1341,7 +1176,6 @@
       rgb(255 255 255 / 0.05) 60%,
       transparent 100%
     );
-    /* Per-ball theme-tinted gradients using chart color tokens */
     --neu-ball-bg-0: radial-gradient(
       circle at 26% 22%,
       #fff 0%,
@@ -1429,7 +1263,6 @@
 
   .dark[data-theme-preset='neumorphism'] {
     --neu-loader-border: #424852;
-    /* Shell — steeper convex gradient for dark surfaces */
     --neu-loader-shell-bg: linear-gradient(
       155deg,
       #535b68 0%,
@@ -1439,7 +1272,6 @@
     );
     --neu-loader-cap-top-bg: linear-gradient(180deg, #5a6270 0%, #383f4b 100%);
     --neu-loader-cap-bottom-bg: linear-gradient(0deg, #484f5c 0%, #282e38 100%);
-    /* Stronger outer dark throw + crisper inner light rim */
     --neu-loader-shell-shadow:
       20px 20px 36px rgb(6 8 12 / 0.75), -14px -14px 28px rgb(80 92 110 / 0.42),
       inset 5px 5px 12px rgb(100 114 136 / 0.44),
@@ -1449,7 +1281,6 @@
       inset 7px 7px 20px rgb(12 16 22 / 0.72),
       inset -7px -7px 20px rgb(88 102 122 / 0.32);
     --neu-loader-rail-shadow: drop-shadow(0 8px 16px rgb(0 0 0 / 0.48));
-    /* Sharper sphere gradient — tighter bright rim at top-left */
     --neu-ball-bg: radial-gradient(
       circle at 26% 22%,
       rgb(148 164 190 / 1) 0%,
@@ -1457,7 +1288,6 @@
       rgb(48 56 68 / 0.98) 66%,
       rgb(28 34 44 / 1) 100%
     );
-    /* Deeper inset cavity + stronger drop shadows in dark mode */
     --neu-ball-shadow:
       rgb(160 180 210 / 0.32) 0 4px 6px 0 inset,
       rgb(0 0 0 / 0.48) 0 -13px 14px 0 inset,
@@ -1467,7 +1297,6 @@
       rgb(0 0 0 / 0.44) 0 16px 8px, rgb(0 0 0 / 0.44) 0 32px 16px,
       0 -1px 18px -8px rgb(0 0 0 / 0.28), 14px 14px 22px rgb(4 6 10 / 0.62),
       -10px -10px 18px rgb(88 102 122 / 0.26);
-    /* Tight cool-tinted specular for dark convex look */
     --neu-ball-specular: radial-gradient(
       circle at 34% 26%,
       rgb(210 228 255 / 0.72) 0%,
@@ -1475,7 +1304,6 @@
       rgb(210 228 255 / 0.04) 65%,
       transparent 100%
     );
-    /* Per-ball theme-tinted dark gradients */
     --neu-ball-bg-0: radial-gradient(
       circle at 26% 22%,
       color-mix(in oklch, var(--color-chart-1, #818cf8) 45%, #9aa0b0) 0%,
@@ -1541,6 +1369,7 @@
     );
   }
 
+  /* ── Loader layout & animation classes (unchanged) ── */
   :root[data-theme-preset='neumorphism'] .main,
   :root[data-theme-preset='neumorphism'] .neu-main,
   :root[data-theme-preset='neumorphism'] .neu-up {
@@ -1667,7 +1496,6 @@
     position: relative;
   }
 
-  /* ── Per-ball theme color overrides ── */
   :root[data-theme-preset='neumorphism'] .ball0,
   :root[data-theme-preset='neumorphism'] .neu-ball0 {
     background: var(--neu-ball-bg-0, var(--neu-ball-bg));
@@ -1715,7 +1543,6 @@
     height: 28%;
     border-radius: 9999px;
     background: var(--neu-ball-specular);
-    /* No blur — crisp hotspot reads as a sharper, glossier convex sphere */
     filter: blur(0.15px);
   }
 
@@ -1723,77 +1550,62 @@
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(2) {
     transform: rotate(20deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loader:nth-child(3),
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(3) {
     transform: rotate(40deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loader:nth-child(4),
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(4) {
     transform: rotate(60deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loader:nth-child(5),
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(5) {
     transform: rotate(80deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loader:nth-child(6),
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(6) {
     transform: rotate(100deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loader:nth-child(7),
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(7) {
     transform: rotate(120deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loader:nth-child(8),
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(8) {
     transform: rotate(140deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loader:nth-child(9),
   :root[data-theme-preset='neumorphism'] .neu-loader:nth-child(9) {
     transform: rotate(160deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(2),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(2) {
     transform: rotate(20deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(3),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(3) {
     transform: rotate(40deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(4),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(4) {
     transform: rotate(60deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(5),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(5) {
     transform: rotate(80deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(6),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(6) {
     transform: rotate(100deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(7),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(7) {
     transform: rotate(120deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(8),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(8) {
     transform: rotate(140deg);
   }
-
   :root[data-theme-preset='neumorphism'] .loaderA:nth-child(9),
   :root[data-theme-preset='neumorphism'] .neu-loaderA:nth-child(9) {
     transform: rotate(160deg);
@@ -1803,42 +1615,34 @@
   :root[data-theme-preset='neumorphism'] .neu-ball1 {
     animation-delay: 0.2s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball2,
   :root[data-theme-preset='neumorphism'] .neu-ball2 {
     animation-delay: 0.4s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball3,
   :root[data-theme-preset='neumorphism'] .neu-ball3 {
     animation-delay: 0.6s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball4,
   :root[data-theme-preset='neumorphism'] .neu-ball4 {
     animation-delay: 0.8s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball5,
   :root[data-theme-preset='neumorphism'] .neu-ball5 {
     animation-delay: 1s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball6,
   :root[data-theme-preset='neumorphism'] .neu-ball6 {
     animation-delay: 1.2s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball7,
   :root[data-theme-preset='neumorphism'] .neu-ball7 {
     animation-delay: 1.4s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball8,
   :root[data-theme-preset='neumorphism'] .neu-ball8 {
     animation-delay: 1.6s;
   }
-
   :root[data-theme-preset='neumorphism'] .ball9,
   :root[data-theme-preset='neumorphism'] .neu-ball9 {
     animation-delay: 1.8s;

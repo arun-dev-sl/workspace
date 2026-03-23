@@ -1,0 +1,912 @@
+@layer components {
+  /* ═══════════════════════════════════════════════════════════════
+     DESIGN TOKENS
+     ─────────────────────────────────────────────────────────────
+     Note: the original used a self-referential fallback pattern
+       `--brutal-border-width: var(--brutal-border-width, 3px)`
+     which CSS marks as invalid (cyclic). Defined directly here.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] {
+    --brutal-border-width: 3px;
+    --brutal-shadow-offset: 4px;
+    --brutal-shadow-color: var(--foreground);
+    /* Pressed state: translate by the full offset so the element snaps
+       flush to its shadow, then the shadow collapses to nothing.        */
+    --brutal-press-x: var(--brutal-shadow-offset);
+    --brutal-press-y: var(--brutal-shadow-offset);
+  }
+
+  /* ─── Dark mode adjustments ──────────────────────────────────── */
+  /* In dark mode the foreground is near-white, which already works
+     for the shadow color (--brutal-shadow-color inherits foreground).
+     The scanline overlay switches to screen blend so it lightens
+     rather than darkens the already-dark surface.                   */
+  .dark[data-theme-preset='brutalism'] {
+    --brutal-border-width: 2.5px;
+    --brutal-shadow-offset: 4px;
+  }
+
+  /* ─── Typography ──────────────────────────────────────────────── */
+  :root[data-theme-preset='brutalism'] body {
+    font-family: var(--font-sans);
+    letter-spacing: var(--tracking-normal);
+    background:
+      radial-gradient(
+        circle at top left,
+        rgb(255 224 107 / 0.18),
+        transparent 30%
+      ),
+      linear-gradient(135deg, rgb(255 90 54 / 0.07), transparent 45%),
+      var(--background);
+  }
+
+  /* Scanline overlay — light mode multiplies dark lines onto the surface,
+     dark mode uses overlay so it doesn't kill legibility.            */
+  :root[data-theme-preset='brutalism'] body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgb(0 0 0 / 0.04) 2px,
+      rgb(0 0 0 / 0.04) 3px
+    );
+  }
+
+  .dark[data-theme-preset='brutalism'] body::before {
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgb(255 255 255 / 0.025) 2px,
+      rgb(255 255 255 / 0.025) 3px
+    );
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     SHARED BORDER + SHADOW UTILITY
+     Applied to every surface that gets the brutalist treatment.
+     ─────────────────────────────────────────────────────────────
+     The hard offset shadow (no blur) is the defining trait.
+     Always paired with a solid border of the same color so the
+     shadow reads as a physical cast edge, not decoration.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='button'],
+  :root[data-theme-preset='brutalism'] [data-slot='card'],
+  :root[data-theme-preset='brutalism'] [data-slot='input'],
+  :root[data-theme-preset='brutalism'] [data-slot='textarea'],
+  :root[data-theme-preset='brutalism'] [data-slot='select-trigger'],
+  :root[data-theme-preset='brutalism'] [data-slot='select-content'],
+  :root[data-theme-preset='brutalism'] [data-slot='badge'],
+  :root[data-theme-preset='brutalism'] [data-slot='tabs-list'],
+  :root[data-theme-preset='brutalism'] [data-slot='table'],
+  :root[data-theme-preset='brutalism'] [data-slot='dialog-content'],
+  :root[data-theme-preset='brutalism'] [data-slot='sheet-content'],
+  :root[data-theme-preset='brutalism'] [data-slot='drawer-content'],
+  :root[data-theme-preset='brutalism'] [data-slot='dropdown-menu-content'],
+  :root[data-theme-preset='brutalism'] [data-slot='popover-content'],
+  :root[data-theme-preset='brutalism'] [data-slot='alert'],
+  :root[data-theme-preset='brutalism'] [data-slot='toggle'],
+  :root[data-theme-preset='brutalism'] [data-sonner-toast] {
+    border: var(--brutal-border-width) solid var(--border) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--brutal-shadow-offset) var(--brutal-shadow-offset) 0
+      var(--brutal-shadow-color) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     INTERACTION MODEL
+     ─────────────────────────────────────────────────────────────
+     Hover  → element lifts, shadow grows (classic brutalism spring)
+     Active → element SNAPS to its shadow: translate(offset, offset),
+              shadow collapses to 0. Feels like pressing a physical key.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism']
+    [data-slot='button']:not([data-variant='link']):hover,
+  :root[data-theme-preset='brutalism'] [data-slot='card']:hover,
+  :root[data-theme-preset='brutalism'] [data-slot='toggle']:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: calc(var(--brutal-shadow-offset) + 3px)
+      calc(var(--brutal-shadow-offset) + 3px) 0 var(--brutal-shadow-color) !important;
+    transition:
+      transform 120ms cubic-bezier(0.2, 0, 0, 1),
+      box-shadow 120ms cubic-bezier(0.2, 0, 0, 1);
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='button']:not([data-variant='link']):active,
+  :root[data-theme-preset='brutalism'] [data-slot='toggle']:active {
+    transform: translate(
+      var(--brutal-shadow-offset),
+      var(--brutal-shadow-offset)
+    );
+    box-shadow: 0 0 0 var(--brutal-shadow-color) !important;
+    transition:
+      transform 80ms ease-in,
+      box-shadow 80ms ease-in;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='button'] {
+    transition:
+      transform 200ms ease-out,
+      box-shadow 200ms ease-out,
+      background-color 200ms ease-out;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Button variants
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* Default & Primary */
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='default'] {
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+  }
+
+  /* Secondary */
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='secondary'] {
+    background: var(--secondary) !important;
+    color: var(--secondary-foreground) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+  }
+
+  /* Outline — transparent fill, full border + shadow */
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='outline'] {
+    background: transparent !important;
+    color: var(--foreground) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+  }
+
+  /* Ghost — no shadow until hover */
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='ghost'] {
+    background: transparent !important;
+    color: var(--foreground) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='ghost']:hover {
+    border-color: var(--border) !important;
+    box-shadow: calc(var(--brutal-shadow-offset) + 3px)
+      calc(var(--brutal-shadow-offset) + 3px) 0 var(--brutal-shadow-color) !important;
+    transform: translate(-3px, -3px);
+  }
+
+  /* Destructive */
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='destructive'] {
+    background: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+  }
+
+  /* Link — no border, no shadow, just text */
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='link'] {
+    background: transparent !important;
+    color: var(--primary) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: normal;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='button'][data-variant='link']:hover {
+    transform: none;
+    text-decoration: underline;
+  }
+
+  /* Icon size */
+  :root[data-theme-preset='brutalism'] [data-slot='button'][data-size='icon'] {
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+
+  /* Focus ring */
+  :root[data-theme-preset='brutalism'] [data-slot='button']:focus-visible {
+    outline: var(--brutal-border-width) solid var(--ring) !important;
+    outline-offset: 2px !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Card
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='card'] {
+    background: var(--card) !important;
+    transition:
+      transform 200ms ease-out,
+      box-shadow 200ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='card-header'] {
+    border-bottom: var(--brutal-border-width) solid var(--border);
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='card-footer'] {
+    border-top: var(--brutal-border-width) solid var(--border);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Input / Textarea / Select Trigger
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='input'],
+  :root[data-theme-preset='brutalism'] [data-slot='textarea'],
+  :root[data-theme-preset='brutalism'] [data-slot='select-trigger'] {
+    background: var(--input) !important;
+    color: var(--foreground) !important;
+    transition:
+      box-shadow 120ms ease-out,
+      transform 120ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='input'],
+  :root[data-theme-preset='brutalism'] [data-slot='select-trigger'] {
+    min-height: 2.5rem;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='textarea'] {
+    min-height: 7rem;
+    resize: vertical;
+  }
+
+  /* Focus: shadow grows and shifts, border brightens */
+  :root[data-theme-preset='brutalism'] [data-slot='input']:focus-visible,
+  :root[data-theme-preset='brutalism'] [data-slot='textarea']:focus-visible,
+  :root[data-theme-preset='brutalism']
+    [data-slot='select-trigger']:focus-visible {
+    outline: none !important;
+    transform: translate(-2px, -2px);
+    box-shadow: calc(var(--brutal-shadow-offset) + 2px)
+      calc(var(--brutal-shadow-offset) + 2px) 0 var(--brutal-shadow-color) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Select Content / Item
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='select-content'] {
+    background: var(--popover) !important;
+    color: var(--popover-foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='select-item'] {
+    border-radius: 0 !important;
+    transition: background-color 100ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='select-item'][data-highlighted] {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Tabs
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='tabs-list'] {
+    background: var(--muted) !important;
+    padding: 0.35rem;
+    height: auto;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='tabs-trigger'] {
+    border-radius: 0 !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    transition:
+      background-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='tabs-trigger'][data-state='active'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='tabs-trigger']:focus-visible {
+    outline: var(--brutal-border-width) solid var(--ring) !important;
+    outline-offset: -2px !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Badge
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='badge'] {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    font-size: 0.7rem;
+    box-shadow: 3px 3px 0 var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='default'] {
+    background: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='secondary'] {
+    background: var(--secondary) !important;
+    color: var(--secondary-foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='outline'] {
+    background: transparent !important;
+    color: var(--foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='destructive'],
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='error'],
+  :root[data-theme-preset='brutalism'] [data-slot='badge'][data-variant='red'] {
+    background: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+    border-color: var(--destructive) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='success'] {
+    background: oklch(0.55 0.16 155) !important;
+    color: #fff !important;
+    border-color: oklch(0.55 0.16 155) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='warning'] {
+    background: oklch(0.72 0.18 75) !important;
+    color: #000 !important;
+    border-color: oklch(0.72 0.18 75) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='badge'][data-variant='info'] {
+    background: oklch(0.55 0.16 250) !important;
+    color: #fff !important;
+    border-color: oklch(0.55 0.16 250) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Progress
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='progress'] {
+    height: 1rem;
+    border-radius: 0 !important;
+    border: var(--brutal-border-width) solid var(--border) !important;
+    background: var(--background) !important;
+    box-shadow: 3px 3px 0 var(--brutal-shadow-color) !important;
+    padding: 2px;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='progress-indicator'] {
+    border-radius: 0 !important;
+    background: var(--foreground) !important;
+    transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Dialog / Sheet / Drawer
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='dialog-content'] {
+    background: var(--background) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--brutal-shadow-offset) var(--brutal-shadow-offset) 0
+      var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='sheet-content'] {
+    background: var(--background) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--brutal-shadow-offset) var(--brutal-shadow-offset) 0
+      var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='drawer-content'] {
+    background: var(--background) !important;
+    border-radius: 0 !important;
+    box-shadow: 0 calc(-1 * var(--brutal-shadow-offset)) 0
+      var(--brutal-shadow-color) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Dropdown Menu / Popover
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='dropdown-menu-content'],
+  :root[data-theme-preset='brutalism'] [data-slot='popover-content'] {
+    background: var(--popover) !important;
+    color: var(--popover-foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='dropdown-menu-item'] {
+    border-radius: 0 !important;
+    transition: background-color 100ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='dropdown-menu-item']:focus,
+  :root[data-theme-preset='brutalism']
+    [data-slot='dropdown-menu-item'][data-highlighted] {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Tooltip
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='tooltip-content'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border: var(--brutal-border-width) solid var(--foreground) !important;
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0 var(--muted-foreground) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.7rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Calendar
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='calendar'] {
+    color: var(--foreground);
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-nav-button,
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-day-button {
+    border-radius: 0 !important;
+    border: var(--brutal-border-width) solid transparent !important;
+    transition:
+      border-color 100ms ease-out,
+      box-shadow 100ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-day-button:hover,
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-nav-button:hover {
+    border-color: var(--border) !important;
+    box-shadow: 2px 2px 0 var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-day-selected,
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-day-range-start,
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-day-range-end {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border-radius: 0 !important;
+    border-color: var(--foreground) !important;
+    box-shadow: 2px 2px 0 var(--muted-foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-day-today:not(.calendar-day-selected) {
+    border: var(--brutal-border-width) solid var(--foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='calendar']
+    .calendar-range-middle {
+    background: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+    border-radius: 0 !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Switch
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='switch'] {
+    border: var(--brutal-border-width) solid var(--border) !important;
+    border-radius: 0 !important;
+    background: var(--input) !important;
+    box-shadow: 3px 3px 0 var(--brutal-shadow-color) !important;
+    transition:
+      background-color 150ms ease-out,
+      box-shadow 150ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='switch'][data-state='checked'] {
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 3px 3px 0 var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='switch-thumb'] {
+    border-radius: 0 !important;
+    background: var(--background) !important;
+    border: 1.5px solid var(--border);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Checkbox
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='checkbox'] {
+    border: var(--brutal-border-width) solid var(--border) !important;
+    border-radius: 0 !important;
+    background: var(--input) !important;
+    box-shadow: 2px 2px 0 var(--brutal-shadow-color) !important;
+    width: 1.2rem;
+    height: 1.2rem;
+    transition:
+      background-color 120ms ease-out,
+      transform 80ms ease-in;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='checkbox']:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='checkbox'][data-state='checked'],
+  :root[data-theme-preset='brutalism']
+    [data-slot='checkbox'][data-state='indeterminate'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border-color: var(--foreground) !important;
+    box-shadow: 2px 2px 0 var(--muted-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Slider
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='slider-track'] {
+    height: 0.5rem !important;
+    border-radius: 0 !important;
+    background: var(--input) !important;
+    border: var(--brutal-border-width) solid var(--border) !important;
+    box-shadow: none !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='slider-range'] {
+    background: var(--foreground) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='slider-thumb'] {
+    border: var(--brutal-border-width) solid var(--foreground) !important;
+    border-radius: 0 !important;
+    background: var(--background) !important;
+    width: 1.1rem !important;
+    height: 1.1rem !important;
+    box-shadow: 2px 2px 0 var(--brutal-shadow-color) !important;
+    transition:
+      transform 80ms ease-in,
+      box-shadow 80ms ease-in;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='slider-thumb']:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='slider-thumb']:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 var(--brutal-shadow-color) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Toggle
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='toggle'] {
+    background: transparent !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    transition:
+      transform 120ms ease-out,
+      box-shadow 120ms ease-out,
+      background-color 120ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='toggle'][data-state='on'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    border-color: var(--foreground) !important;
+    /* In the on-state, shadow shifts to muted foreground */
+    box-shadow: var(--brutal-shadow-offset) var(--brutal-shadow-offset) 0
+      var(--muted-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Alert
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='alert'] {
+    background: var(--card) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='alert'][data-variant='destructive'] {
+    background: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+    border-color: var(--destructive) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='alert'][data-variant='destructive']
+    > svg {
+    color: var(--destructive-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Accordion
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='accordion-item'] {
+    border: var(--brutal-border-width) solid var(--border) !important;
+    border-radius: 0 !important;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+    box-shadow: 4px 4px 0 var(--brutal-shadow-color);
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='accordion-trigger'] {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-radius: 0 !important;
+    background: var(--card);
+    border-bottom: 0;
+    transition: background-color 120ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='accordion-trigger']:hover {
+    background: var(--accent) !important;
+    text-decoration: none !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='accordion-content'] {
+    background: var(--background);
+    border-top: var(--brutal-border-width) solid var(--border);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Avatar
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='avatar'] {
+    border: var(--brutal-border-width) solid var(--border);
+    border-radius: 0 !important;
+    box-shadow: 3px 3px 0 var(--brutal-shadow-color);
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='avatar-fallback'] {
+    border-radius: 0 !important;
+    background: var(--muted) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Skeleton
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='skeleton'] {
+    border-radius: 0 !important;
+    border: var(--brutal-border-width) solid var(--border);
+    background: var(--muted) !important;
+    /* Animate with a sweeping stripe instead of the default fade */
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 40%,
+      color-mix(in oklab, var(--foreground) 6%, transparent) 50%,
+      transparent 60%,
+      transparent 100%
+    ) !important;
+    background-size: 200% 100% !important;
+    animation: brutal-skeleton 1.4s ease-in-out infinite;
+  }
+
+  @keyframes brutal-skeleton {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Table
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='table'] {
+    background: var(--background) !important;
+    border-collapse: collapse;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='table-header'] {
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='table-header']
+    [data-slot='table-head'] {
+    color: var(--background) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-right: 1px solid
+      color-mix(in oklab, var(--background) 25%, transparent);
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='table-row'] {
+    border-bottom: var(--brutal-border-width) solid var(--border) !important;
+    transition: background-color 100ms ease-out;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='table-row']:hover {
+    background: var(--accent) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='table-row'][data-state='selected'] {
+    background: var(--muted) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='table-cell'],
+  :root[data-theme-preset='brutalism'] [data-slot='table-head'] {
+    border-right: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  }
+
+  :root[data-theme-preset='brutalism'] [data-slot='table-cell']:last-child,
+  :root[data-theme-preset='brutalism'] [data-slot='table-head']:last-child {
+    border-right: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Separator
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='separator'] {
+    background: var(--foreground) !important;
+    height: var(--brutal-border-width) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-slot='separator'][data-orientation='vertical'] {
+    height: auto !important;
+    width: var(--brutal-border-width) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Sidebar
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-slot='sidebar'] {
+    background: var(--card) !important;
+    border-right: var(--brutal-border-width) solid var(--border) !important;
+    box-shadow: var(--brutal-shadow-offset) 0 0 var(--brutal-shadow-color) !important;
+    border-radius: 0 !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Sonner Toasts
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='brutalism'] [data-sonner-toast] {
+    background: var(--background) !important;
+    color: var(--foreground) !important;
+    font-weight: 600;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-sonner-toast][data-type='success'] {
+    background: oklch(0.55 0.16 155) !important;
+    color: #fff !important;
+    border-color: oklch(0.42 0.16 155) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-sonner-toast][data-type='error'] {
+    background: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+    border-color: oklch(0.42 0.2 25) !important;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-sonner-toast][data-type='warning'] {
+    background: oklch(0.82 0.18 75) !important;
+    color: #000 !important;
+    border-color: oklch(0.62 0.18 75) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-sonner-toast][data-type='info'] {
+    background: oklch(0.55 0.16 250) !important;
+    color: #fff !important;
+    border-color: oklch(0.42 0.16 250) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-sonner-toast] [data-close-button] {
+    border: var(--brutal-border-width) solid var(--border) !important;
+    border-radius: 0 !important;
+    background: var(--background) !important;
+    box-shadow: 2px 2px 0 var(--brutal-shadow-color) !important;
+    transition:
+      transform 80ms ease-in,
+      box-shadow 80ms ease-in;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-sonner-toast]
+    [data-close-button]:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--brutal-shadow-color) !important;
+  }
+
+  :root[data-theme-preset='brutalism'] [data-sonner-toast] [data-button] {
+    border: var(--brutal-border-width) solid var(--foreground) !important;
+    border-radius: 0 !important;
+    background: var(--foreground) !important;
+    color: var(--background) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    box-shadow: 2px 2px 0 var(--muted-foreground) !important;
+    transition:
+      transform 80ms ease-in,
+      box-shadow 80ms ease-in;
+  }
+
+  :root[data-theme-preset='brutalism']
+    [data-sonner-toast]
+    [data-button]:active {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 var(--muted-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Reduced motion
+     ═══════════════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-theme-preset='brutalism'] [data-slot='button'],
+    :root[data-theme-preset='brutalism'] [data-slot='card'],
+    :root[data-theme-preset='brutalism'] [data-slot='toggle'],
+    :root[data-theme-preset='brutalism'] [data-slot='checkbox'],
+    :root[data-theme-preset='brutalism'] [data-slot='slider-thumb'],
+    :root[data-theme-preset='brutalism'] [data-slot='input'],
+    :root[data-theme-preset='brutalism'] [data-slot='textarea'],
+    :root[data-theme-preset='brutalism'] [data-slot='select-trigger'] {
+      transition: none;
+    }
+
+    :root[data-theme-preset='brutalism'] [data-slot='skeleton'] {
+      animation: none;
+    }
+  }
+}
