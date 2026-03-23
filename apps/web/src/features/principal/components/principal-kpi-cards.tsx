@@ -4,32 +4,32 @@ import {
   TrendingDown,
   Activity,
   Award,
-} from "lucide-react";
-import { MetricTrendCard } from "@/components/metric-trend-card";
-import { takeLastMetricTrendPoints } from "@/lib/metric-trends";
+} from 'lucide-react'
+import { MetricTrendCard } from '@/components/metric-trend-card'
+import { takeLastMetricTrendPoints } from '@/lib/metric-trends'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
+} from '@workspace/ui/components/ui/card'
 import type {
   ContributionMetrics,
   PrincipalContributionRow,
-} from "@workspace/domain";
+} from '@workspace/domain'
 
-const LAKHS = 100_000;
+const LAKHS = 100_000
 
 const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(n);
+  }).format(n)
 
 interface PrincipalKpiCardsProps {
-  metrics: ContributionMetrics;
-  contributions: PrincipalContributionRow[];
+  metrics: ContributionMetrics
+  contributions: PrincipalContributionRow[]
 }
 
 export function PrincipalKpiCards({
@@ -41,13 +41,13 @@ export function PrincipalKpiCards({
       label: item.label,
       value: item.cumulative,
     })),
-  );
+  )
   const contributionTrend = takeLastMetricTrendPoints(
     contributions.map((item) => ({
       label: item.label,
       value: item.amountLakhs,
     })),
-  );
+  )
 
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
@@ -118,13 +118,13 @@ export function PrincipalKpiCards({
           </div>
           <p className="text-muted-foreground text-xs">
             {metrics.consistencyScore >= 0.7
-              ? "Great consistency!"
+              ? 'Great consistency!'
               : metrics.consistencyScore >= 0.4
-                ? "Moderate consistency"
-                : "Highly variable"}
+                ? 'Moderate consistency'
+                : 'Highly variable'}
           </p>
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }

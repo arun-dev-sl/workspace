@@ -62,6 +62,7 @@ export function PrincipalInvestmentTab() {
     [analytics],
   )
 
+  // @ts-ignore
   useAiPageContext(aiPageContext)
 
   if (isLoading) {

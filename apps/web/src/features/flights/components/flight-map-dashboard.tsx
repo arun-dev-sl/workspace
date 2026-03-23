@@ -13,7 +13,6 @@ import {
   Globe2,
   MapPinned,
   Pause,
-  Palette,
   Play,
   Route,
   Settings2,

@@ -79,7 +79,7 @@ const SYSTEM_PROMPT = [
   'You may embed multiple metric blocks in a single response.',
 ].join('\n')
 
-const DEFAULT_MAX_TOOL_ROUNDS = 6
+const DEFAULT_MAX_TOOL_ROUNDS = 10
 const MAX_CONTEXT_TOKENS = 12_000
 const SUMMARIZATION_THRESHOLD = 10
 

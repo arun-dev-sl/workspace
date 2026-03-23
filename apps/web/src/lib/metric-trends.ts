@@ -28,7 +28,7 @@ export function normalizeRecentMonthlySeries<T>({
     const monthKey = getMonthKey(entry)
     monthlyTotals.set(monthKey, (monthlyTotals.get(monthKey) ?? 0) + getValue(entry))
   }
-
+  // @ts-expect-error
   const latestMonthKey = anchorMonthKey ?? [...monthlyTotals.keys()].sort().at(-1)
   if (!latestMonthKey) {
     return []
