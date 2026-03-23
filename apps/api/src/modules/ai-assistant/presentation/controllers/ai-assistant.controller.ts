@@ -91,6 +91,24 @@ export class AiAssistantController {
     reply.raw.end()
   }
 
+  @Post('conversations')
+  @ApiOperation({ summary: 'Create a new conversation' })
+  async createConversation(
+    @Request() req: FastifyRequest & { user: { id: string } },
+  ) {
+    const schema = z.object({
+      title: z.string().trim().min(1).max(200).optional().default('New conversation'),
+      model: z.string().trim().max(120).nullable().optional(),
+    })
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) throw new BadRequestException('Invalid input')
+    return this.conversationRepo.createConversation({
+      userId: req.user.id,
+      title: parsed.data.title,
+      model: parsed.data.model ?? null,
+    })
+  }
+
   @Get('conversations')
   @ApiOperation({ summary: 'List user conversations' })
   async listConversations(
@@ -128,6 +146,35 @@ export class AiAssistantController {
     const updated = await this.conversationRepo.updateConversationTitle(id, req.user.id, parsed.data.title)
     if (!updated) throw new NotFoundException('Conversation not found')
     return updated
+  }
+
+  @Post('conversations/:id/messages')
+  @ApiOperation({ summary: 'Add a message to a conversation' })
+  async addMessage(
+    @Request() req: FastifyRequest & { user: { id: string } },
+    @Param('id') conversationId: string,
+  ) {
+    const conversation = await this.conversationRepo.findConversationById(conversationId, req.user.id)
+    if (!conversation) throw new NotFoundException('Conversation not found')
+
+    const schema = z.object({
+      role: z.enum(['user', 'assistant']),
+      content: z.string().trim().min(1).max(50_000),
+      toolCalls: z.unknown().nullable().optional(),
+      analysis: z.unknown().nullable().optional(),
+      usage: z.unknown().nullable().optional(),
+    })
+    const parsed = schema.safeParse(req.body)
+    if (!parsed.success) throw new BadRequestException('Invalid message')
+
+    return this.conversationRepo.addMessage({
+      conversationId,
+      role: parsed.data.role,
+      content: parsed.data.content,
+      toolCalls: parsed.data.toolCalls ?? null,
+      analysis: parsed.data.analysis ?? null,
+      usage: parsed.data.usage ?? null,
+    })
   }
 
   @Delete('conversations/:id')

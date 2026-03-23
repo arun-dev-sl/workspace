@@ -120,6 +120,15 @@ export type AiPersistedMessage = {
   createdAt: string;
 };
 
+export async function createConversation(title?: string, model?: string | null): Promise<AiConversationSummary> {
+  return apiRequest({
+    method: 'POST',
+    url: '/api/ai-assistant/conversations',
+    data: { title, model },
+    toastError: false,
+  });
+}
+
 export async function listConversations(limit = 20, offset = 0): Promise<{ data: AiConversationSummary[]; total: number }> {
   return apiRequest({
     method: 'GET',
@@ -149,6 +158,18 @@ export async function renameConversation(id: string, title: string): Promise<AiC
     method: 'PATCH',
     url: `/api/ai-assistant/conversations/${id}`,
     data: { title },
+    toastError: false,
+  });
+}
+
+export async function saveMessage(
+  conversationId: string,
+  message: { role: 'user' | 'assistant'; content: string; toolCalls?: unknown; analysis?: unknown; usage?: unknown },
+): Promise<AiPersistedMessage> {
+  return apiRequest({
+    method: 'POST',
+    url: `/api/ai-assistant/conversations/${conversationId}/messages`,
+    data: message,
     toastError: false,
   });
 }

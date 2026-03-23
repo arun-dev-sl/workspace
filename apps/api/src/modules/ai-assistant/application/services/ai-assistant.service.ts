@@ -97,6 +97,31 @@ function estimateMessageTokens(messages: AiChatProviderMessage[]): number {
   return total
 }
 
+class ToolCallCache {
+  private readonly cache = new Map<string, { ok: true; tool: string; result: unknown } | { ok: false; tool: string; error: string }>()
+
+  private buildKey(name: string, args: string): string {
+    try {
+      const normalized = JSON.stringify(JSON.parse(args))
+      return `${name}::${normalized}`
+    } catch {
+      return `${name}::${args}`
+    }
+  }
+
+  get(name: string, args: string) {
+    return this.cache.get(this.buildKey(name, args))
+  }
+
+  set(name: string, args: string, result: { ok: true; tool: string; result: unknown } | { ok: false; tool: string; error: string }) {
+    this.cache.set(this.buildKey(name, args), result)
+  }
+
+  get size() {
+    return this.cache.size
+  }
+}
+
 @Injectable()
 export class AiAssistantService {
   private readonly logger = new Logger(AiAssistantService.name)
@@ -142,6 +167,7 @@ export class AiAssistantService {
     const model = input.model || this.configService.get('OPENWIRE_MODEL', { infer: true })
     const toolsUsed: string[] = [...prefetchedEvidence.toolsUsed]
     const analysisSteps: AiAssistantAnalysisStep[] = [...prefetchedEvidence.steps]
+    const toolCache = new ToolCallCache()
 
     this.logger.debug(
       `AI chat request: ${JSON.stringify({
@@ -226,12 +252,18 @@ export class AiAssistantService {
 
       const toolResults = await Promise.all(
         completion.toolCalls.map(async (toolCall) => {
+          const cached = toolCache.get(toolCall.function.name, toolCall.function.arguments)
+          if (cached) {
+            this.logger.debug(`Tool call cache hit: ${toolCall.function.name}`)
+            return { toolCall, result: cached, fromCache: true }
+          }
           const result = await this.aiToolRegistry.executeTool(toolCall, { userId })
-          return { toolCall, result }
+          toolCache.set(toolCall.function.name, toolCall.function.arguments, result)
+          return { toolCall, result, fromCache: false }
         }),
       )
 
-      for (const { toolCall, result: toolResult } of toolResults) {
+      for (const { toolCall, result: toolResult, fromCache } of toolResults) {
         toolsUsed.push(toolCall.function.name)
         const parsedArguments = this.tryParseJson(toolCall.function.arguments)
         const resultPreview = toolResult.ok
@@ -241,9 +273,9 @@ export class AiAssistantService {
         analysisSteps.push({
           id: toolCall.id,
           type: 'tool-call',
-          title: `Ran ${toolCall.function.name}`,
+          title: fromCache ? `Ran ${toolCall.function.name} (cached)` : `Ran ${toolCall.function.name}`,
           summary: toolResult.ok
-            ? `Executed ${toolCall.function.name} and captured structured evidence.`
+            ? `Executed ${toolCall.function.name} and captured structured evidence.${fromCache ? ' (served from session cache)' : ''}`
             : `Attempted ${toolCall.function.name}, but the tool returned an error.`,
           status: toolResult.ok ? 'completed' : 'failed',
           toolName: toolCall.function.name,
@@ -253,7 +285,7 @@ export class AiAssistantService {
         })
 
         this.logger.debug(
-          `AI tool result: ${JSON.stringify({
+          `AI tool result${fromCache ? ' (cached)' : ''}: ${JSON.stringify({
             userId,
             tool: toolCall.function.name,
             result: this.truncate(JSON.stringify(toolResult), 2000),
@@ -291,6 +323,7 @@ export class AiAssistantService {
     const model: string = input.model || this.configService.get('OPENWIRE_MODEL', { infer: true })
     const toolsUsed: string[] = [...prefetchedEvidence.toolsUsed]
     const analysisSteps: AiAssistantAnalysisStep[] = [...prefetchedEvidence.steps]
+    const toolCache = new ToolCallCache()
 
     for (const step of prefetchedEvidence.steps) {
       yield { type: 'step', step }
@@ -398,12 +431,18 @@ export class AiAssistantService {
 
       const toolResults = await Promise.all(
         roundToolCalls.map(async (toolCall) => {
+          const cached = toolCache.get(toolCall.function.name, toolCall.function.arguments)
+          if (cached) {
+            this.logger.debug(`Tool call cache hit (stream): ${toolCall.function.name}`)
+            return { toolCall, result: cached, fromCache: true }
+          }
           const result = await this.aiToolRegistry.executeTool(toolCall, { userId })
-          return { toolCall, result }
+          toolCache.set(toolCall.function.name, toolCall.function.arguments, result)
+          return { toolCall, result, fromCache: false }
         }),
       )
 
-      for (const { toolCall, result } of toolResults) {
+      for (const { toolCall, result, fromCache } of toolResults) {
         toolsUsed.push(toolCall.function.name)
         const parsedArguments = this.tryParseJson(toolCall.function.arguments)
         const resultPreview = result.ok ? this.summarizeToolResult(result.result) : result.error
@@ -411,9 +450,9 @@ export class AiAssistantService {
         const toolStep: AiAssistantAnalysisStep = {
           id: toolCall.id,
           type: 'tool-call',
-          title: `Ran ${toolCall.function.name}`,
+          title: fromCache ? `Ran ${toolCall.function.name} (cached)` : `Ran ${toolCall.function.name}`,
           summary: result.ok
-            ? `Executed ${toolCall.function.name} and captured structured evidence.`
+            ? `Executed ${toolCall.function.name} and captured structured evidence.${fromCache ? ' (served from session cache)' : ''}`
             : `Attempted ${toolCall.function.name}, but the tool returned an error.`,
           status: result.ok ? 'completed' : 'failed',
           toolName: toolCall.function.name,
@@ -690,12 +729,11 @@ export class AiAssistantService {
   }
 
   private async prefetchExpenseSummary(userId: string, period = 'month'): Promise<{ messages: AiChatProviderMessage[], toolsUsed: string[], steps: AiAssistantAnalysisStep[] }> {
-    const resolvedPeriod = period
     const toolResult = await this.aiToolRegistry.executeTool(
       {
         id: 'prefetch-getExpenseSummary',
         type: 'function',
-        function: { name: 'getExpenseSummary', arguments: JSON.stringify({ period: resolvedPeriod }) },
+        function: { name: 'getExpenseSummary', arguments: JSON.stringify({ period }) },
       },
       { userId },
     )
@@ -706,17 +744,17 @@ export class AiAssistantService {
         id: 'prefetch-getExpenseSummary',
         type: 'prefetch',
         title: 'Prefetched expense summary',
-        summary: `Ran getExpenseSummary for period "${resolvedPeriod}" before the main loop.`,
+        summary: `Ran getExpenseSummary for period "${period}" before the main loop.`,
         status: 'completed',
         toolName: 'getExpenseSummary',
-        toolArgs: { period: resolvedPeriod },
+        toolArgs: { period },
         resultData: toolResult,
         resultPreview: this.summarizeToolResult(toolResult),
       }],
       messages: [
         {
           role: 'system',
-          content: `An expense summary for the "${resolvedPeriod}" period has already been fetched. Use the data below as baseline evidence.`,
+          content: `An expense summary for the "${period}" period has already been fetched. Use the data below as baseline evidence.`,
         },
         {
           role: 'assistant',
@@ -724,7 +762,7 @@ export class AiAssistantService {
           tool_calls: [{
             id: 'prefetch-getExpenseSummary',
             type: 'function',
-            function: { name: 'getExpenseSummary', arguments: JSON.stringify({ period: resolvedPeriod }) },
+            function: { name: 'getExpenseSummary', arguments: JSON.stringify({ period }) },
           }],
         },
         {
