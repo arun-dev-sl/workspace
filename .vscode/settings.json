@@ -21,5 +21,6 @@
   },
   "[javascriptreact]": {
     "editor.defaultFormatter": "dbaeumer.vscode-eslint"
-  }
+  },
+  "snyk.advanced.autoSelectOrganization": true
 }

@@ -5,9 +5,20 @@ export const AiAssistantChatMessageSchema = z.object({
   content: z.string().trim().min(1).max(4000),
 })
 
+const AiAssistantPageContextSchema = z.object({
+  pageId: z.string().trim().max(80),
+  title: z.string().trim().max(200),
+  route: z.string().trim().max(200),
+  description: z.string().trim().max(500).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
+  dataSnapshot: z.record(z.string(), z.unknown()).optional(),
+}).optional()
+
 const RawAiAssistantChatRequestSchema = z.object({
-  messages: z.array(AiAssistantChatMessageSchema).min(1).max(20),
+  messages: z.array(AiAssistantChatMessageSchema).min(1).max(40),
   model: z.string().trim().max(120).optional(),
+  pageContext: AiAssistantPageContextSchema,
+  conversationId: z.string().uuid().optional(),
 })
 
 export const AiAssistantChatRequestSchema = z.preprocess((value) => {
