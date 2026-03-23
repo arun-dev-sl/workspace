@@ -32,6 +32,20 @@ export async function fetchSpendingSummary(period: AnalyticsPeriod) {
   return SpendingSummarySchema.parse(json)
 }
 
+export async function fetchSpendingSummaryForDate(date: string) {
+  const params = new URLSearchParams({
+    startDate: date,
+    endDate: date,
+  })
+
+  const json = await apiRequest({
+    method: 'GET',
+    url: `/api/expenses/analytics/summary?${params.toString()}`,
+  })
+
+  return SpendingSummarySchema.parse(json)
+}
+
 export async function fetchSpendingByCategory(period: AnalyticsPeriod) {
   const json = await apiRequest({
     method: 'GET',

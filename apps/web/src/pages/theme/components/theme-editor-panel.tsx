@@ -1,26 +1,26 @@
-import { useThemeCustomization } from "@/themes/context";
-import { useState } from "react";
-import { FontSelector } from "./font-selector";
+import { useThemeCustomization } from '@/themes/context'
+import { useState } from 'react'
+import { FontSelector } from './font-selector'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/ui/select";
-import { ColorPickerInput } from "./color-picker-input";
-import { SliderInput } from "./slider-input";
-import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/ui/tabs";
-import { Button } from "@workspace/ui/components/ui/button";
-import { Separator } from "@workspace/ui/components/ui/separator";
-import { ScrollArea } from "@workspace/ui/components/ui/scroll-area";
-import { CATEGORY_LABELS, THEME_VARIABLES } from "@/themes";
-import { NeumorphicPresets } from "./neumorphic-presets";
-import { GlassmorphicPresets } from "./glassmorphic-presets";
+} from '@workspace/ui/components/ui/select'
+import { ColorPickerInput } from './color-picker-input'
+import { SliderInput } from './slider-input'
+import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/ui/tabs'
+import { Button } from '@workspace/ui/components/ui/button'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { ScrollArea } from '@workspace/ui/components/ui/scroll-area'
+import { CATEGORY_LABELS, THEME_VARIABLES } from '@/themes'
+import { ThemeStyleControls } from './theme-style-controls'
 
 export function ThemeEditorPanel() {
   const {
     currentPreset,
+    currentPresetMeta,
     overrides,
     availablePresets,
     setPreset,
@@ -28,31 +28,31 @@ export function ThemeEditorPanel() {
     clearOverrides,
     reset,
     getComputedTheme,
-  } = useThemeCustomization();
+  } = useThemeCustomization()
 
-  const [activeMode, setActiveMode] = useState<"light" | "dark">("light");
+  const [activeMode, setActiveMode] = useState<'light' | 'dark'>('light')
   const [activeCategory, setActiveCategory] = useState(
     Object.keys(THEME_VARIABLES)[0],
-  );
+  )
 
-  const computedTheme = getComputedTheme();
+  const computedTheme = getComputedTheme()
   const currentValues =
-    activeMode === "light" ? computedTheme.light : computedTheme.dark;
+    activeMode === 'light' ? computedTheme.light : computedTheme.dark
 
   const handleReset = () => {
-    if (confirm("Reset all theme customizations to default?")) {
-      reset();
+    if (confirm('Reset all theme customizations to default?')) {
+      reset()
     }
-  };
+  }
 
   const handleClearOverrides = () => {
-    if (confirm("Clear all overrides and return to preset defaults?")) {
-      clearOverrides();
+    if (confirm('Clear all overrides and return to preset defaults?')) {
+      clearOverrides()
     }
-  };
+  }
 
   const renderInputComponent = (variable: string, value: string) => {
-    if (variable === "--font-sans") {
+    if (variable === '--font-sans') {
       return (
         <FontSelector
           label={variable}
@@ -61,9 +61,9 @@ export function ThemeEditorPanel() {
           variableName={variable}
           fontType="sans"
         />
-      );
+      )
     }
-    if (variable === "--font-serif") {
+    if (variable === '--font-serif') {
       return (
         <FontSelector
           label={variable}
@@ -72,9 +72,9 @@ export function ThemeEditorPanel() {
           variableName={variable}
           fontType="serif"
         />
-      );
+      )
     }
-    if (variable === "--font-mono") {
+    if (variable === '--font-mono') {
       return (
         <FontSelector
           label={variable}
@@ -83,9 +83,9 @@ export function ThemeEditorPanel() {
           variableName={variable}
           fontType="mono"
         />
-      );
+      )
     }
-    if (variable === "--radius") {
+    if (variable === '--radius') {
       return (
         <SliderInput
           label={variable}
@@ -97,9 +97,9 @@ export function ThemeEditorPanel() {
           step={0.125}
           unit="rem"
         />
-      );
+      )
     }
-    if (variable === "--spacing") {
+    if (variable === '--spacing') {
       return (
         <SliderInput
           label={variable}
@@ -111,9 +111,9 @@ export function ThemeEditorPanel() {
           step={0.05}
           unit="rem"
         />
-      );
+      )
     }
-    if (variable === "--font-size-base") {
+    if (variable === '--font-size-base') {
       return (
         <SliderInput
           label={variable}
@@ -125,10 +125,10 @@ export function ThemeEditorPanel() {
           step={1}
           unit="px"
         />
-      );
+      )
     }
 
-    if (variable === "--tracking-normal") {
+    if (variable === '--tracking-normal') {
       return (
         <SliderInput
           label={variable}
@@ -140,7 +140,7 @@ export function ThemeEditorPanel() {
           step={0.001}
           unit="em"
         />
-      );
+      )
     }
 
     return (
@@ -150,11 +150,11 @@ export function ThemeEditorPanel() {
         onChange={(newValue) => setOverride(activeMode, variable, newValue)}
         variableName={variable}
       />
-    );
-  };
+    )
+  }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-fit">
       <ScrollArea className="h-full">
         {/* HEADER */}
         <div className="space-y-3">
@@ -167,18 +167,21 @@ export function ThemeEditorPanel() {
               </SelectTrigger>
               <SelectContent>
                 {availablePresets.map((preset) => (
-                  <SelectItem key={preset} value={preset}>
-                    {preset.charAt(0).toUpperCase() + preset.slice(1)}
+                  <SelectItem key={preset.name} value={preset.name}>
+                    {preset.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs leading-5 text-muted-foreground">
+              {currentPresetMeta.description}
+            </p>
           </div>
 
           {/* MODE */}
           <Tabs
             value={activeMode}
-            onValueChange={(v) => setActiveMode(v as "light" | "dark")}
+            onValueChange={(v) => setActiveMode(v as 'light' | 'dark')}
           >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="light">Light</TabsTrigger>
@@ -186,19 +189,13 @@ export function ThemeEditorPanel() {
             </TabsList>
           </Tabs>
 
-          {/* NEUMORPHIC PRESETS - Only show when neumorphism preset is active */}
-          {currentPreset === "neumorphism" && (
+          {currentPresetMeta.styleControlId === 'none' ? null : (
             <>
               <Separator className="my-4" />
-              <NeumorphicPresets activeMode={activeMode} />
-            </>
-          )}
-
-          {/* GLASSMORPHIC PRESETS - Only show when glassmorphism preset is active */}
-          {currentPreset === "glassmorphism" && (
-            <>
-              <Separator className="my-4" />
-              <GlassmorphicPresets activeMode={activeMode} />
+              <ThemeStyleControls
+                activeMode={activeMode}
+                controlId={currentPresetMeta.styleControlId}
+              />
             </>
           )}
         </div>
@@ -216,10 +213,10 @@ export function ThemeEditorPanel() {
                 className={`text-xs px-2.5 py-1.5 rounded-md text-left transition max-w-28
                 ${
                   activeCategory === category
-                    ? "bg-accent text-accent-foreground"
-                    : "hover:bg-muted"
+                    ? 'bg-accent text-accent-foreground'
+                    : 'hover:bg-muted'
                 }`}
-                data-slot={activeCategory === category ? "badge" : undefined}
+                data-slot={activeCategory === category ? 'badge' : undefined}
               >
                 {CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]}
               </button>
@@ -232,8 +229,8 @@ export function ThemeEditorPanel() {
               {THEME_VARIABLES[
                 activeCategory as keyof typeof THEME_VARIABLES
               ].map((variable) => {
-                const value = currentValues[variable] || "";
-                const isOverridden = !!overrides[activeMode][variable];
+                const value = currentValues[variable] || ''
+                const isOverridden = !!overrides[activeMode][variable]
 
                 return (
                   <div key={variable} className="relative">
@@ -245,14 +242,14 @@ export function ThemeEditorPanel() {
                       />
                     )}
                   </div>
-                );
+                )
               })}
             </div>
           </ScrollArea>
         </div>
 
         {/* FOOTER */}
-        <div className="flex flex-wrap justify-between items-center gap-2 pt-3 mt-3 border-t">
+        <div className="flex flex-wrap justify-between items-center gap-2 pt-3 mt-3 mb-4 border-b pb-8">
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={handleClearOverrides}>
               Clear
@@ -263,11 +260,11 @@ export function ThemeEditorPanel() {
           </div>
           <div className="text-xs text-muted-foreground">
             {Object.keys(overrides.light).length +
-              Object.keys(overrides.dark).length}{" "}
+              Object.keys(overrides.dark).length}{' '}
             overrides
           </div>
         </div>
       </ScrollArea>
     </div>
-  );
+  )
 }

@@ -5,13 +5,18 @@ import {
   Activity,
   Award,
 } from "lucide-react";
+import { MetricTrendCard } from "@/components/metric-trend-card";
+import { takeLastMetricTrendPoints } from "@/lib/metric-trends";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/ui/card";
-import type { ContributionMetrics } from "@workspace/domain";
+import type {
+  ContributionMetrics,
+  PrincipalContributionRow,
+} from "@workspace/domain";
 
 const LAKHS = 100_000;
 
@@ -24,55 +29,59 @@ const fmtCurrency = (n: number) =>
 
 interface PrincipalKpiCardsProps {
   metrics: ContributionMetrics;
+  contributions: PrincipalContributionRow[];
 }
 
-export function PrincipalKpiCards({ metrics }: PrincipalKpiCardsProps) {
+export function PrincipalKpiCards({
+  metrics,
+  contributions,
+}: PrincipalKpiCardsProps) {
+  const cumulativeTrend = takeLastMetricTrendPoints(
+    metrics.cumulativeSeries.map((item) => ({
+      label: item.label,
+      value: item.cumulative,
+    })),
+  );
+  const contributionTrend = takeLastMetricTrendPoints(
+    contributions.map((item) => ({
+      label: item.label,
+      value: item.amountLakhs,
+    })),
+  );
+
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
       {/* Total Principal */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Total Principal Invested
-          </CardTitle>
-          <span data-slot="badge">
-            <IndianRupee className="text-primary h-4 w-4" />
-          </span>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {fmtCurrency(metrics.totalINR)}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            {metrics.totalLakhs.toFixed(2)}L across{" "}
-            {metrics.cumulativeSeries.length} months
-          </p>
-        </CardContent>
-      </Card>
+      <MetricTrendCard
+        title="Total Principal Invested"
+        value={fmtCurrency(metrics.totalINR)}
+        icon={<IndianRupee className="text-primary h-4 w-4" />}
+        description={`${metrics.totalLakhs.toFixed(2)}L across ${metrics.cumulativeSeries.length} months`}
+        descriptionClassName="text-muted-foreground text-xs"
+        valueClassName="text-2xl font-bold"
+        trendData={cumulativeTrend}
+        trendLabel="Recent cumulative"
+        formatTrendValue={(value) => `${value.toFixed(2)}L`}
+      />
 
       {/* Average Monthly */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Avg Monthly Contribution
-          </CardTitle>
-          <span data-slot="badge">
-            {metrics.trendIncreasing ? (
-              <TrendingUp className="text-primary h-4 w-4" />
-            ) : (
-              <TrendingDown className="text-primary h-4 w-4" />
-            )}
-          </span>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {fmtCurrency(metrics.averageMonthlyLakhs * LAKHS)}
-          </div>
-          <p className="text-muted-foreground text-xs">
-            {metrics.averageMonthlyLakhs.toFixed(2)}L per month
-          </p>
-        </CardContent>
-      </Card>
+      <MetricTrendCard
+        title="Avg Monthly Contribution"
+        value={fmtCurrency(metrics.averageMonthlyLakhs * LAKHS)}
+        icon={
+          metrics.trendIncreasing ? (
+            <TrendingUp className="text-primary h-4 w-4" />
+          ) : (
+            <TrendingDown className="text-primary h-4 w-4" />
+          )
+        }
+        description={`${metrics.averageMonthlyLakhs.toFixed(2)}L per month`}
+        descriptionClassName="text-muted-foreground text-xs"
+        valueClassName="text-2xl font-bold"
+        trendData={contributionTrend}
+        trendLabel="Recent contributions"
+        formatTrendValue={(value) => `${value.toFixed(2)}L`}
+      />
 
       {/* Best Month */}
       <Card>

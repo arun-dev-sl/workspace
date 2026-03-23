@@ -28,16 +28,51 @@ export interface ThemeConfig {
   overrides: ThemeOverrides
 }
 
+export type ThemeStyleControlId =
+  | 'none'
+  | 'neumorphism'
+  | 'glassmorphism'
+  | 'brutalism'
+  | 'academia'
+  | 'retro-terminal'
+  | 'editorial'
+  | 'bauhaus'
+  | 'blueprint'
+
+export interface ThemePresetPreview {
+  light: string[]
+  dark: string[]
+}
+
+export interface ThemePresetMeta {
+  name: string
+  label: string
+  description: string
+  family: 'classic' | 'expressive'
+  tags: string[]
+  preview: ThemePresetPreview
+  styleControlId: ThemeStyleControlId
+}
+
+export interface ThemePresetDefinition {
+  meta: ThemePresetMeta
+  theme: ThemePreset
+  cleanupPrefixes?: string[]
+  loadStyles?: () => Promise<unknown>
+}
+
 /**
  * Theme context value exposed to consumers
  */
 export interface ThemeContextValue {
   /** Current preset name */
   currentPreset: string
+  /** Metadata for the current preset */
+  currentPresetMeta: ThemePresetMeta
   /** Current overrides */
   overrides: ThemeOverrides
-  /** Available preset names */
-  availablePresets: string[]
+  /** Available preset metadata */
+  availablePresets: ThemePresetMeta[]
   /** Switch to a different preset */
   setPreset: (name: string) => void
   /** Set a single override for a specific mode */

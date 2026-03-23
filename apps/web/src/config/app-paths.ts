@@ -40,6 +40,9 @@ export const appPaths = {
     playground: {
       getHref: () => '/playground',
     },
+    account: {
+      getHref: () => '/account',
+    },
     expensesEmails: {
       getHref: () => '/expenses/emails',
     },

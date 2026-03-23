@@ -9,7 +9,7 @@ import {
   PieChart,
   XAxis,
   YAxis,
-} from "recharts";
+} from 'recharts'
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -20,15 +20,17 @@ import {
   Repeat,
   Trophy,
   BarChart3,
-} from "lucide-react";
+} from 'lucide-react'
 
+import { MetricTrendCard } from '@/components/metric-trend-card'
+import { takeLastMetricTrendPoints } from '@/lib/metric-trends'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
+} from '@workspace/ui/components/ui/card'
 import {
   type ChartConfig,
   ChartContainer,
@@ -36,7 +38,7 @@ import {
   ChartTooltipContent,
   ChartLegend,
   ChartLegendContent,
-} from "@workspace/ui/components/ui/chart";
+} from '@workspace/ui/components/ui/chart'
 import {
   Table,
   TableBody,
@@ -44,30 +46,30 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/ui/table";
-import { Badge } from "@workspace/ui/components/ui/badge";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
-import { ScrollArea } from "@workspace/ui/components/ui/scroll-area";
+} from '@workspace/ui/components/ui/table'
+import { Badge } from '@workspace/ui/components/ui/badge'
+import { Skeleton } from '@workspace/ui/components/ui/skeleton'
+import { ScrollArea } from '@workspace/ui/components/ui/scroll-area'
 
-import { useDividendDashboard } from "@/features/dividends/api/dividends";
-import type { DividendDashboard } from "@workspace/domain";
+import { useDividendDashboard } from '@/features/dividends/api/dividends'
+import type { DividendDashboard } from '@workspace/domain'
 
 const CHART_COLORS = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-];
+  'var(--color-chart-1)',
+  'var(--color-chart-2)',
+  'var(--color-chart-3)',
+  'var(--color-chart-4)',
+  'var(--color-chart-5)',
+]
 
 const fmtCurrency = (v: number) =>
-  `₹${v.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `₹${v.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 
 const fmtCurrencyCompact = (v: number) => {
-  if (v >= 100_000) return `₹${(v / 100_000).toFixed(1)}L`;
-  if (v >= 1_000) return `₹${(v / 1_000).toFixed(1)}K`;
-  return `₹${v.toFixed(0)}`;
-};
+  if (v >= 100_000) return `₹${(v / 100_000).toFixed(1)}L`
+  if (v >= 1_000) return `₹${(v / 1_000).toFixed(1)}K`
+  return `₹${v.toFixed(0)}`
+}
 
 // ── Loading skeleton ────────────────────────────────────────────────────
 
@@ -84,7 +86,7 @@ function DashboardSkeleton() {
         <Skeleton className="h-80" />
       </div>
     </div>
-  );
+  )
 }
 
 // ── A. Yearly Growth Summary Cards ──────────────────────────────────────
@@ -96,27 +98,28 @@ function YearlyGrowthCards({ data }: { data: DividendDashboard }) {
     distinctCompanies,
     totalPayouts,
     monthlyAverage,
-  } = data;
-  const isPositive = yearlyGrowth.growthPercent >= 0;
+  } = data
+  const isPositive = yearlyGrowth.growthPercent >= 0
+  const recentDividendTrend = takeLastMetricTrendPoints(
+    data.monthlyTrend.map((item) => ({
+      label: item.monthName,
+      value: item.totalAmount,
+    })),
+  )
 
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Dividends {yearlyGrowth.currentYear}
-          </CardTitle>
-          <Banknote className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {fmtCurrency(yearlyGrowth.currentYearTotal)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            vs {fmtCurrency(yearlyGrowth.previousYearTotal)} last year
-          </p>
-        </CardContent>
-      </Card>
+      <MetricTrendCard
+        title={`Dividends ${yearlyGrowth.currentYear}`}
+        value={fmtCurrency(yearlyGrowth.currentYearTotal)}
+        icon={<Banknote className="h-4 w-4 text-muted-foreground" />}
+        description={`vs ${fmtCurrency(yearlyGrowth.previousYearTotal)} last year`}
+        descriptionClassName="text-xs text-muted-foreground"
+        valueClassName="text-2xl font-bold"
+        trendData={recentDividendTrend}
+        trendLabel="Recent payouts"
+        formatTrendValue={fmtCurrency}
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -129,32 +132,29 @@ function YearlyGrowthCards({ data }: { data: DividendDashboard }) {
         </CardHeader>
         <CardContent>
           <div
-            className={`text-2xl font-bold ${isPositive ? "text-green-600" : "text-red-600"}`}
+            className={`text-2xl font-bold ${isPositive ? 'text-green-600' : 'text-red-600'}`}
           >
-            {isPositive ? "+" : ""}
+            {isPositive ? '+' : ''}
             {yearlyGrowth.growthPercent.toFixed(1)}%
           </div>
           <p className="text-xs text-muted-foreground">
-            {isPositive ? "+" : ""}
+            {isPositive ? '+' : ''}
             {fmtCurrency(yearlyGrowth.absoluteIncrease)} absolute
           </p>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Monthly Avg</CardTitle>
-          <CalendarDays className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {fmtCurrency(monthlyAverage)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            across months with payouts
-          </p>
-        </CardContent>
-      </Card>
+      <MetricTrendCard
+        title="Monthly Avg"
+        value={fmtCurrency(monthlyAverage)}
+        icon={<CalendarDays className="h-4 w-4 text-muted-foreground" />}
+        description="across months with payouts"
+        descriptionClassName="text-xs text-muted-foreground"
+        valueClassName="text-2xl font-bold"
+        trendData={recentDividendTrend}
+        trendLabel="Recent payouts"
+        formatTrendValue={fmtCurrency}
+      />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -171,13 +171,13 @@ function YearlyGrowthCards({ data }: { data: DividendDashboard }) {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
 
 // ── Lifetime Dividend Per Company (Small Widget) ────────────────────────
 
 function LifetimeDividendPerCompany({ data }: { data: DividendDashboard }) {
-  const items = data.lifetimePerCompany ?? [];
+  const items = data.lifetimePerCompany ?? []
 
   if (items.length === 0) {
     return (
@@ -192,10 +192,10 @@ function LifetimeDividendPerCompany({ data }: { data: DividendDashboard }) {
           No data yet
         </CardContent>
       </Card>
-    );
+    )
   }
 
-  const grandTotal = items.reduce((sum, c) => sum + c.totalAmount, 0);
+  const grandTotal = items.reduce((sum, c) => sum + c.totalAmount, 0)
 
   return (
     <Card className="overflow-hidden">
@@ -235,7 +235,7 @@ function LifetimeDividendPerCompany({ data }: { data: DividendDashboard }) {
                   <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
                     {grandTotal > 0
                       ? `${((c.totalAmount / grandTotal) * 100).toFixed(1)}%`
-                      : "—"}
+                      : '—'}
                   </TableCell>
                 </TableRow>
               ))}
@@ -244,17 +244,17 @@ function LifetimeDividendPerCompany({ data }: { data: DividendDashboard }) {
         </ScrollArea>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── C. Monthly Dividend Trend (Area Chart) ──────────────────────────────
 
 const monthlyChartConfig: ChartConfig = {
   totalAmount: {
-    label: "Dividend",
-    color: "var(--color-chart-1)",
+    label: 'Dividend',
+    color: 'var(--color-chart-1)',
   },
-};
+}
 
 function MonthlyTrendChart({ data }: { data: DividendDashboard }) {
   return (
@@ -300,7 +300,7 @@ function MonthlyTrendChart({ data }: { data: DividendDashboard }) {
         </ChartContainer>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── F. Top Dividend Stocks (Pie Chart) ──────────────────────────────────
@@ -313,11 +313,11 @@ function TopStocksPieChart({ data }: { data: DividendDashboard }) {
         : s.companyName,
     value: s.totalAmount,
     fill: CHART_COLORS[i % CHART_COLORS.length],
-  }));
+  }))
 
   const pieConfig: ChartConfig = Object.fromEntries(
     pieData.map((d) => [d.name, { label: d.name, color: d.fill }]),
-  );
+  )
 
   if (pieData.length === 0) {
     return (
@@ -332,7 +332,7 @@ function TopStocksPieChart({ data }: { data: DividendDashboard }) {
           No data yet
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -382,17 +382,17 @@ function TopStocksPieChart({ data }: { data: DividendDashboard }) {
         </ChartContainer>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── B. Cumulative Per-Company (Horizontal Bar Chart) ────────────────────
 
 const perCompanyConfig: ChartConfig = {
   totalAmount: {
-    label: "Total Dividend",
-    color: "var(--color-chart-2)",
+    label: 'Total Dividend',
+    color: 'var(--color-chart-2)',
   },
-};
+}
 
 function PerCompanyBarChart({ data }: { data: DividendDashboard }) {
   const chartData = data.perCompany.slice(0, 12).map((c) => ({
@@ -401,7 +401,7 @@ function PerCompanyBarChart({ data }: { data: DividendDashboard }) {
         ? `${c.companyName.slice(0, 22)}…`
         : c.companyName,
     totalAmount: c.totalAmount,
-  }));
+  }))
 
   if (chartData.length === 0) {
     return (
@@ -416,7 +416,7 @@ function PerCompanyBarChart({ data }: { data: DividendDashboard }) {
           No data yet
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -467,17 +467,17 @@ function PerCompanyBarChart({ data }: { data: DividendDashboard }) {
         </ChartContainer>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── D. Dividend Yield Analysis (Bar Chart) ──────────────────────────────
 
 const yieldConfig: ChartConfig = {
   yieldPercent: {
-    label: "Yield %",
-    color: "var(--color-chart-3)",
+    label: 'Yield %',
+    color: 'var(--color-chart-3)',
   },
-};
+}
 
 function YieldAnalysisChart({ data }: { data: DividendDashboard }) {
   const chartData = data.yieldAnalysis.map((y) => ({
@@ -488,7 +488,7 @@ function YieldAnalysisChart({ data }: { data: DividendDashboard }) {
     yieldPercent: Math.round(y.yieldPercent * 100) / 100,
     totalDividend: y.totalDividend,
     investedValue: y.investedValue,
-  }));
+  }))
 
   if (chartData.length === 0) {
     return (
@@ -507,7 +507,7 @@ function YieldAnalysisChart({ data }: { data: DividendDashboard }) {
           </p>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -544,8 +544,8 @@ function YieldAnalysisChart({ data }: { data: DividendDashboard }) {
               content={
                 <ChartTooltipContent
                   formatter={(value, name) => {
-                    if (name === "yieldPercent") return `${value}%`;
-                    return fmtCurrency(Number(value));
+                    if (name === 'yieldPercent') return `${value}%`
+                    return fmtCurrency(Number(value))
                   }}
                 />
               }
@@ -559,7 +559,7 @@ function YieldAnalysisChart({ data }: { data: DividendDashboard }) {
         </ChartContainer>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── E. Repeat Payout Analysis (Table) ───────────────────────────────────
@@ -578,7 +578,7 @@ function RepeatPayoutTable({ data }: { data: DividendDashboard }) {
           No companies with multiple payouts this year
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -613,7 +613,7 @@ function RepeatPayoutTable({ data }: { data: DividendDashboard }) {
                   {fmtCurrency(r.totalAmount)}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground">
-                  {r.exDates.join(", ")}
+                  {r.exDates.join(', ')}
                 </TableCell>
               </TableRow>
             ))}
@@ -621,17 +621,17 @@ function RepeatPayoutTable({ data }: { data: DividendDashboard }) {
         </Table>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── H. Avg Dividend Per Share (Bar Chart) ───────────────────────────────
 
 const avgDpsConfig: ChartConfig = {
   avgDividendPerShare: {
-    label: "Avg Div/Share",
-    color: "var(--color-chart-4)",
+    label: 'Avg Div/Share',
+    color: 'var(--color-chart-4)',
   },
-};
+}
 
 function AvgDividendPerShareChart({ data }: { data: DividendDashboard }) {
   const chartData = data.perCompany
@@ -644,9 +644,9 @@ function AvgDividendPerShareChart({ data }: { data: DividendDashboard }) {
           ? `${c.companyName.slice(0, 22)}…`
           : c.companyName,
       avgDividendPerShare: Math.round(c.avgDividendPerShare * 100) / 100,
-    }));
+    }))
 
-  if (chartData.length === 0) return null;
+  if (chartData.length === 0) return null
 
   return (
     <Card className="overflow-hidden">
@@ -692,13 +692,13 @@ function AvgDividendPerShareChart({ data }: { data: DividendDashboard }) {
         </ChartContainer>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── G. Dividend Calendar (Monthly Heatmap-style grid) ───────────────────
 
 function DividendCalendar({ data }: { data: DividendDashboard }) {
-  const maxAmount = Math.max(...data.monthlyTrend.map((m) => m.totalAmount), 1);
+  const maxAmount = Math.max(...data.monthlyTrend.map((m) => m.totalAmount), 1)
 
   return (
     <Card className="overflow-hidden">
@@ -713,7 +713,7 @@ function DividendCalendar({ data }: { data: DividendDashboard }) {
         <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-12">
           {data.monthlyTrend.map((m) => {
             const intensity =
-              m.totalAmount > 0 ? Math.max(0.15, m.totalAmount / maxAmount) : 0;
+              m.totalAmount > 0 ? Math.max(0.15, m.totalAmount / maxAmount) : 0
             return (
               <div
                 key={m.month}
@@ -730,32 +730,32 @@ function DividendCalendar({ data }: { data: DividendDashboard }) {
                   {m.monthName}
                 </span>
                 <span className="mt-0.5 text-xs font-semibold tabular-nums">
-                  {m.totalAmount > 0 ? fmtCurrencyCompact(m.totalAmount) : "—"}
+                  {m.totalAmount > 0 ? fmtCurrencyCompact(m.totalAmount) : '—'}
                 </span>
                 {m.entryCount > 0 && (
                   <span className="text-[9px] text-muted-foreground">
-                    {m.entryCount} payout{m.entryCount > 1 ? "s" : ""}
+                    {m.entryCount} payout{m.entryCount > 1 ? 's' : ''}
                   </span>
                 )}
               </div>
-            );
+            )
           })}
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── Main Dashboard Export ────────────────────────────────────────────────
 
 interface DividendDashboardProps {
-  year?: number;
+  year?: number
 }
 
 export function DividendDashboardView({ year }: DividendDashboardProps) {
-  const { data, isLoading } = useDividendDashboard(year);
+  const { data, isLoading } = useDividendDashboard(year)
 
-  if (isLoading || !data) return <DashboardSkeleton />;
+  if (isLoading || !data) return <DashboardSkeleton />
 
   return (
     <div className="space-y-6">
@@ -786,5 +786,5 @@ export function DividendDashboardView({ year }: DividendDashboardProps) {
       {/* E. Repeat Payouts */}
       <RepeatPayoutTable data={data} />
     </div>
-  );
+  )
 }

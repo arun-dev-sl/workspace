@@ -76,7 +76,7 @@ async function bootstrap() {
     app.get(TraceContextInterceptor),
 
     // 2. Timeout control (30s)
-    new TimeoutInterceptor(30_000),
+    new TimeoutInterceptor(app.get(Reflector), 30_000),
 
     // 3. Location header (201 Created)
     new LocationHeaderInterceptor(),

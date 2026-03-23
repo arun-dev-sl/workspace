@@ -4,9 +4,9 @@ import {
   useEffectEvent,
   useMemo,
   useState,
-} from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, isAfter, parseISO, startOfDay } from "date-fns";
+} from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { format, isAfter, parseISO, startOfDay } from 'date-fns'
 import {
   Bot,
   MailSearch,
@@ -18,38 +18,41 @@ import {
   Search,
   Sparkles,
   Unplug,
-} from "lucide-react";
+} from 'lucide-react'
 
-import { MainLayout } from "@/components/layouts";
-import { FlightActivityEditorSheet } from "@/features/flights/components/flight-activity-editor-sheet";
-import { FlightAnalyticsDashboard } from "@/features/flights/components/flight-analytics-dashboard";
-import { FlightMapDashboard } from "@/features/flights/components/flight-map-dashboard";
-import { FlightLlmReviewSheet } from "@/features/flights/components/flight-llm-review-sheet";
-import { HotelsPageContent } from "@/pages/hotels";
+import { MainLayout } from '@/components/layouts'
+import { useAiPageContext } from '@/features/ai-assistant/ai-assistant-context'
+import { buildFlightsPageContext } from '@/features/ai-assistant/adapters/flights-context'
+import { FlightActivityEditorSheet } from '@/features/flights/components/flight-activity-editor-sheet'
+import { FlightAnalyticsDashboard } from '@/features/flights/components/flight-analytics-dashboard'
+import { FlightMapDashboard } from '@/features/flights/components/flight-map-dashboard'
+import { FlightLlmReviewSheet } from '@/features/flights/components/flight-llm-review-sheet'
+import { HotelsPageContent } from '@/pages/hotels'
 import {
   formatFlightExtractionMethodHistory,
   getLatestFlightExtractionMethod,
   hasFlightExtractionMethod,
-} from "@/features/flights/lib/extraction-methods";
+} from '@/features/flights/lib/extraction-methods'
 import {
   flightKeys,
   useFlightActivities,
+  useFlightAnalytics,
   useFlightEmail,
   useFlightLlmReviewCandidates,
   useUpdateFlightActivity,
-} from "@/features/flights/api/flights";
-import { useFlightSyncJob } from "@/features/flights/hooks/use-flight-sync-job";
-import { connectGmail } from "@/features/expenses/api/connect-gmail";
-import { disconnectGmail } from "@/features/expenses/api/disconnect-gmail";
-import { fetchGmailStatus } from "@/features/expenses/api/gmail-status";
-import { Badge } from "@workspace/ui/components/ui/badge";
-import { Button } from "@workspace/ui/components/ui/button";
+} from '@/features/flights/api/flights'
+import { useFlightSyncJob } from '@/features/flights/hooks/use-flight-sync-job'
+import { connectGmail } from '@/features/expenses/api/connect-gmail'
+import { disconnectGmail } from '@/features/expenses/api/disconnect-gmail'
+import { fetchGmailStatus } from '@/features/expenses/api/gmail-status'
+import { Badge } from '@workspace/ui/components/ui/badge'
+import { Button } from '@workspace/ui/components/ui/button'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
+} from '@workspace/ui/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -57,24 +60,24 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@workspace/ui/components/ui/dialog";
+} from '@workspace/ui/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@workspace/ui/components/ui/dropdown-menu";
-import { Input } from "@workspace/ui/components/ui/input";
-import { Progress } from "@workspace/ui/components/ui/progress";
+} from '@workspace/ui/components/ui/dropdown-menu'
+import { Input } from '@workspace/ui/components/ui/input'
+import { Progress } from '@workspace/ui/components/ui/progress'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@workspace/ui/components/ui/select";
-import { Separator } from "@workspace/ui/components/ui/separator";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
+} from '@workspace/ui/components/ui/select'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { Skeleton } from '@workspace/ui/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -82,141 +85,142 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/ui/table";
+} from '@workspace/ui/components/ui/table'
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@workspace/ui/components/ui/tabs";
+} from '@workspace/ui/components/ui/tabs'
 import type {
   FlightActivity,
   UpdateFlightActivityInput,
-} from "@workspace/domain";
+} from '@workspace/domain'
 
-const PAGE_SIZE = 25;
-const REVIEW_CANDIDATE_LIMIT = 50;
+const PAGE_SIZE = 25
+const REVIEW_CANDIDATE_LIMIT = 50
 const EXTRACTION_METHOD_OPTIONS = [
-  { label: "All methods", value: "all" },
-  { label: "Manual", value: "manual" },
-  { label: "JSON-LD", value: "json_ld" },
-  { label: "Heuristic", value: "heuristic" },
-  { label: "LLM", value: "llm" },
-] as const;
+  { label: 'All methods', value: 'all' },
+  { label: 'Manual', value: 'manual' },
+  { label: 'JSON-LD', value: 'json_ld' },
+  { label: 'Heuristic', value: 'heuristic' },
+  { label: 'LLM', value: 'llm' },
+] as const
 
 function formatFlightDate(value: string) {
   try {
-    return format(parseISO(value), "EEE, MMM d yyyy");
+    return format(parseISO(value), 'EEE, MMM d yyyy')
   } catch {
-    return value;
+    return value
   }
 }
 
 function formatTimestamp(value?: string | null) {
   if (!value) {
-    return "Unknown";
+    return 'Unknown'
   }
 
   try {
-    return format(parseISO(value), "MMM d, yyyy 'at' h:mm a");
+    return format(parseISO(value), "MMM d, yyyy 'at' h:mm a")
   } catch {
-    return value;
+    return value
   }
 }
 
 function formatRoute(activity: FlightActivity) {
-  return `${activity.fromAirport} -> ${activity.toAirport}`;
+  return `${activity.fromAirport} -> ${activity.toAirport}`
 }
 
 function getExtractionBadgeVariant(
-  methods: FlightActivity["extractionMethod"],
+  methods: FlightActivity['extractionMethod'],
 ) {
-  const method = getLatestFlightExtractionMethod(methods);
+  const method = getLatestFlightExtractionMethod(methods)
 
   switch (method) {
-    case "manual": {
-      return "default";
+    case 'manual': {
+      return 'default'
     }
-    case "json_ld": {
-      return "secondary";
+    case 'json_ld': {
+      return 'secondary'
     }
-    case "heuristic": {
-      return "info";
+    case 'heuristic': {
+      return 'info'
     }
-    case "llm": {
-      return "outline";
+    case 'llm': {
+      return 'outline'
     }
     default: {
-      return "info";
+      return 'info'
     }
   }
 }
 
-function getExtractionLabel(methods: FlightActivity["extractionMethod"]) {
-  return formatFlightExtractionMethodHistory(methods);
+function getExtractionLabel(methods: FlightActivity['extractionMethod']) {
+  return formatFlightExtractionMethodHistory(methods)
 }
 
 function isUpcoming(activity: FlightActivity) {
   try {
-    return isAfter(parseISO(activity.departureDate), startOfDay(new Date()));
+    return isAfter(parseISO(activity.departureDate), startOfDay(new Date()))
   } catch {
-    return false;
+    return false
   }
 }
 
-type SyncStartMode = "standard" | "review";
+type SyncStartMode = 'standard' | 'review'
 type SyncIntent =
-  | "idle"
-  | "standard"
-  | "review-sync"
-  | "review-process"
-  | "reprocess";
+  | 'idle'
+  | 'standard'
+  | 'review-sync'
+  | 'review-process'
+  | 'reprocess'
 
 export default function FlightsPage() {
-  const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("flights");
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useState('flights')
+  const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
   const [methodFilter, setMethodFilter] =
-    useState<(typeof EXTRACTION_METHOD_OPTIONS)[number]["value"]>("all");
-  const [editorOpen, setEditorOpen] = useState(false);
+    useState<(typeof EXTRACTION_METHOD_OPTIONS)[number]['value']>('all')
+  const [editorOpen, setEditorOpen] = useState(false)
   const [selectedActivity, setSelectedActivity] =
-    useState<FlightActivity | null>(null);
+    useState<FlightActivity | null>(null)
   const [startDialogMode, setStartDialogMode] = useState<SyncStartMode | null>(
     null,
-  );
-  const [fromDate, setFromDate] = useState("");
-  const [syncIntent, setSyncIntent] = useState<SyncIntent>("idle");
-  const [reviewFromDate, setReviewFromDate] = useState<string | null>(null);
-  const [reviewSheetOpen, setReviewSheetOpen] = useState(false);
+  )
+  const [fromDate, setFromDate] = useState('')
+  const [syncIntent, setSyncIntent] = useState<SyncIntent>('idle')
+  const [reviewFromDate, setReviewFromDate] = useState<string | null>(null)
+  const [reviewSheetOpen, setReviewSheetOpen] = useState(false)
   const [selectedReviewEmailIds, setSelectedReviewEmailIds] = useState<
     string[]
-  >([]);
+  >([])
 
-  const deferredSearch = useDeferredValue(search);
+  const deferredSearch = useDeferredValue(search)
   const activitiesQuery = useFlightActivities({
     page,
     page_size: PAGE_SIZE,
-  });
-  const updateMutation = useUpdateFlightActivity();
+  })
+  const analyticsQuery = useFlightAnalytics()
+  const updateMutation = useUpdateFlightActivity()
   const emailQuery = useFlightEmail(
     editorOpen ? selectedActivity?.sourceEmailId : undefined,
     editorOpen,
-  );
+  )
 
   const statusQuery = useQuery({
     queryKey: flightKeys.gmailStatus(),
     queryFn: fetchGmailStatus,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-  });
+  })
 
   const connectMutation = useMutation({
     mutationFn: connectGmail,
     onSuccess: (data) => {
-      globalThis.location.assign(data.url);
+      globalThis.location.assign(data.url)
     },
-  });
+  })
 
   const disconnectMutation = useMutation({
     mutationFn: disconnectGmail,
@@ -224,24 +228,24 @@ export default function FlightsPage() {
       queryClient.setQueryData(flightKeys.gmailStatus(), {
         connected: false,
         email: null,
-      });
+      })
       await queryClient.invalidateQueries({
         queryKey: flightKeys.gmailStatus(),
-      });
+      })
     },
-  });
+  })
 
   const handleSyncComplete = useEffectEvent(() => {
-    if (syncIntent === "review-sync" && reviewFromDate) {
-      setSelectedReviewEmailIds([]);
-      setReviewSheetOpen(true);
-      return;
+    if (syncIntent === 'review-sync' && reviewFromDate) {
+      setSelectedReviewEmailIds([])
+      setReviewSheetOpen(true)
+      return
     }
 
-    if (syncIntent === "review-process") {
-      setSelectedReviewEmailIds([]);
+    if (syncIntent === 'review-process') {
+      setSelectedReviewEmailIds([])
     }
-  });
+  })
 
   const {
     startSync,
@@ -254,28 +258,28 @@ export default function FlightsPage() {
     progress,
   } = useFlightSyncJob({
     onComplete: handleSyncComplete,
-  });
+  })
 
   const reviewCandidatesQuery = useFlightLlmReviewCandidates({
     fromDate: reviewSheetOpen ? (reviewFromDate ?? undefined) : undefined,
     limit: REVIEW_CANDIDATE_LIMIT,
     enabled: reviewSheetOpen && Boolean(reviewFromDate),
-  });
+  })
 
   const filteredActivities = useMemo(() => {
-    const needle = deferredSearch.trim().toLowerCase();
+    const needle = deferredSearch.trim().toLowerCase()
 
     return (activitiesQuery.data?.data ?? []).filter((activity) => {
       const matchesMethod =
-        methodFilter === "all" ||
-        hasFlightExtractionMethod(activity.extractionMethod, methodFilter);
+        methodFilter === 'all' ||
+        hasFlightExtractionMethod(activity.extractionMethod, methodFilter)
 
       if (!matchesMethod) {
-        return false;
+        return false
       }
 
       if (!needle) {
-        return true;
+        return true
       }
 
       return [
@@ -288,121 +292,141 @@ export default function FlightsPage() {
         activity.travelClass,
       ]
         .filter(Boolean)
-        .some((value) => value!.toLowerCase().includes(needle));
-    });
-  }, [activitiesQuery.data?.data, deferredSearch, methodFilter]);
+        .some((value) => value!.toLowerCase().includes(needle))
+    })
+  }, [activitiesQuery.data?.data, deferredSearch, methodFilter])
 
   const stats = useMemo(() => {
-    const loadedActivities = activitiesQuery.data?.data ?? [];
+    const loadedActivities = activitiesQuery.data?.data ?? []
     const nextDeparture = [...loadedActivities]
       .filter((activity) => isUpcoming(activity))
       .sort((left, right) =>
         left.departureDate.localeCompare(right.departureDate),
-      )[0];
+      )[0]
 
     return {
       totalStored: activitiesQuery.data?.total ?? 0,
       loaded: loadedActivities.length,
       manual: loadedActivities.filter((activity) =>
-        hasFlightExtractionMethod(activity.extractionMethod, "manual"),
+        hasFlightExtractionMethod(activity.extractionMethod, 'manual'),
       ).length,
       nextDeparture,
-    };
-  }, [activitiesQuery.data]);
+    }
+  }, [activitiesQuery.data])
 
   const totalPages = activitiesQuery.data
     ? Math.max(1, Math.ceil(activitiesQuery.data.total / PAGE_SIZE))
-    : 1;
+    : 1
 
-  const reviewCandidates = reviewCandidatesQuery.data?.data ?? [];
+  const reviewCandidates = reviewCandidatesQuery.data?.data ?? []
+
+  const aiPageContext = useMemo(
+    () =>
+      buildFlightsPageContext({
+        activeTab,
+        totalStored: stats.totalStored,
+        loaded: stats.loaded,
+        manual: stats.manual,
+        analytics: analyticsQuery.data,
+      }),
+    [
+      activeTab,
+      analyticsQuery.data,
+      stats.loaded,
+      stats.manual,
+      stats.totalStored,
+    ],
+  )
+
+  useAiPageContext(aiPageContext)
 
   const handleEditorOpenChange = (open: boolean) => {
-    setEditorOpen(open);
+    setEditorOpen(open)
     if (!open) {
-      setSelectedActivity(null);
+      setSelectedActivity(null)
     }
-  };
+  }
 
   const handleOpenEditor = (activity: FlightActivity) => {
-    setSelectedActivity(activity);
-    setEditorOpen(true);
-  };
+    setSelectedActivity(activity)
+    setEditorOpen(true)
+  }
 
   const handleSaveCorrection = async (data: UpdateFlightActivityInput) => {
     if (!selectedActivity) {
-      return;
+      return
     }
 
     await updateMutation.mutateAsync({
       id: selectedActivity.id,
       data,
-    });
-    handleEditorOpenChange(false);
-  };
+    })
+    handleEditorOpenChange(false)
+  }
 
   useEffect(() => {
     if (!reviewSheetOpen) {
-      setSelectedReviewEmailIds([]);
+      setSelectedReviewEmailIds([])
     }
-  }, [reviewSheetOpen]);
+  }, [reviewSheetOpen])
 
   const openStartDialog = (mode: SyncStartMode) => {
-    setStartDialogMode(mode);
-  };
+    setStartDialogMode(mode)
+  }
 
   const closeStartDialog = () => {
-    setStartDialogMode(null);
-  };
+    setStartDialogMode(null)
+  }
 
   const handleStartSync = () => {
     if (!fromDate || !statusQuery.data?.connected) {
-      return;
+      return
     }
 
-    if (startDialogMode === "review") {
-      setSyncIntent("review-sync");
-      setReviewFromDate(fromDate);
-      setReviewSheetOpen(false);
-      setSelectedReviewEmailIds([]);
-      startReviewSync({ fromDate });
+    if (startDialogMode === 'review') {
+      setSyncIntent('review-sync')
+      setReviewFromDate(fromDate)
+      setReviewSheetOpen(false)
+      setSelectedReviewEmailIds([])
+      startReviewSync({ fromDate })
     } else {
-      setSyncIntent("standard");
-      startSync({ fromDate });
+      setSyncIntent('standard')
+      startSync({ fromDate })
     }
 
-    closeStartDialog();
-  };
+    closeStartDialog()
+  }
 
   const handleStartReprocess = () => {
-    setSyncIntent("reprocess");
-    startReprocess(false);
-  };
+    setSyncIntent('reprocess')
+    startReprocess(false)
+  }
 
   const handleToggleReviewEmail = (emailId: string, checked: boolean) => {
     setSelectedReviewEmailIds((current) => {
       if (checked) {
-        return current.includes(emailId) ? current : [...current, emailId];
+        return current.includes(emailId) ? current : [...current, emailId]
       }
 
-      return current.filter((candidateId) => candidateId !== emailId);
-    });
-  };
+      return current.filter((candidateId) => candidateId !== emailId)
+    })
+  }
 
   const handleSelectAllReviewEmails = () => {
     setSelectedReviewEmailIds(
       reviewCandidates.map((candidate) => candidate.email.id),
-    );
-  };
+    )
+  }
 
   const handleSubmitReviewEmails = () => {
     if (selectedReviewEmailIds.length === 0) {
-      return;
+      return
     }
 
-    setSyncIntent("review-process");
-    setReviewSheetOpen(false);
-    startLlmReviewProcess({ emailIds: selectedReviewEmailIds });
-  };
+    setSyncIntent('review-process')
+    setReviewSheetOpen(false)
+    startLlmReviewProcess({ emailIds: selectedReviewEmailIds })
+  }
 
   return (
     <MainLayout>
@@ -436,8 +460,8 @@ export default function FlightsPage() {
               >
                 <MailSearch className="mr-1 h-4 w-4" />
                 {statusQuery.data?.connected
-                  ? "Reconnect Gmail"
-                  : "Connect Gmail"}
+                  ? 'Reconnect Gmail'
+                  : 'Connect Gmail'}
               </Button>
               <Button
                 variant="outline"
@@ -458,7 +482,7 @@ export default function FlightsPage() {
                 Reprocess
               </Button>
               <Button
-                onClick={() => openStartDialog("standard")}
+                onClick={() => openStartDialog('standard')}
                 disabled={isSyncing || !statusQuery.data?.connected}
               >
                 <RefreshCcw className="mr-1 h-4 w-4" />
@@ -476,7 +500,7 @@ export default function FlightsPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={() => openStartDialog("review")}>
+                  <DropdownMenuItem onSelect={() => openStartDialog('review')}>
                     <Bot className="h-4 w-4" />
                     Review LLM candidates
                   </DropdownMenuItem>
@@ -506,12 +530,12 @@ export default function FlightsPage() {
                   <div className="flex items-center gap-2 text-lg font-semibold text-foreground">
                     <Plane className="h-5 w-5" />
                     {statusQuery.data?.connected
-                      ? "Connected"
-                      : "Not connected"}
+                      ? 'Connected'
+                      : 'Not connected'}
                   </div>
                   <p className="text-sm text-muted-foreground">
                     {statusQuery.data?.email ??
-                      "Connect Gmail to sync booking emails."}
+                      'Connect Gmail to sync booking emails.'}
                   </p>
                 </CardContent>
               </Card>
@@ -561,7 +585,7 @@ export default function FlightsPage() {
                         {formatRoute(stats.nextDeparture)}
                       </div>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        {stats.nextDeparture.flightNumber} on{" "}
+                        {stats.nextDeparture.flightNumber} on{' '}
                         {formatFlightDate(stats.nextDeparture.departureDate)}
                       </p>
                     </>
@@ -625,7 +649,7 @@ export default function FlightsPage() {
                       value={methodFilter}
                       onValueChange={(value) =>
                         setMethodFilter(
-                          value as (typeof EXTRACTION_METHOD_OPTIONS)[number]["value"],
+                          value as (typeof EXTRACTION_METHOD_OPTIONS)[number]['value'],
                         )
                       }
                     >
@@ -668,9 +692,9 @@ export default function FlightsPage() {
                       No flight activities found
                     </p>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      {search || methodFilter !== "all"
-                        ? "Try clearing your search or method filter."
-                        : "Run a sync after connecting Gmail to pull in flight confirmations."}
+                      {search || methodFilter !== 'all'
+                        ? 'Try clearing your search or method filter.'
+                        : 'Run a sync after connecting Gmail to pull in flight confirmations.'}
                     </p>
                   </div>
                 ) : null}
@@ -699,7 +723,7 @@ export default function FlightsPage() {
                                 {formatRoute(activity)}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {activity.airlineName ?? "Unknown airline"}
+                                {activity.airlineName ?? 'Unknown airline'}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -707,7 +731,7 @@ export default function FlightsPage() {
                                 {activity.flightNumber}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {activity.travelClass ?? "Class not set"}
+                                {activity.travelClass ?? 'Class not set'}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -715,22 +739,22 @@ export default function FlightsPage() {
                                 {formatFlightDate(activity.departureDate)}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {activity.departureTime ?? "Time TBD"}
+                                {activity.departureTime ?? 'Time TBD'}
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="font-medium text-foreground">
                                 {activity.arrivalDate
                                   ? formatFlightDate(activity.arrivalDate)
-                                  : "Not captured"}
+                                  : 'Not captured'}
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {activity.arrivalTime ?? "Time TBD"}
+                                {activity.arrivalTime ?? 'Time TBD'}
                               </div>
                             </TableCell>
                             <TableCell>
                               <span className="font-mono text-xs">
-                                {activity.pnr ?? "Missing"}
+                                {activity.pnr ?? 'Missing'}
                               </span>
                             </TableCell>
                             <TableCell>
@@ -766,7 +790,7 @@ export default function FlightsPage() {
 
                 <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm text-muted-foreground">
-                    Showing {filteredActivities.length} of{" "}
+                    Showing {filteredActivities.length} of{' '}
                     {activitiesQuery.data?.data.length ?? 0} loaded segments
                     <span className="mx-2">•</span>
                     {activitiesQuery.data?.total ?? 0} total stored
@@ -810,7 +834,7 @@ export default function FlightsPage() {
           </TabsContent>
 
           <TabsContent value="map" className="mt-4">
-            <FlightMapDashboard isActive={activeTab === "map"} />
+            <FlightMapDashboard isActive={activeTab === 'map'} />
           </TabsContent>
         </Tabs>
 
@@ -827,21 +851,21 @@ export default function FlightsPage() {
           open={startDialogMode !== null}
           onOpenChange={(open) => {
             if (!open) {
-              closeStartDialog();
+              closeStartDialog()
             }
           }}
         >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {startDialogMode === "review"
-                  ? "Sync flights with manual LLM review"
-                  : "Sync flights"}
+                {startDialogMode === 'review'
+                  ? 'Sync flights with manual LLM review'
+                  : 'Sync flights'}
               </DialogTitle>
               <DialogDescription>
-                {startDialogMode === "review"
-                  ? "Fetch flights from Gmail, run JSON-LD plus heuristic extraction first, then review the remaining unmatched emails before any LLM call is made."
-                  : "Pick the earliest date to search from before starting the normal flight sync."}
+                {startDialogMode === 'review'
+                  ? 'Fetch flights from Gmail, run JSON-LD plus heuristic extraction first, then review the remaining unmatched emails before any LLM call is made.'
+                  : 'Pick the earliest date to search from before starting the normal flight sync.'}
               </DialogDescription>
             </DialogHeader>
 
@@ -857,7 +881,7 @@ export default function FlightsPage() {
                 type="date"
                 value={fromDate}
                 onChange={(event) => setFromDate(event.target.value)}
-                max={format(new Date(), "yyyy-MM-dd")}
+                max={format(new Date(), 'yyyy-MM-dd')}
               />
               <p className="text-sm text-muted-foreground">
                 Gmail search starts from this date. A narrower range keeps the
@@ -880,9 +904,9 @@ export default function FlightsPage() {
                   !fromDate || isStarting || !statusQuery.data?.connected
                 }
               >
-                {startDialogMode === "review"
-                  ? "Fetch and review"
-                  : "Start sync"}
+                {startDialogMode === 'review'
+                  ? 'Fetch and review'
+                  : 'Start sync'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -911,7 +935,7 @@ export default function FlightsPage() {
           <Card className="border-dashed border-border/60 bg-muted/15">
             <CardContent className="flex flex-col gap-2 py-4 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
               <div>
-                Working against source email{" "}
+                Working against source email{' '}
                 <span className="font-mono">
                   {selectedActivity.sourceEmailId.slice(0, 8)}
                 </span>
@@ -924,5 +948,5 @@ export default function FlightsPage() {
         ) : null}
       </div>
     </MainLayout>
-  );
+  )
 }

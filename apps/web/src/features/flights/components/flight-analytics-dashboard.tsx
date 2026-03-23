@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { format, parseISO } from "date-fns";
+import { useMemo } from 'react'
+import { format, parseISO } from 'date-fns'
 import {
   Bar,
   BarChart,
@@ -9,18 +9,20 @@ import {
   PieChart,
   XAxis,
   YAxis,
-} from "recharts";
-import { Flag, Globe2, Map, Plane, Route, Timer, Trophy } from "lucide-react";
+} from 'recharts'
+import { Flag, Globe2, Map, Plane, Route, Timer, Trophy } from 'lucide-react'
 
-import { useFlightAnalytics } from "@/features/flights/api/flights";
-import { Badge } from "@workspace/ui/components/ui/badge";
+import { useFlightAnalytics } from '@/features/flights/api/flights'
+import { MetricTrendCard } from '@/components/metric-trend-card'
+import { normalizeRecentMonthlySeries } from '@/lib/metric-trends'
+import { Badge } from '@workspace/ui/components/ui/badge'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
+} from '@workspace/ui/components/ui/card'
 import {
   type ChartConfig,
   ChartContainer,
@@ -28,49 +30,49 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-} from "@workspace/ui/components/ui/chart";
-import { ScrollArea } from "@workspace/ui/components/ui/scroll-area";
-import { Separator } from "@workspace/ui/components/ui/separator";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
+} from '@workspace/ui/components/ui/chart'
+import { ScrollArea } from '@workspace/ui/components/ui/scroll-area'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { Skeleton } from '@workspace/ui/components/ui/skeleton'
 
-import type { FlightAnalytics } from "@workspace/domain";
+import type { FlightAnalytics } from '@workspace/domain'
 
 const CHART_COLORS = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-];
+  'var(--color-chart-1)',
+  'var(--color-chart-2)',
+  'var(--color-chart-3)',
+  'var(--color-chart-4)',
+  'var(--color-chart-5)',
+]
 
 const yearChartConfig = {
-  count: { label: "Flights", color: "var(--color-chart-1)" },
-} satisfies ChartConfig;
+  count: { label: 'Flights', color: 'var(--color-chart-1)' },
+} satisfies ChartConfig
 
 const airlineChartConfig = {
-  count: { label: "Flights", color: "var(--color-chart-2)" },
-} satisfies ChartConfig;
+  count: { label: 'Flights', color: 'var(--color-chart-2)' },
+} satisfies ChartConfig
 
 const airportChartConfig = {
-  count: { label: "Visits", color: "var(--color-chart-3)" },
-} satisfies ChartConfig;
+  count: { label: 'Visits', color: 'var(--color-chart-3)' },
+} satisfies ChartConfig
 
 function formatDistance(value: number) {
-  return `${value.toLocaleString()} km`;
+  return `${value.toLocaleString()} km`
 }
 
 function formatHours(value: number) {
   return `${value.toLocaleString(undefined, {
     minimumFractionDigits: value % 1 === 0 ? 0 : 1,
     maximumFractionDigits: 1,
-  })} hrs`;
+  })} hrs`
 }
 
 function formatTimelineDate(value: string) {
   try {
-    return format(parseISO(value), "MMM d");
+    return format(parseISO(value), 'MMM d')
   } catch {
-    return value;
+    return value
   }
 }
 
@@ -88,67 +90,65 @@ function DashboardSkeleton() {
       </div>
       <Skeleton className="h-96" />
     </div>
-  );
+  )
 }
 
 function OverviewCards({ data }: { data: FlightAnalytics }) {
+  const flightTrendData = normalizeRecentMonthlySeries({
+    entries: data.timeline,
+    getMonthKey: (entry) => entry.date.slice(0, 7),
+    getValue: () => 1,
+  })
+
   const items = [
     {
-      title: "Total Flights",
+      title: 'Total Flights',
       value: data.overview.totalFlights.toLocaleString(),
-      description: "Captured flight segments",
+      description: 'Captured flight segments',
       icon: Plane,
+      trendData: flightTrendData,
     },
     {
-      title: "Total Distance",
+      title: 'Total Distance',
       value: formatDistance(data.overview.totalDistanceKm),
-      description: "All enriched routes combined",
+      description: 'All enriched routes combined',
       icon: Globe2,
     },
     {
-      title: "Countries Visited",
+      title: 'Countries Visited',
       value: data.overview.countriesVisited.toLocaleString(),
-      description: "Unique countries touched",
+      description: 'Unique countries touched',
       icon: Flag,
     },
     {
-      title: "Cities Visited",
+      title: 'Cities Visited',
       value: data.overview.citiesVisited.toLocaleString(),
-      description: "Unique airport cities touched",
+      description: 'Unique airport cities touched',
       icon: Map,
     },
     {
-      title: "Total Time Flying",
+      title: 'Total Time Flying',
       value: formatHours(data.overview.totalFlightTimeHours),
-      description: "Summed across known durations",
+      description: 'Summed across known durations',
       icon: Timer,
     },
-  ];
+  ]
 
   return (
     <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-5">
       {items.map((item) => (
-        <Card key={item.title} className="border-border/60">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {item.title}
-            </CardTitle>
-            <span data-slot="badge">
-              <item.icon className="h-4 w-4 text-primary" />
-            </span>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-semibold text-foreground">
-              {item.value}
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {item.description}
-            </p>
-          </CardContent>
-        </Card>
+        <MetricTrendCard
+          key={item.title}
+          className="border-border/60"
+          title={item.title}
+          value={item.value}
+          description={item.description}
+          icon={<item.icon className="h-4 w-4 text-primary" />}
+          trendData={item.trendData}
+        />
       ))}
     </div>
-  );
+  )
 }
 
 function InsightCard({
@@ -156,9 +156,9 @@ function InsightCard({
   value,
   description,
 }: {
-  title: string;
-  value: string;
-  description: string;
+  title: string
+  value: string
+  description: string
 }) {
   return (
     <Card className="border-border/60">
@@ -172,7 +172,7 @@ function InsightCard({
         <p className="mt-2 text-sm text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 function InsightsSection({ data }: { data: FlightAnalytics }) {
@@ -193,7 +193,7 @@ function InsightsSection({ data }: { data: FlightAnalytics }) {
           value={
             data.insights.mostVisitedAirport
               ? `${data.insights.mostVisitedAirport.iata} (${data.insights.mostVisitedAirport.count})`
-              : "No airport data yet"
+              : 'No airport data yet'
           }
           description="Departure and arrival touches both count as airport visits."
         />
@@ -202,7 +202,7 @@ function InsightsSection({ data }: { data: FlightAnalytics }) {
           value={
             data.insights.mostFrequentRoute
               ? `${data.insights.mostFrequentRoute.from} → ${data.insights.mostFrequentRoute.to} (${data.insights.mostFrequentRoute.count})`
-              : "No route data yet"
+              : 'No route data yet'
           }
           description="Repeated segment pair across all captured flights."
         />
@@ -211,7 +211,7 @@ function InsightsSection({ data }: { data: FlightAnalytics }) {
           value={
             data.insights.favoriteAirline
               ? `${data.insights.favoriteAirline.airline} (${data.insights.favoriteAirline.count})`
-              : "No airline data yet"
+              : 'No airline data yet'
           }
           description="Based on airline names present in stored segments."
         />
@@ -220,7 +220,7 @@ function InsightsSection({ data }: { data: FlightAnalytics }) {
           value={
             data.insights.longestFlight
               ? `${data.insights.longestFlight.from} → ${data.insights.longestFlight.to} (${data.insights.longestFlight.distanceKm} km)`
-              : "No distance data yet"
+              : 'No distance data yet'
           }
           description="Great-circle distance from airport coordinates."
         />
@@ -256,11 +256,11 @@ function InsightsSection({ data }: { data: FlightAnalytics }) {
         </Card>
       </div>
     </section>
-  );
+  )
 }
 
 function BreakdownSection({ data }: { data: FlightAnalytics }) {
-  const airportPieData = data.breakdowns.airportFrequency.slice(0, 5);
+  const airportPieData = data.breakdowns.airportFrequency.slice(0, 5)
 
   return (
     <section className="space-y-4">
@@ -481,25 +481,25 @@ function BreakdownSection({ data }: { data: FlightAnalytics }) {
         </Card>
       </div>
     </section>
-  );
+  )
 }
 
 function TimelineSection({ data }: { data: FlightAnalytics }) {
   const groupedTimeline = useMemo(() => {
-    return data.timeline.reduce<Record<string, FlightAnalytics["timeline"]>>(
+    return data.timeline.reduce<Record<string, FlightAnalytics['timeline']>>(
       (accumulator, entry) => {
-        const year = entry.date.slice(0, 4);
-        accumulator[year] ??= [];
-        accumulator[year].push(entry);
-        return accumulator;
+        const year = entry.date.slice(0, 4)
+        accumulator[year] ??= []
+        accumulator[year].push(entry)
+        return accumulator
       },
       {},
-    );
-  }, [data.timeline]);
+    )
+  }, [data.timeline])
 
   const years = Object.keys(groupedTimeline).sort((left, right) =>
     right.localeCompare(left),
-  );
+  )
 
   return (
     <section className="space-y-4 mb-10">
@@ -551,7 +551,7 @@ function TimelineSection({ data }: { data: FlightAnalytics }) {
                                 {entry.airline}
                                 {entry.flightNumber
                                   ? ` ${entry.flightNumber}`
-                                  : ""}
+                                  : ''}
                               </p>
                             </div>
                             <Badge variant="secondary">
@@ -569,14 +569,14 @@ function TimelineSection({ data }: { data: FlightAnalytics }) {
         </CardContent>
       </Card>
     </section>
-  );
+  )
 }
 
 export function FlightAnalyticsDashboard() {
-  const analyticsQuery = useFlightAnalytics();
+  const analyticsQuery = useFlightAnalytics()
 
   if (analyticsQuery.isLoading) {
-    return <DashboardSkeleton />;
+    return <DashboardSkeleton />
   }
 
   if (analyticsQuery.isError || !analyticsQuery.data) {
@@ -587,7 +587,7 @@ export function FlightAnalyticsDashboard() {
           sync is complete.
         </CardContent>
       </Card>
-    );
+    )
   }
 
   if (analyticsQuery.data.overview.totalFlights === 0) {
@@ -606,7 +606,7 @@ export function FlightAnalyticsDashboard() {
           </p>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
@@ -616,5 +616,5 @@ export function FlightAnalyticsDashboard() {
       <BreakdownSection data={analyticsQuery.data} />
       <TimelineSection data={analyticsQuery.data} />
     </div>
-  );
+  )
 }

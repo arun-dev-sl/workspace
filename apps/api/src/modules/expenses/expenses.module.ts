@@ -43,5 +43,6 @@ import { SharedEmailSyncModule } from '@/shared/shared-email-sync.module'
       useClass: MerchantCategoryRuleRepositoryImpl,
     },
   ],
+  exports: [ExpensesService],
 })
 export class ExpensesModule {}

@@ -35,5 +35,6 @@ import { SharedEmailSyncModule } from '@/shared/shared-email-sync.module'
       useClass: GeminiHotelLlmExtractor,
     },
   ],
+  exports: [HotelsService],
 })
 export class HotelsModule {}

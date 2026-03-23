@@ -1,28 +1,49 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { MainLayout } from "@/components/layouts";
+import { useMemo, useState } from 'react'
+import { Plus } from 'lucide-react'
+import { MainLayout } from '@/components/layouts'
+import { useAiPageContext } from '@/features/ai-assistant/ai-assistant-context'
+import { buildHoldingsPageContext } from '@/features/ai-assistant/adapters/holdings-context'
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@workspace/ui/components/ui/tabs";
-import { Button } from "@workspace/ui/components/ui/button";
-import { useHoldings } from "@/features/holdings/api/holdings";
-import { PortfolioSummary } from "@/features/holdings/components/portfolio-summary";
-import { HoldingsTable } from "@/features/holdings/components/holdings-table";
-import { ImportGrowwDialog } from "@/features/holdings/components/import-groww-dialog";
-import { HoldingFormDialog } from "@/features/holdings/components/holding-form-dialog";
+} from '@workspace/ui/components/ui/tabs'
+import { Button } from '@workspace/ui/components/ui/button'
+import {
+  useHoldings,
+  usePortfolioSummary,
+} from '@/features/holdings/api/holdings'
+import type { Holding } from '@workspace/domain'
+import { PortfolioSummary } from '@/features/holdings/components/portfolio-summary'
+import { HoldingsTable } from '@/features/holdings/components/holdings-table'
+import { ImportGrowwDialog } from '@/features/holdings/components/import-groww-dialog'
+import { HoldingFormDialog } from '@/features/holdings/components/holding-form-dialog'
+
+const EMPTY_HOLDINGS: Holding[] = []
 
 export default function HoldingsPage() {
-  const { data: holdings = [], isLoading } = useHoldings();
-  const [addOpen, setAddOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("stocks");
+  const { data: holdings = EMPTY_HOLDINGS, isLoading } = useHoldings()
+  const { data: portfolioSummary } = usePortfolioSummary()
+  const [addOpen, setAddOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('stocks')
 
-  const stockCount = holdings.filter((h) => h.assetType === "stock").length;
-  const mfCount = holdings.filter((h) => h.assetType === "mutual_fund").length;
-  const goldCount = holdings.filter((h) => h.assetType === "gold").length;
-  const pfCount = holdings.filter((h) => h.assetType === "pf").length;
+  const stockCount = holdings.filter((h) => h.assetType === 'stock').length
+  const mfCount = holdings.filter((h) => h.assetType === 'mutual_fund').length
+  const goldCount = holdings.filter((h) => h.assetType === 'gold').length
+  const pfCount = holdings.filter((h) => h.assetType === 'pf').length
+
+  const aiPageContext = useMemo(
+    () =>
+      buildHoldingsPageContext({
+        activeTab,
+        holdings,
+        portfolioSummary,
+      }),
+    [activeTab, holdings, portfolioSummary],
+  )
+
+  useAiPageContext(aiPageContext)
 
   return (
     <MainLayout>
@@ -111,15 +132,15 @@ export default function HoldingsPage() {
         open={addOpen}
         onOpenChange={setAddOpen}
         defaultAssetType={
-          activeTab === "mutual_funds"
-            ? "mutual_fund"
-            : activeTab === "gold"
-              ? "gold"
-              : activeTab === "pf"
-                ? "pf"
-                : "stock"
+          activeTab === 'mutual_funds'
+            ? 'mutual_fund'
+            : activeTab === 'gold'
+              ? 'gold'
+              : activeTab === 'pf'
+                ? 'pf'
+                : 'stock'
         }
       />
     </MainLayout>
-  );
+  )
 }

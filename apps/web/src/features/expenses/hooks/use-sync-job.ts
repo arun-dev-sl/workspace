@@ -9,6 +9,24 @@ import {
 } from '@/features/expenses/api/sync-expenses'
 import type { SyncJob } from '@workspace/domain'
 
+const GMAIL_RECONNECT_REQUIRED_MESSAGE = 'Gmail access has expired. Reconnect Gmail and try again.'
+
+function normalizeSyncErrorMessage(message?: string | null): string {
+  const normalizedMessage = message?.toLowerCase() ?? ''
+
+  if (
+    normalizedMessage.includes('invalid_grant')
+    || normalizedMessage.includes('failed to refresh gmail access token')
+    || normalizedMessage.includes('re-authenticate')
+    || normalizedMessage.includes('gmail not connected')
+    || normalizedMessage.includes('gmail scopes missing')
+  ) {
+    return GMAIL_RECONNECT_REQUIRED_MESSAGE
+  }
+
+  return message ?? 'Sync failed'
+}
+
 interface UseSyncJobOptions {
   onComplete?: (job: SyncJob) => void
   onError?: (error: Error) => void
@@ -102,7 +120,7 @@ export function useSyncJob(options: UseSyncJobOptions = {}): UseSyncJobReturn {
           onComplete?.(updatedJob)
         } else if (updatedJob.status === 'failed') {
           setIsPolling(false)
-          const err = new Error(updatedJob.errorMessage ?? 'Sync failed')
+          const err = new Error(normalizeSyncErrorMessage(updatedJob.errorMessage))
           setError(err)
           onError?.(err)
         }

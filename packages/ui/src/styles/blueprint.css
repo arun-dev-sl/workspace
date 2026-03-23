@@ -1,0 +1,1096 @@
+@layer components {
+  /* ═══════════════════════════════════════════════════════════════
+     DESIGN TOKENS
+     ─────────────────────────────────────────────────────────────
+     All four original vars were cyclic (self-referential fallbacks
+     are invalid in CSS). Defined directly here.
+
+     Two fixed color constants drive the whole theme:
+       --bp-cyan       the bright line / accent / glow source
+       --bp-cyan-dim   grid lines, borders, dimmer structural lines
+     Everything else is derived from the token system + these two.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] {
+    /* tuneable knobs — users can override these */
+    --blueprint-grid-opacity: 0.18;
+    --blueprint-line-weight: 1px;
+    --blueprint-glow: 0.22;
+
+    /* fixed color anchors */
+    --bp-cyan: rgb(44 185 255);
+    --bp-cyan-dim: rgb(93 171 220);
+    --bp-cyan-faint: rgb(110 200 255);
+
+    /* composed glow values at different intensities */
+    --bp-glow-xs: 0 0 8px rgb(44 185 255 / 0.14);
+    --bp-glow-sm: 0 0 14px rgb(44 185 255 / calc(var(--blueprint-glow) * 0.7));
+    --bp-glow-md: 0 0 22px rgb(44 185 255 / var(--blueprint-glow));
+    --bp-glow-lg: 0 0 36px rgb(44 185 255 / calc(var(--blueprint-glow) * 1.5));
+    --bp-glow-focus: 0 0 0 3px rgb(44 185 255 / 0.35);
+
+    /* surface backgrounds */
+    --blueprint-surface: rgb(244 251 255 / 0.94);
+    --blueprint-surface-strong: rgb(234 246 255 / 0.98);
+    --blueprint-surface-foreground: color-mix(
+      in srgb,
+      var(--foreground) 92%,
+      black
+    );
+
+    /* corner registration mark color */
+    --bp-mark: rgb(93 171 220 / 0.55);
+  }
+
+  /* ─── Dark mode ──────────────────────────────────────────────── */
+  /* Classic blueprint: deep navy field, bright cyan lines.        */
+  .dark[data-theme-preset='blueprint'] {
+    --bp-mark: rgb(110 200 255 / 0.45);
+    --blueprint-surface: rgb(10 28 46 / 0.88);
+    --blueprint-surface-strong: rgb(7 20 36 / 0.96);
+    --blueprint-surface-foreground: var(--foreground);
+    --blueprint-grid-opacity: 0.25;
+    --blueprint-glow: 0.28;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     BODY — grid background
+     ─────────────────────────────────────────────────────────────
+     Light mode: graph-paper feel (subtle blue-cyan lines on white)
+     Dark mode:  the canonical architectural blueprint (cyan on navy)
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] body {
+    font-family: var(--font-sans);
+    letter-spacing: var(--tracking-normal);
+    background:
+      linear-gradient(
+        90deg,
+        rgb(110 200 255 / var(--blueprint-grid-opacity))
+          var(--blueprint-line-weight),
+        transparent var(--blueprint-line-weight)
+      ),
+      linear-gradient(
+        180deg,
+        rgb(110 200 255 / var(--blueprint-grid-opacity))
+          var(--blueprint-line-weight),
+        transparent var(--blueprint-line-weight)
+      ),
+      /* accent grid at 5× spacing (major gridlines) */
+        linear-gradient(
+          90deg,
+          rgb(110 200 255 / calc(var(--blueprint-grid-opacity) * 1.6))
+            var(--blueprint-line-weight),
+          transparent var(--blueprint-line-weight)
+        ),
+      linear-gradient(
+        180deg,
+        rgb(110 200 255 / calc(var(--blueprint-grid-opacity) * 1.6))
+          var(--blueprint-line-weight),
+        transparent var(--blueprint-line-weight)
+      ),
+      radial-gradient(
+        ellipse at 50% 0%,
+        rgb(44 185 255 / 0.06),
+        transparent 60%
+      ),
+      var(--background);
+    background-size:
+      36px 36px,
+      36px 36px,
+      180px 180px,
+      180px 180px,
+      auto,
+      auto;
+  }
+
+  /* Subtle top vignette / ambient light */
+  :root[data-theme-preset='blueprint'] body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: linear-gradient(
+      180deg,
+      rgb(44 185 255 / 0.04) 0%,
+      transparent 25%
+    );
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     CORNER REGISTRATION MARKS
+     ─────────────────────────────────────────────────────────────
+     The most distinctive blueprint detail. Small L-shaped marks
+     at each corner of cards and panels, like a technical drawing
+     registration target. Implemented via stacked background gradients
+     on ::after (freeing ::before for the specular tint).
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='card']::after,
+  :root[data-theme-preset='blueprint'] [data-slot='dialog-content']::after,
+  :root[data-theme-preset='blueprint'] [data-slot='sheet-content']::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background:
+      /* top-left: horizontal arm */
+      linear-gradient(var(--bp-mark), var(--bp-mark)) 0 0 / 14px 1px no-repeat,
+      /* top-left: vertical arm */
+        linear-gradient(var(--bp-mark), var(--bp-mark)) 0 0 / 1px 14px no-repeat,
+      /* top-right: horizontal arm */
+        linear-gradient(var(--bp-mark), var(--bp-mark)) 100% 0 / 14px 1px
+        no-repeat,
+      /* top-right: vertical arm */
+        linear-gradient(var(--bp-mark), var(--bp-mark)) 100% 0 / 1px 14px
+        no-repeat,
+      /* bottom-left: horizontal arm */
+        linear-gradient(var(--bp-mark), var(--bp-mark)) 0 100% / 14px 1px
+        no-repeat,
+      /* bottom-left: vertical arm */
+        linear-gradient(var(--bp-mark), var(--bp-mark)) 0 100% / 1px 14px
+        no-repeat,
+      /* bottom-right: horizontal arm */
+        linear-gradient(var(--bp-mark), var(--bp-mark)) 100% 100% / 14px 1px
+        no-repeat,
+      /* bottom-right: vertical arm */
+        linear-gradient(var(--bp-mark), var(--bp-mark)) 100% 100% / 1px 14px
+        no-repeat;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Card
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='card'] {
+    position: relative;
+    overflow: hidden;
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow:
+      var(--bp-glow-sm),
+      inset 0 0 0 1px rgb(255 255 255 / 0.06) !important;
+    transition:
+      box-shadow 220ms ease-out,
+      transform 220ms ease-out;
+  }
+
+  /* Diagonal specular tint — top-left light source */
+  :root[data-theme-preset='blueprint'] [data-slot='card']::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      135deg,
+      rgb(125 229 255 / 0.1),
+      transparent 42%
+    );
+    z-index: 0;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='card']:hover {
+    box-shadow:
+      var(--bp-glow-md),
+      inset 0 0 0 1px rgb(255 255 255 / 0.08) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='card-header'] {
+    border-bottom: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.35);
+    position: relative;
+    z-index: 2;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='card-footer'] {
+    border-top: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.35);
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Ensure card content sits above pseudo-elements */
+  :root[data-theme-preset='blueprint'] [data-slot='card-content'],
+  :root[data-theme-preset='blueprint'] [data-slot='card-header'],
+  :root[data-theme-preset='blueprint'] [data-slot='card-footer'] {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Input / Textarea / Select Trigger
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='input'],
+  :root[data-theme-preset='blueprint'] [data-slot='textarea'],
+  :root[data-theme-preset='blueprint'] [data-slot='select-trigger'] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow:
+      var(--bp-glow-xs),
+      inset 0 0 0 1px rgb(255 255 255 / 0.04) !important;
+    transition:
+      border-color 160ms ease-out,
+      box-shadow 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='input'],
+  :root[data-theme-preset='blueprint'] [data-slot='select-trigger'] {
+    min-height: 2.5rem;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='textarea'] {
+    min-height: 7rem;
+    resize: vertical;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='input']::placeholder,
+  :root[data-theme-preset='blueprint'] [data-slot='textarea']::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='input']:focus-visible,
+  :root[data-theme-preset='blueprint'] [data-slot='textarea']:focus-visible,
+  :root[data-theme-preset='blueprint']
+    [data-slot='select-trigger']:focus-visible {
+    outline: none !important;
+    border-color: var(--bp-cyan) !important;
+    box-shadow:
+      var(--bp-glow-focus),
+      var(--bp-glow-sm),
+      inset 0 0 0 1px rgb(44 185 255 / 0.12) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Select Content / Item
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='select-content'] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface-strong) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow: var(--bp-glow-md) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='select-item'] {
+    transition: background-color 120ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='select-item'][data-highlighted] {
+    background: rgb(44 185 255 / 0.12) !important;
+    color: var(--bp-cyan) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Button — full variant set
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='button'] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: var(--radius) !important;
+    transition:
+      transform 180ms ease-out,
+      box-shadow 180ms ease-out,
+      border-color 180ms ease-out,
+      background-color 180ms ease-out;
+  }
+
+  /* Default / Primary */
+  :root[data-theme-preset='blueprint']
+    [data-slot='button'][data-variant='default'] {
+    background:
+      linear-gradient(180deg, rgb(44 185 255 / 0.22) 0%, transparent 100%),
+      var(--primary) !important;
+    color: var(--primary-foreground) !important;
+    border-color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-md) !important;
+    letter-spacing: 0.04em;
+  }
+
+  /* Secondary */
+  :root[data-theme-preset='blueprint']
+    [data-slot='button'][data-variant='secondary'] {
+    background: var(--blueprint-surface) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    border-color: var(--bp-cyan-dim) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+  }
+
+  /* Outline */
+  :root[data-theme-preset='blueprint']
+    [data-slot='button'][data-variant='outline'] {
+    background: transparent !important;
+    color: var(--bp-cyan) !important;
+    border-color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+  }
+
+  /* Ghost */
+  :root[data-theme-preset='blueprint']
+    [data-slot='button'][data-variant='ghost'] {
+    background: transparent !important;
+    color: var(--blueprint-surface-foreground) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='button'][data-variant='ghost']:hover {
+    border-color: rgb(93 171 220 / 0.45) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+  }
+
+  /* Destructive */
+  :root[data-theme-preset='blueprint']
+    [data-slot='button'][data-variant='destructive'] {
+    background: var(--destructive) !important;
+    color: var(--destructive-foreground) !important;
+    border-color: var(--destructive) !important;
+    box-shadow: 0 0 18px rgb(239 68 68 / 0.28) !important;
+  }
+
+  /* Link */
+  :root[data-theme-preset='blueprint']
+    [data-slot='button'][data-variant='link'] {
+    background: transparent !important;
+    color: var(--bp-cyan) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  /* Hover — glow strengthens, element lifts slightly */
+  :root[data-theme-preset='blueprint']
+    [data-slot='button']:not([data-variant='link']):not(
+      [data-variant='ghost']
+    ):hover {
+    transform: translateY(-1px);
+    box-shadow: var(--bp-glow-lg) !important;
+    border-color: var(--bp-cyan) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='button']:not([data-variant='link']):active {
+    transform: translateY(0.5px);
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='button']:focus-visible {
+    outline: none !important;
+    box-shadow: var(--bp-glow-focus), var(--bp-glow-md) !important;
+    border-color: var(--bp-cyan) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='button'][data-size='icon'] {
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Tabs
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='tabs-list'] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.4) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface-strong) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow:
+      var(--bp-glow-xs),
+      inset 0 0 0 1px rgb(255 255 255 / 0.06) !important;
+    padding: 0.25rem;
+    height: auto;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='tabs-trigger'] {
+    color: var(--blueprint-surface-foreground) !important;
+    letter-spacing: 0.04em;
+    transition:
+      background-color 160ms ease-out,
+      box-shadow 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='tabs-trigger'][data-state='active'] {
+    background: color-mix(in srgb, var(--bp-cyan) 18%, var(--card)) !important;
+    color: var(--bp-cyan) !important;
+    box-shadow:
+      var(--bp-glow-sm),
+      inset 0 0 0 1px rgb(44 185 255 / 0.22) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='tabs-trigger']:focus-visible {
+    outline: none !important;
+    box-shadow: var(--bp-glow-focus) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Badge
+     ─────────────────────────────────────────────────────────────
+     Was hardcoded dark navy for all variants. Now properly token-
+     aware with a consistent cyan-accent treatment for default.
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='badge'] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: calc(var(--radius) * 0.75) !important;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+    box-shadow: var(--bp-glow-xs);
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='default'] {
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 15%,
+      var(--blueprint-surface-strong)
+    ) !important;
+    color: var(--bp-cyan) !important;
+    border-color: var(--bp-cyan) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='secondary'] {
+    background: var(--blueprint-surface) !important;
+    color: var(--blueprint-surface-foreground) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='outline'] {
+    background: transparent !important;
+    color: var(--bp-cyan-dim) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='destructive'],
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='error'],
+  :root[data-theme-preset='blueprint'] [data-slot='badge'][data-variant='red'] {
+    background: rgb(239 68 68 / 0.15) !important;
+    color: rgb(248 113 113) !important;
+    border-color: rgb(239 68 68 / 0.5) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='success'] {
+    background: rgb(34 197 94 / 0.15) !important;
+    color: rgb(74 222 128) !important;
+    border-color: rgb(34 197 94 / 0.5) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='warning'] {
+    background: rgb(245 158 11 / 0.15) !important;
+    color: rgb(251 191 36) !important;
+    border-color: rgb(245 158 11 / 0.5) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='badge'][data-variant='info'] {
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 12%,
+      var(--blueprint-surface)
+    ) !important;
+    color: var(--bp-cyan) !important;
+    border-color: rgb(44 185 255 / 0.45) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Progress
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='progress'] {
+    height: 0.6rem;
+    border-radius: var(--radius) !important;
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.4) !important;
+    background: var(--blueprint-surface-strong) !important;
+    box-shadow: inset var(--bp-glow-xs) !important;
+    padding: 1px;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='progress-indicator'] {
+    border-radius: inherit !important;
+    background: linear-gradient(
+      90deg,
+      var(--bp-cyan-dim),
+      var(--bp-cyan)
+    ) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+    transition: all 440ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Dialog / Sheet / Drawer
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='dialog-content'],
+  :root[data-theme-preset='blueprint'] [data-slot='sheet-content'],
+  :root[data-theme-preset='blueprint'] [data-slot='drawer-content'] {
+    position: relative;
+    overflow: hidden;
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    background: var(--blueprint-surface-strong) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow:
+      var(--bp-glow-lg),
+      inset 0 0 0 1px rgb(255 255 255 / 0.05) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='dialog-content'] {
+    border-radius: var(--radius) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='drawer-content'] {
+    border-radius: var(--radius) var(--radius) 0 0 !important;
+    box-shadow:
+      0 -8px 36px rgb(44 185 255 / calc(var(--blueprint-glow) * 1.2)),
+      inset 0 0 0 1px rgb(255 255 255 / 0.05) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Dropdown Menu / Popover
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='dropdown-menu-content'],
+  :root[data-theme-preset='blueprint'] [data-slot='popover-content'] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface-strong) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow: var(--bp-glow-md) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='dropdown-menu-item'] {
+    transition:
+      background-color 120ms ease-out,
+      color 120ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='dropdown-menu-item']:focus,
+  :root[data-theme-preset='blueprint']
+    [data-slot='dropdown-menu-item'][data-highlighted] {
+    background: rgb(44 185 255 / 0.1) !important;
+    color: var(--bp-cyan) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Tooltip
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='tooltip-content'] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: calc(var(--radius) * 0.75) !important;
+    background: var(--blueprint-surface-strong) !important;
+    color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    font-weight: 500;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Calendar
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='calendar'] {
+    color: var(--blueprint-surface-foreground);
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-nav-button,
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-day-button {
+    border-radius: var(--radius) !important;
+    border: var(--blueprint-line-weight) solid transparent !important;
+    transition:
+      border-color 140ms ease-out,
+      box-shadow 140ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-day-button:hover,
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-nav-button:hover {
+    border-color: rgb(93 171 220 / 0.45) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-day-selected,
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-day-range-start,
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-day-range-end {
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 20%,
+      var(--blueprint-surface)
+    ) !important;
+    color: var(--bp-cyan) !important;
+    border-color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-range-middle {
+    background: rgb(44 185 255 / 0.08) !important;
+    color: var(--blueprint-surface-foreground) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-day-today:not(.calendar-day-selected) {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='calendar']
+    .calendar-weekday {
+    color: var(--bp-cyan-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Switch
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='switch'] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.5) !important;
+    border-radius: 9999px !important;
+    background: var(--blueprint-surface-strong) !important;
+    box-shadow: inset var(--bp-glow-xs) !important;
+    transition:
+      background-color 220ms ease-out,
+      border-color 220ms ease-out,
+      box-shadow 220ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='switch'][data-state='checked'] {
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 28%,
+      var(--blueprint-surface)
+    ) !important;
+    border-color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='switch-thumb'] {
+    background: rgb(255 255 255 / 0.92) !important;
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.2) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Checkbox
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='checkbox'] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.55) !important;
+    border-radius: calc(var(--radius) * 0.35) !important;
+    background: var(--blueprint-surface-strong) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+    width: 1.2rem;
+    height: 1.2rem;
+    transition:
+      border-color 160ms ease-out,
+      background-color 160ms ease-out,
+      box-shadow 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='checkbox'][data-state='checked'],
+  :root[data-theme-preset='blueprint']
+    [data-slot='checkbox'][data-state='indeterminate'] {
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 30%,
+      var(--blueprint-surface)
+    ) !important;
+    border-color: var(--bp-cyan) !important;
+    color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='checkbox']:focus-visible {
+    outline: none !important;
+    box-shadow: var(--bp-glow-focus) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Slider
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='slider-track'] {
+    height: 0.35rem !important;
+    border-radius: 9999px !important;
+    background: var(--blueprint-surface-strong) !important;
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.4) !important;
+    box-shadow: inset var(--bp-glow-xs) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='slider-range'] {
+    background: linear-gradient(
+      90deg,
+      var(--bp-cyan-dim),
+      var(--bp-cyan)
+    ) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='slider-thumb'] {
+    width: 1.2rem !important;
+    height: 1.2rem !important;
+    border-radius: 9999px !important;
+    border: var(--blueprint-line-weight) solid var(--bp-cyan) !important;
+    background: var(--blueprint-surface-strong) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+    transition:
+      box-shadow 160ms ease-out,
+      transform 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='slider-thumb']:hover {
+    box-shadow: var(--bp-glow-md) !important;
+    transform: scale(1.15);
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='slider-thumb']:focus-visible {
+    outline: none !important;
+    box-shadow: var(--bp-glow-focus), var(--bp-glow-md) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Toggle
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='toggle'] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.4) !important;
+    border-radius: var(--radius) !important;
+    background: transparent !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow: none;
+    transition:
+      border-color 160ms ease-out,
+      box-shadow 160ms ease-out,
+      background-color 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='toggle']:hover {
+    border-color: var(--bp-cyan-dim) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='toggle'][data-state='on'] {
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 16%,
+      var(--blueprint-surface)
+    ) !important;
+    border-color: var(--bp-cyan) !important;
+    color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Alert
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='alert'] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='alert'][data-variant='destructive'] {
+    border-color: rgb(239 68 68 / 0.55) !important;
+    background: rgb(239 68 68 / 0.08) !important;
+    color: rgb(248 113 113) !important;
+    box-shadow: 0 0 16px rgb(239 68 68 / 0.14) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='alert'][data-variant='destructive']
+    > svg {
+    color: rgb(248 113 113) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Accordion
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='accordion-item'] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.35) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface) !important;
+    box-shadow: var(--bp-glow-xs);
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='accordion-trigger'] {
+    color: var(--blueprint-surface-foreground) !important;
+    letter-spacing: 0.03em;
+    transition:
+      color 160ms ease-out,
+      background-color 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='accordion-trigger']:hover {
+    color: var(--bp-cyan) !important;
+    background: rgb(44 185 255 / 0.05) !important;
+    text-decoration: none !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='accordion-content'] {
+    background: var(--blueprint-surface-strong) !important;
+    border-top: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.25);
+    color: var(--blueprint-surface-foreground) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Avatar
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='avatar'] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.5);
+    border-radius: 9999px !important;
+    box-shadow: var(--bp-glow-sm);
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='avatar-fallback'] {
+    background: var(--blueprint-surface-strong) !important;
+    color: var(--bp-cyan) !important;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Skeleton
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='skeleton'] {
+    border-radius: var(--radius) !important;
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.3);
+    background: var(--blueprint-surface) !important;
+    /* Scan-line sweep — more appropriate than a color pulse */
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      transparent 35%,
+      rgb(44 185 255 / 0.1) 50%,
+      transparent 65%,
+      transparent 100%
+    ) !important;
+    background-size: 250% 100% !important;
+    animation: blueprint-skeleton-scan 2s ease-in-out infinite;
+  }
+
+  @keyframes blueprint-skeleton-scan {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Table
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='table'] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.4) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface) !important;
+    overflow: hidden;
+    box-shadow: var(--bp-glow-xs);
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='table-header'] {
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 10%,
+      var(--blueprint-surface-strong)
+    ) !important;
+    border-bottom: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.5) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='table-head'] {
+    color: var(--bp-cyan) !important;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-right: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.2);
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='table-head']:last-child {
+    border-right: 0;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='table-row'] {
+    border-bottom: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.2) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    transition: background-color 120ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='table-row']:hover {
+    background: rgb(44 185 255 / 0.05) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='table-row'][data-state='selected'] {
+    background: rgb(44 185 255 / 0.1) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='table-cell'] {
+    border-right: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.12);
+  }
+
+  :root[data-theme-preset='blueprint'] [data-slot='table-cell']:last-child {
+    border-right: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Separator
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='separator'] {
+    background: none !important;
+    height: 1px !important;
+    /* Dashed separator — annotation line, distinctive blueprint detail */
+    background-image: linear-gradient(
+      90deg,
+      rgb(93 171 220 / 0.6) 60%,
+      transparent 60%
+    ) !important;
+    background-size: 8px 1px !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-slot='separator'][data-orientation='vertical'] {
+    height: auto !important;
+    width: 1px !important;
+    background-image: linear-gradient(
+      180deg,
+      rgb(93 171 220 / 0.6) 60%,
+      transparent 60%
+    ) !important;
+    background-size: 1px 8px !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Sidebar
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-slot='sidebar'] {
+    background: var(--blueprint-surface-strong) !important;
+    border-right: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.4) !important;
+    box-shadow:
+      var(--bp-glow-sm),
+      4px 0 24px rgb(44 185 255 / 0.06) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Sonner Toasts
+     ═══════════════════════════════════════════════════════════════ */
+  :root[data-theme-preset='blueprint'] [data-sonner-toast] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan-dim) !important;
+    border-radius: var(--radius) !important;
+    background: var(--blueprint-surface-strong) !important;
+    color: var(--blueprint-surface-foreground) !important;
+    box-shadow: var(--bp-glow-md) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-sonner-toast][data-type='success'] {
+    border-color: rgb(34 197 94 / 0.5) !important;
+    background: rgb(34 197 94 / 0.08) !important;
+    color: rgb(74 222 128) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-sonner-toast][data-type='error'] {
+    border-color: rgb(239 68 68 / 0.5) !important;
+    background: rgb(239 68 68 / 0.08) !important;
+    color: rgb(248 113 113) !important;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-sonner-toast][data-type='warning'] {
+    border-color: rgb(245 158 11 / 0.5) !important;
+    background: rgb(245 158 11 / 0.08) !important;
+    color: rgb(251 191 36) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-sonner-toast][data-type='info'] {
+    border-color: var(--bp-cyan-dim) !important;
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 8%,
+      var(--blueprint-surface-strong)
+    ) !important;
+    color: var(--bp-cyan) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-sonner-toast] [data-description] {
+    color: var(--muted-foreground) !important;
+    opacity: 0.8;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-sonner-toast] [data-close-button] {
+    border: var(--blueprint-line-weight) solid rgb(93 171 220 / 0.45) !important;
+    border-radius: calc(var(--radius) * 0.6) !important;
+    background: var(--blueprint-surface) !important;
+    color: var(--bp-cyan-dim) !important;
+    box-shadow: var(--bp-glow-xs) !important;
+    transition:
+      box-shadow 160ms ease-out,
+      border-color 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint']
+    [data-sonner-toast]
+    [data-close-button]:hover {
+    border-color: var(--bp-cyan) !important;
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-sonner-toast] [data-button] {
+    border: var(--blueprint-line-weight) solid var(--bp-cyan) !important;
+    border-radius: calc(var(--radius) * 0.6) !important;
+    background: color-mix(
+      in srgb,
+      var(--bp-cyan) 16%,
+      var(--blueprint-surface)
+    ) !important;
+    color: var(--bp-cyan) !important;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    box-shadow: var(--bp-glow-xs) !important;
+    transition: box-shadow 160ms ease-out;
+  }
+
+  :root[data-theme-preset='blueprint'] [data-sonner-toast] [data-button]:hover {
+    box-shadow: var(--bp-glow-sm) !important;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     Reduced motion
+     ═══════════════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: reduce) {
+    :root[data-theme-preset='blueprint'] [data-slot='skeleton'] {
+      animation: none;
+    }
+
+    :root[data-theme-preset='blueprint'] [data-slot='button'],
+    :root[data-theme-preset='blueprint'] [data-slot='card'],
+    :root[data-theme-preset='blueprint'] [data-slot='toggle'],
+    :root[data-theme-preset='blueprint'] [data-slot='checkbox'],
+    :root[data-theme-preset='blueprint'] [data-slot='slider-thumb'],
+    :root[data-theme-preset='blueprint'] [data-slot='switch'] {
+      transition: none;
+    }
+  }
+}

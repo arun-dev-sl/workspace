@@ -57,7 +57,7 @@ const ChartContainer = ({
   >['children']
 } & { ref?: React.RefObject<HTMLDivElement | null> }) => {
   const uniqueId = React.useId()
-  const chartId = `chart-${id || uniqueId.replaceAll(':', '')}`
+  const chartId = `chart-${id || uniqueId.split(':').join('')}`
   const slot = chartType === 'pie' ? 'chart-pie' : 'chart'
 
   return (

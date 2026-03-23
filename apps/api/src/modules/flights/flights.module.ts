@@ -47,5 +47,6 @@ import { SharedEmailSyncModule } from '@/shared/shared-email-sync.module'
       useClass: GeminiFlightLlmExtractor,
     },
   ],
+  exports: [FlightAnalyticsService],
 })
 export class FlightsModule {}

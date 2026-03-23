@@ -364,10 +364,22 @@ export class ExpensesController {
   @Get('analytics/summary')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Spending summary for a period' })
+  @ApiQuery({ name: 'startDate', required: false, type: String, description: 'Explicit start date (YYYY-MM-DD)' })
+  @ApiQuery({ name: 'endDate', required: false, type: String, description: 'Explicit end date (YYYY-MM-DD)' })
   async getAnalyticsSummary(
     @Request() req: FastifyRequest & { user: { id: string } },
     @Query('period') period: AnalyticsPeriod = 'month',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
   ) {
+    if (startDate && endDate) {
+      return this.expensesService.getSpendingSummaryForDateRange(
+        req.user.id,
+        startDate,
+        endDate,
+      )
+    }
+
     return this.expensesService.getSpendingSummary(req.user.id, period)
   }
 

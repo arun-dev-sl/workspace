@@ -1,17 +1,20 @@
-import { Wallet, Loader2 } from "lucide-react";
-import { Card, CardContent } from "@workspace/ui/components/ui/card";
+import { Wallet, Loader2 } from 'lucide-react'
+import { Card, CardContent } from '@workspace/ui/components/ui/card'
+import { useMemo } from 'react'
 
-import { usePrincipalAnalytics } from "../api/principal";
+import { useAiPageContext } from '@/features/ai-assistant/ai-assistant-context'
+import { buildPrincipalPageContext } from '@/features/ai-assistant/adapters/principal-context'
+import { usePrincipalAnalytics } from '../api/principal'
 
-import { ImportPrincipalDialog } from "./import-principal-dialog";
-import { PrincipalKpiCards } from "./principal-kpi-cards";
-import { MonthlyInvestmentChart } from "./monthly-investment-chart";
-import { CumulativeInvestmentChart } from "./cumulative-investment-chart";
-import { AssetDonutChart } from "./asset-donut-chart";
-import { MilestoneProjectionsTable } from "./milestone-projections-table";
-import { InvestmentInsights } from "./investment-insights";
-import { ContributionsTable } from "./contributions-table";
-import { DistributionTable } from "./distribution-table";
+import { ImportPrincipalDialog } from './import-principal-dialog'
+import { PrincipalKpiCards } from './principal-kpi-cards'
+import { MonthlyInvestmentChart } from './monthly-investment-chart'
+import { CumulativeInvestmentChart } from './cumulative-investment-chart'
+import { AssetDonutChart } from './asset-donut-chart'
+import { MilestoneProjectionsTable } from './milestone-projections-table'
+import { InvestmentInsights } from './investment-insights'
+import { ContributionsTable } from './contributions-table'
+import { DistributionTable } from './distribution-table'
 
 // ── Empty State ──
 
@@ -32,7 +35,7 @@ function PrincipalEmptyState() {
         </div>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── Loading State ──
@@ -47,47 +50,58 @@ function PrincipalLoadingState() {
         </p>
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── Main Tab Component ──
 
 export function PrincipalInvestmentTab() {
-  const { data: analytics, isLoading } = usePrincipalAnalytics();
+  const { data: analytics, isLoading } = usePrincipalAnalytics()
+  const aiPageContext = useMemo(
+    () => (analytics ? buildPrincipalPageContext({ analytics }) : null),
+    [analytics],
+  )
+
+  useAiPageContext(aiPageContext)
 
   if (isLoading) {
-    return <PrincipalLoadingState />;
+    return <PrincipalLoadingState />
   }
 
   if (!analytics) {
-    return <PrincipalEmptyState />;
+    return <PrincipalEmptyState />
   }
 
   const { data, contributionMetrics, distributionMetrics, milestones } =
-    analytics;
+    analytics
 
-  const hasContributions = data.contributions.length > 0;
-  const hasDistribution = data.distribution.length > 0;
+  const hasContributions = data.contributions.length > 0
+  const hasDistribution = data.distribution.length > 0
 
   return (
     <div className="space-y-6">
       {/* Action Bar */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Last updated:{" "}
-          {new Date(data.updatedAt).toLocaleDateString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
+          Last updated:{' '}
+          {new Date(data.updatedAt).toLocaleDateString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
           })}
         </p>
         <ImportPrincipalDialog />
       </div>
 
       {/* KPI Cards */}
-      {hasContributions && <PrincipalKpiCards metrics={contributionMetrics} />}
+      {hasContributions && (
+        <PrincipalKpiCards
+          metrics={contributionMetrics}
+          contributions={data.contributions}
+        />
+      )}
 
       {/* Charts Row 1: Monthly + Cumulative */}
       {hasContributions && (
@@ -126,5 +140,5 @@ export function PrincipalInvestmentTab() {
         />
       )}
     </div>
-  );
+  )
 }

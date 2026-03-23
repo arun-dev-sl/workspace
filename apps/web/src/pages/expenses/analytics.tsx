@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { format, parseISO } from "date-fns";
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { format, parseISO, subDays } from 'date-fns'
 import {
   Area,
   AreaChart,
@@ -15,11 +15,15 @@ import {
   PieChart,
   XAxis,
   YAxis,
-} from "recharts";
+} from 'recharts'
 
-import { MainLayout } from "@/components/layouts";
+import { MainLayout } from '@/components/layouts'
+import { MetricTrendCard } from '@/components/metric-trend-card'
+import { useAiPageContext } from '@/features/ai-assistant/ai-assistant-context'
+import { buildExpensesAnalyticsPageContext } from '@/features/ai-assistant/adapters/expenses-analytics-context'
 import {
   fetchSpendingSummary,
+  fetchSpendingSummaryForDate,
   fetchSpendingByCategory,
   fetchSpendingByMode,
   fetchTopMerchants,
@@ -36,8 +40,13 @@ import {
   fetchSpendingVelocity,
   fetchMilestoneEtas,
   fetchLargestTransactions,
-} from "@/features/expenses/api/analytics";
-import { useSyncJob } from "@/features/expenses/hooks/use-sync-job";
+} from '@/features/expenses/api/analytics'
+import { listExpenses } from '@/features/expenses/api/list-expenses'
+import { useSyncJob } from '@/features/expenses/hooks/use-sync-job'
+import {
+  takeLastMetricTrendPoints,
+  type MetricTrendPoint,
+} from '@/lib/metric-trends'
 
 import type {
   AnalyticsPeriod,
@@ -45,17 +54,24 @@ import type {
   MilestoneEta,
   MilestoneProgress,
   PeriodComparison,
-} from "@workspace/domain";
+  Transaction,
+} from '@workspace/domain'
 
-import { Badge } from "@workspace/ui/components/ui/badge";
-import { Button } from "@workspace/ui/components/ui/button";
+import { Badge } from '@workspace/ui/components/ui/badge'
+import { Button } from '@workspace/ui/components/ui/button'
+import { Calendar as CalendarPicker } from '@workspace/ui/components/ui/calendar'
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@workspace/ui/components/ui/card";
+} from '@workspace/ui/components/ui/card'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@workspace/ui/components/ui/popover'
 import {
   type ChartConfig,
   ChartContainer,
@@ -63,8 +79,14 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-} from "@workspace/ui/components/ui/chart";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
+} from '@workspace/ui/components/ui/chart'
+import { Skeleton } from '@workspace/ui/components/ui/skeleton'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@workspace/ui/components/ui/tabs'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -79,171 +101,216 @@ import {
   TrendingDown,
   TrendingUp,
   Zap,
-} from "lucide-react";
-import { Separator } from "@workspace/ui/components/ui/separator";
+} from 'lucide-react'
+import { Separator } from '@workspace/ui/components/ui/separator'
+import { cn } from '@workspace/ui/lib/utils'
 
 // ── Helpers ──
 
 const PERIODS: { label: string; value: AnalyticsPeriod }[] = [
-  { label: "7 days", value: "week" },
-  { label: "30 days", value: "month" },
-  { label: "90 days", value: "quarter" },
-  { label: "1 year", value: "year" },
-];
+  { label: '7 days', value: 'week' },
+  { label: '30 days', value: 'month' },
+  { label: '90 days', value: 'quarter' },
+  { label: '1 year', value: 'year' },
+]
 
 const CHART_TOKEN_COLORS = [
-  "var(--color-chart-1)",
-  "var(--color-chart-2)",
-  "var(--color-chart-3)",
-  "var(--color-chart-4)",
-  "var(--color-chart-5)",
-];
+  'var(--color-chart-1)',
+  'var(--color-chart-2)',
+  'var(--color-chart-3)',
+  'var(--color-chart-4)',
+  'var(--color-chart-5)',
+]
 
 const getChartTokenColor = (index: number) =>
-  CHART_TOKEN_COLORS[index % CHART_TOKEN_COLORS.length]!;
+  CHART_TOKEN_COLORS[index % CHART_TOKEN_COLORS.length]!
 
 const fmtCurrency = (n: number) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(n);
+  }).format(n)
 
 const fmtCompact = (n: number) =>
-  new Intl.NumberFormat("en-IN", {
-    notation: "compact",
+  new Intl.NumberFormat('en-IN', {
+    notation: 'compact',
     maximumFractionDigits: 1,
-  }).format(n);
+  }).format(n)
 
 // ── Component ──
 
 const AnalyticsPage = () => {
-  const [period, setPeriod] = useState<AnalyticsPeriod>("month");
-  const queryClient = useQueryClient();
+  const [period, setPeriod] = useState<AnalyticsPeriod>('month')
+  const [selectedDate, setSelectedDate] = useState(() =>
+    format(new Date(), 'yyyy-MM-dd'),
+  )
+  const queryClient = useQueryClient()
 
   const { startReprocess, job, isSyncing } = useSyncJob({
     onComplete: () => {
       // Refresh all analytics queries after reprocess
-      queryClient.invalidateQueries({ queryKey: ["expenses", "analytics"] });
+      queryClient.invalidateQueries({ queryKey: ['expenses', 'analytics'] })
     },
-  });
+  })
 
   const summaryQ = useQuery({
-    queryKey: ["expenses", "analytics", "summary", period],
+    queryKey: ['expenses', 'analytics', 'summary', period],
     queryFn: () => fetchSpendingSummary(period),
-  });
+  })
 
   const categoryQ = useQuery({
-    queryKey: ["expenses", "analytics", "by-category", period],
+    queryKey: ['expenses', 'analytics', 'by-category', period],
     queryFn: () => fetchSpendingByCategory(period),
-  });
+  })
 
   const modeQ = useQuery({
-    queryKey: ["expenses", "analytics", "by-mode", period],
+    queryKey: ['expenses', 'analytics', 'by-mode', period],
     queryFn: () => fetchSpendingByMode(period),
-  });
+  })
 
   const merchantQ = useQuery({
-    queryKey: ["expenses", "analytics", "top-merchants", period],
+    queryKey: ['expenses', 'analytics', 'top-merchants', period],
     queryFn: () => fetchTopMerchants(period),
-  });
+  })
 
   const dailyQ = useQuery({
-    queryKey: ["expenses", "analytics", "daily", period],
+    queryKey: ['expenses', 'analytics', 'daily', period],
     queryFn: () => fetchDailySpending(period),
-  });
+  })
 
   const trendQ = useQuery({
-    queryKey: ["expenses", "analytics", "monthly-trend"],
+    queryKey: ['expenses', 'analytics', 'monthly-trend'],
     queryFn: () => fetchMonthlyTrend(12),
-  });
+  })
 
   const cardQ = useQuery({
-    queryKey: ["expenses", "analytics", "by-card", period],
+    queryKey: ['expenses', 'analytics', 'by-card', period],
     queryFn: () => fetchSpendingByCard(period),
-  });
+  })
 
   // ── Extended analytics queries ──
 
   const dayOfWeekQ = useQuery({
-    queryKey: ["expenses", "analytics", "day-of-week", period],
+    queryKey: ['expenses', 'analytics', 'day-of-week', period],
     queryFn: () => fetchDayOfWeekSpending(period),
-  });
+  })
 
   const categoryTrendQ = useQuery({
-    queryKey: ["expenses", "analytics", "category-trend"],
+    queryKey: ['expenses', 'analytics', 'category-trend'],
     queryFn: () => fetchCategoryTrend(6),
-  });
+  })
 
   const periodComparisonQ = useQuery({
-    queryKey: ["expenses", "analytics", "period-comparison", period],
+    queryKey: ['expenses', 'analytics', 'period-comparison', period],
     queryFn: () => fetchPeriodComparison(period),
-  });
+  })
 
   const cumulativeQ = useQuery({
-    queryKey: ["expenses", "analytics", "cumulative", period],
+    queryKey: ['expenses', 'analytics', 'cumulative', period],
     queryFn: () => fetchCumulativeSpend(period),
-  });
+  })
 
   const savingsRateQ = useQuery({
-    queryKey: ["expenses", "analytics", "savings-rate"],
+    queryKey: ['expenses', 'analytics', 'savings-rate'],
     queryFn: () => fetchSavingsRate(6),
-  });
+  })
 
   const cardCategoriesQ = useQuery({
-    queryKey: ["expenses", "analytics", "card-categories", period],
+    queryKey: ['expenses', 'analytics', 'card-categories', period],
     queryFn: () => fetchCardCategories(period),
-  });
+  })
 
   const topVpasQ = useQuery({
-    queryKey: ["expenses", "analytics", "top-vpas", period],
+    queryKey: ['expenses', 'analytics', 'top-vpas', period],
     queryFn: () => fetchTopVpas(period, 10),
-  });
+  })
 
   const velocityQ = useQuery({
-    queryKey: ["expenses", "analytics", "velocity", period],
+    queryKey: ['expenses', 'analytics', 'velocity', period],
     queryFn: () => fetchSpendingVelocity(period),
-  });
+  })
 
   const milestoneEtaQ = useQuery({
-    queryKey: ["expenses", "analytics", "milestone-etas"],
+    queryKey: ['expenses', 'analytics', 'milestone-etas'],
     queryFn: () => fetchMilestoneEtas(),
-  });
+  })
 
   const largestQ = useQuery({
-    queryKey: ["expenses", "analytics", "largest", period],
+    queryKey: ['expenses', 'analytics', 'largest', period],
     queryFn: () => fetchLargestTransactions(period, 10),
-  });
+  })
 
-  const summary = summaryQ.data;
+  const daySummaryQ = useQuery({
+    queryKey: ['expenses', 'analytics', 'day-summary', selectedDate],
+    queryFn: () => fetchSpendingSummaryForDate(selectedDate),
+    enabled: Boolean(selectedDate),
+  })
+
+  const dayTransactionsQ = useQuery({
+    queryKey: ['expenses', 'analytics', 'day-transactions', selectedDate],
+    queryFn: () =>
+      listExpenses({
+        page: 1,
+        page_size: 100,
+        date_from: selectedDate,
+        date_to: selectedDate,
+      }),
+    enabled: Boolean(selectedDate),
+  })
+
+  const aiPageContext = useMemo(
+    () =>
+      buildExpensesAnalyticsPageContext({
+        period,
+        summary: summaryQ.data,
+      }),
+    [period, summaryQ.data],
+  )
+
+  useAiPageContext(aiPageContext)
+
+  const summary = summaryQ.data
+  const recentSpentTrend = takeLastMetricTrendPoints(
+    (trendQ.data ?? []).map((item) => ({
+      label: item.month,
+      value: item.debited,
+    })),
+  )
+  const recentReceivedTrend = takeLastMetricTrendPoints(
+    (trendQ.data ?? []).map((item) => ({
+      label: item.month,
+      value: item.credited,
+    })),
+  )
 
   const categoryChartData = (categoryQ.data ?? []).map((category, index) => ({
     ...category,
     chartColor: getChartTokenColor(index),
-  }));
+  }))
 
   const modeChartData = (modeQ.data ?? []).map((mode, index) => ({
     ...mode,
     chartColor: getChartTokenColor(index),
-  }));
+  }))
 
   const cardChartData = (cardQ.data ?? []).map((card, index) => ({
     ...card,
     chartColor: getChartTokenColor(index),
-  }));
+  }))
 
   // ── Chart configs ──
 
   const dailyChartConfig: ChartConfig = {
-    debited: { label: "Spent", color: "var(--color-chart-1)" },
-    credited: { label: "Received", color: "var(--color-chart-2)" },
-  };
+    debited: { label: 'Spent', color: 'var(--color-chart-1)' },
+    credited: { label: 'Received', color: 'var(--color-chart-2)' },
+  }
 
   const trendChartConfig: ChartConfig = {
-    debited: { label: "Spent", color: "var(--color-chart-1)" },
-    credited: { label: "Received", color: "var(--color-chart-2)" },
-    net: { label: "Net", color: "var(--color-chart-3)" },
-  };
+    debited: { label: 'Spent', color: 'var(--color-chart-1)' },
+    credited: { label: 'Received', color: 'var(--color-chart-2)' },
+    net: { label: 'Net', color: 'var(--color-chart-3)' },
+  }
 
   // Build category pie chart config
   const categoryChartConfig: ChartConfig = Object.fromEntries(
@@ -251,63 +318,71 @@ const AnalyticsPage = () => {
       c.category,
       { label: c.displayName, color: c.chartColor },
     ]),
-  );
+  )
 
   const modeChartConfig: ChartConfig = Object.fromEntries(
     modeChartData.map((m) => [
       m.mode,
       {
-        label: m.mode.replace(/_/g, " "),
+        label: m.mode.replace(/_/g, ' '),
         color: m.chartColor,
       },
     ]),
-  );
+  )
 
   // ── Extended chart configs ──
 
   const dayOfWeekConfig: ChartConfig = {
-    amount: { label: "Spent", color: "var(--color-chart-1)" },
-  };
+    amount: { label: 'Spent', color: 'var(--color-chart-1)' },
+  }
 
   const cumulativeConfig: ChartConfig = {
-    cumulative: { label: "Cumulative Spend", color: "var(--color-chart-1)" },
-  };
+    cumulative: { label: 'Cumulative Spend', color: 'var(--color-chart-1)' },
+  }
 
   const savingsRateConfig: ChartConfig = {
-    income: { label: "Income", color: "var(--color-chart-2)" },
-    expenses: { label: "Expenses", color: "var(--color-chart-1)" },
-    savingsRate: { label: "Savings Rate %", color: "var(--color-chart-3)" },
-  };
+    income: { label: 'Income', color: 'var(--color-chart-2)' },
+    expenses: { label: 'Expenses', color: 'var(--color-chart-1)' },
+    savingsRate: { label: 'Savings Rate %', color: 'var(--color-chart-3)' },
+  }
 
   const velocityConfig: ChartConfig = {
-    velocity: { label: "₹/day (7d avg)", color: "var(--color-chart-4)" },
-  };
+    velocity: { label: '₹/day (7d avg)', color: 'var(--color-chart-4)' },
+  }
 
   // Build category trend config from the data
   const trendCategories = [
     ...new Set((categoryTrendQ.data ?? []).map((d) => d.category)),
-  ];
+  ]
   const categoryTrendConfig: ChartConfig = Object.fromEntries(
     trendCategories.map((cat, i) => [
       cat,
       {
-        label: cat.replace(/_/g, " "),
+        label: cat.replace(/_/g, ' '),
         color: getChartTokenColor(i),
       },
     ]),
-  );
+  )
 
   // Pivot category trend data for multi-line chart: { month, cat1: amount, cat2: amount, ... }
   const categoryTrendPivoted = (() => {
-    const byMonth = new Map<string, Record<string, number>>();
+    const byMonth = new Map<string, Record<string, number>>()
     for (const item of categoryTrendQ.data ?? []) {
-      if (!byMonth.has(item.month)) byMonth.set(item.month, {});
-      byMonth.get(item.month)![item.category] = item.amount;
+      if (!byMonth.has(item.month)) byMonth.set(item.month, {})
+      byMonth.get(item.month)![item.category] = item.amount
     }
     return [...byMonth.entries()]
       .map(([month, cats]) => ({ month, ...cats }))
-      .sort((a, b) => a.month.localeCompare(b.month));
-  })();
+      .sort((a, b) => a.month.localeCompare(b.month))
+  })()
+
+  const dayTransactions = dayTransactionsQ.data?.data ?? []
+  const spentTransactions = dayTransactions.filter(
+    (transaction) => transaction.transactionType === 'debited',
+  )
+  const receivedTransactions = dayTransactions.filter(
+    (transaction) => transaction.transactionType === 'credited',
+  )
 
   return (
     <MainLayout>
@@ -324,13 +399,13 @@ const AnalyticsPage = () => {
             <p className="max-w-2xl text-sm text-muted-foreground">
               Spending patterns, category breakdowns and trends.
             </p>
-          </div>{" "}
+          </div>{' '}
           {/* Period selector */}
           <div className="flex flex-wrap items-center gap-2">
             {PERIODS.map((p) => (
               <Button
                 key={p.value}
-                variant={period === p.value ? "default" : "outline"}
+                variant={period === p.value ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setPeriod(p.value)}
               >
@@ -345,12 +420,12 @@ const AnalyticsPage = () => {
                 onClick={startReprocess}
                 disabled={isSyncing}
               >
-                <RotateCw className={isSyncing ? "animate-spin" : ""} />
+                <RotateCw className={isSyncing ? 'animate-spin' : ''} />
                 {isSyncing && job?.totalEmails
                   ? `Reprocessing (${job.processedEmails}/${job.totalEmails})`
-                  : job?.status === "completed"
-                    ? "Reprocessed ✓"
-                    : "Reprocess Emails"}
+                  : job?.status === 'completed'
+                    ? 'Reprocessed ✓'
+                    : 'Reprocess Emails'}
               </Button>
             </div>
           </div>
@@ -366,6 +441,8 @@ const AnalyticsPage = () => {
               summary ? `${summary.transactionCount} transactions` : undefined
             }
             loading={summaryQ.isLoading}
+            trendData={recentSpentTrend}
+            formatTrendValue={fmtCurrency}
           />
           <SummaryCard
             title="Total Received"
@@ -375,6 +452,8 @@ const AnalyticsPage = () => {
               summary ? `Net flow: ${fmtCurrency(summary.netFlow)}` : undefined
             }
             loading={summaryQ.isLoading}
+            trendData={recentReceivedTrend}
+            formatTrendValue={fmtCurrency}
           />
           <SummaryCard
             title="Avg Transaction"
@@ -389,12 +468,22 @@ const AnalyticsPage = () => {
             icon={<TrendingDown className="size-4 text-amber-500" />}
             subtitle={
               summary
-                ? `Top category: ${summary.topCategory.replace(/_/g, " ")}`
+                ? `Top category: ${summary.topCategory.replace(/_/g, ' ')}`
                 : undefined
             }
             loading={summaryQ.isLoading}
           />
         </div>
+
+        <DaySpendExplorerSection
+          selectedDate={selectedDate}
+          onSelectedDateChange={setSelectedDate}
+          summary={daySummaryQ.data}
+          transactionsTotal={dayTransactionsQ.data?.total ?? 0}
+          spentTransactions={spentTransactions}
+          receivedTransactions={receivedTransactions}
+          loading={daySummaryQ.isLoading || dayTransactionsQ.isLoading}
+        />
 
         {/* ── Charts row 1: Daily spending + Category pie ── */}
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
@@ -418,9 +507,9 @@ const AnalyticsPage = () => {
                       dataKey="date"
                       tickFormatter={(v: string) => {
                         try {
-                          return format(parseISO(v), "dd MMM");
+                          return format(parseISO(v), 'dd MMM')
                         } catch {
-                          return v;
+                          return v
                         }
                       }}
                       tickLine={false}
@@ -440,7 +529,7 @@ const AnalyticsPage = () => {
                           formatter={(value, name) => (
                             <div className="flex items-center justify-between gap-4">
                               <span className="text-muted-foreground">
-                                {name === "debited" ? "Spent" : "Received"}
+                                {name === 'debited' ? 'Spent' : 'Received'}
                               </span>
                               <span className="font-mono font-medium tabular-nums">
                                 {fmtCurrency(Number(value))}
@@ -493,7 +582,7 @@ const AnalyticsPage = () => {
                           formatter={(value, name) => (
                             <div className="flex items-center justify-between gap-4">
                               <span className="text-muted-foreground">
-                                {String(name).replace(/_/g, " ")}
+                                {String(name).replace(/_/g, ' ')}
                               </span>
                               <span className="font-mono font-medium tabular-nums">
                                 {fmtCurrency(Number(value))}
@@ -549,9 +638,9 @@ const AnalyticsPage = () => {
                       dataKey="month"
                       tickFormatter={(v: string) => {
                         try {
-                          return format(parseISO(`${v}-01`), "MMM yy");
+                          return format(parseISO(`${v}-01`), 'MMM yy')
                         } catch {
-                          return v;
+                          return v
                         }
                       }}
                       tickLine={false}
@@ -571,11 +660,11 @@ const AnalyticsPage = () => {
                           formatter={(value, name) => (
                             <div className="flex items-center justify-between gap-4">
                               <span className="text-muted-foreground">
-                                {name === "debited"
-                                  ? "Spent"
-                                  : name === "credited"
-                                    ? "Received"
-                                    : "Net"}
+                                {name === 'debited'
+                                  ? 'Spent'
+                                  : name === 'credited'
+                                    ? 'Received'
+                                    : 'Net'}
                               </span>
                               <span className="font-mono font-medium tabular-nums">
                                 {fmtCurrency(Number(value))}
@@ -640,7 +729,7 @@ const AnalyticsPage = () => {
                           formatter={(value, name) => (
                             <div className="flex items-center justify-between gap-4">
                               <span className="text-muted-foreground">
-                                {String(name).replace(/_/g, " ")}
+                                {String(name).replace(/_/g, ' ')}
                               </span>
                               <span className="font-mono font-medium tabular-nums">
                                 {fmtCurrency(Number(value))}
@@ -700,9 +789,9 @@ const AnalyticsPage = () => {
             ) : cardChartData.length > 0 ? (
               <div className="space-y-4">
                 {cardChartData.map((card) => {
-                  const maxAmount = cardChartData[0]!.amount;
+                  const maxAmount = cardChartData[0]!.amount
                   const pct =
-                    maxAmount > 0 ? (card.amount / maxAmount) * 100 : 0;
+                    maxAmount > 0 ? (card.amount / maxAmount) * 100 : 0
                   return (
                     <div key={card.cardLast4} className="space-y-1.5">
                       <div className="flex items-center justify-between">
@@ -749,7 +838,7 @@ const AnalyticsPage = () => {
                         />
                       )}
                     </div>
-                  );
+                  )
                 })}
               </div>
             ) : (
@@ -778,8 +867,8 @@ const AnalyticsPage = () => {
             ) : merchantQ.data && merchantQ.data.length > 0 ? (
               <div className="space-y-3">
                 {merchantQ.data.map((m, i) => {
-                  const maxAmount = merchantQ.data![0]!.amount;
-                  const pct = maxAmount > 0 ? (m.amount / maxAmount) * 100 : 0;
+                  const maxAmount = merchantQ.data![0]!.amount
+                  const pct = maxAmount > 0 ? (m.amount / maxAmount) * 100 : 0
                   return (
                     <div
                       key={m.merchant}
@@ -806,7 +895,7 @@ const AnalyticsPage = () => {
                         {m.count}
                       </Badge>
                     </div>
-                  );
+                  )
                 })}
               </div>
             ) : (
@@ -936,18 +1025,16 @@ const AnalyticsPage = () => {
                       {(dayOfWeekQ.data ?? []).map((entry) => {
                         const maxAmt = Math.max(
                           ...(dayOfWeekQ.data ?? []).map((d) => d.amount),
-                        );
+                        )
                         const opacity =
-                          maxAmt > 0
-                            ? 0.4 + (entry.amount / maxAmt) * 0.6
-                            : 0.5;
+                          maxAmt > 0 ? 0.4 + (entry.amount / maxAmt) * 0.6 : 0.5
                         return (
                           <Cell
                             key={entry.dayName}
                             fill="var(--color-chart-1)"
                             fillOpacity={opacity}
                           />
-                        );
+                        )
                       })}
                     </Bar>
                   </BarChart>
@@ -1008,9 +1095,9 @@ const AnalyticsPage = () => {
                       dataKey="date"
                       tickFormatter={(v: string) => {
                         try {
-                          return format(parseISO(v), "dd MMM");
+                          return format(parseISO(v), 'dd MMM')
                         } catch {
-                          return v;
+                          return v
                         }
                       }}
                       tickLine={false}
@@ -1088,9 +1175,9 @@ const AnalyticsPage = () => {
                       dataKey="month"
                       tickFormatter={(v: string) => {
                         try {
-                          return format(parseISO(`${v}-01`), "MMM yy");
+                          return format(parseISO(`${v}-01`), 'MMM yy')
                         } catch {
-                          return v;
+                          return v
                         }
                       }}
                       tickLine={false}
@@ -1110,7 +1197,7 @@ const AnalyticsPage = () => {
                           formatter={(value, name) => (
                             <div className="flex items-center justify-between gap-4">
                               <span className="text-muted-foreground">
-                                {String(name).replace(/_/g, " ")}
+                                {String(name).replace(/_/g, ' ')}
                               </span>
                               <span className="font-mono font-medium tabular-nums">
                                 {fmtCurrency(Number(value))}
@@ -1169,9 +1256,9 @@ const AnalyticsPage = () => {
                       dataKey="month"
                       tickFormatter={(v: string) => {
                         try {
-                          return format(parseISO(`${v}-01`), "MMM");
+                          return format(parseISO(`${v}-01`), 'MMM')
                         } catch {
-                          return v;
+                          return v
                         }
                       }}
                       tickLine={false}
@@ -1201,14 +1288,14 @@ const AnalyticsPage = () => {
                           formatter={(value, name) => (
                             <div className="flex items-center justify-between gap-4">
                               <span className="text-muted-foreground">
-                                {name === "savingsRate"
-                                  ? "Savings Rate"
-                                  : name === "income"
-                                    ? "Income"
-                                    : "Expenses"}
+                                {name === 'savingsRate'
+                                  ? 'Savings Rate'
+                                  : name === 'income'
+                                    ? 'Income'
+                                    : 'Expenses'}
                               </span>
                               <span className="font-mono font-medium tabular-nums">
-                                {name === "savingsRate"
+                                {name === 'savingsRate'
                                   ? `${Number(value).toFixed(1)}%`
                                   : fmtCurrency(Number(value))}
                               </span>
@@ -1296,9 +1383,9 @@ const AnalyticsPage = () => {
                     dataKey="date"
                     tickFormatter={(v: string) => {
                       try {
-                        return format(parseISO(v), "dd MMM");
+                        return format(parseISO(v), 'dd MMM')
                       } catch {
-                        return v;
+                        return v
                       }
                     }}
                     tickLine={false}
@@ -1369,8 +1456,8 @@ const AnalyticsPage = () => {
               ) : topVpasQ.data && topVpasQ.data.length > 0 ? (
                 <div className="space-y-3">
                   {topVpasQ.data.map((v, i) => {
-                    const maxAmt = topVpasQ.data![0]!.amount;
-                    const pct = maxAmt > 0 ? (v.amount / maxAmt) * 100 : 0;
+                    const maxAmt = topVpasQ.data![0]!.amount
+                    const pct = maxAmt > 0 ? (v.amount / maxAmt) * 100 : 0
                     return (
                       <div key={v.vpa} className="flex items-center gap-3">
                         <span className="w-5 text-xs text-muted-foreground">
@@ -1393,7 +1480,7 @@ const AnalyticsPage = () => {
                               className="h-full rounded-full transition-all"
                               style={{
                                 width: `${pct}%`,
-                                backgroundColor: "var(--color-chart-3)",
+                                backgroundColor: 'var(--color-chart-3)',
                               }}
                             />
                           </div>
@@ -1402,7 +1489,7 @@ const AnalyticsPage = () => {
                           {v.count}
                         </Badge>
                       </div>
-                    );
+                    )
                   })}
                 </div>
               ) : (
@@ -1510,10 +1597,10 @@ const AnalyticsPage = () => {
                               try {
                                 return format(
                                   parseISO(txn.transactionDate),
-                                  "dd MMM yyyy",
-                                );
+                                  'dd MMM yyyy',
+                                )
                               } catch {
-                                return txn.transactionDate;
+                                return txn.transactionDate
                               }
                             })()}
                           </span>
@@ -1527,7 +1614,7 @@ const AnalyticsPage = () => {
                             variant="outline"
                             className="text-[10px] uppercase"
                           >
-                            {txn.transactionMode.replace(/_/g, " ")}
+                            {txn.transactionMode.replace(/_/g, ' ')}
                           </Badge>
                         </div>
                       </div>
@@ -1547,8 +1634,8 @@ const AnalyticsPage = () => {
         </Card>
       </div>
     </MainLayout>
-  );
-};
+  )
+}
 
 // ── Subcomponents ──
 
@@ -1558,49 +1645,280 @@ function SummaryCard({
   icon,
   subtitle,
   loading,
+  trendData,
+  formatTrendValue,
 }: {
-  title: string;
-  value?: string;
-  icon: React.ReactNode;
-  subtitle?: string;
-  loading: boolean;
+  title: string
+  value?: string
+  icon: React.ReactNode
+  subtitle?: string
+  loading: boolean
+  trendData?: MetricTrendPoint[]
+  formatTrendValue?: (value: number) => string
 }) {
   return (
+    <MetricTrendCard
+      title={title}
+      value={value}
+      icon={icon}
+      description={subtitle}
+      descriptionClassName="mt-1 truncate text-xs text-muted-foreground"
+      loading={loading}
+      trendData={trendData}
+      formatTrendValue={formatTrendValue}
+      valueClassName="text-2xl font-bold tabular-nums"
+    />
+  )
+}
+
+function DaySpendExplorerSection({
+  selectedDate,
+  onSelectedDateChange,
+  summary,
+  transactionsTotal,
+  spentTransactions,
+  receivedTransactions,
+  loading,
+}: {
+  selectedDate: string
+  onSelectedDateChange: (date: string) => void
+  summary?: {
+    totalSpent: number
+    totalReceived: number
+    netFlow: number
+    transactionCount: number
+  }
+  transactionsTotal: number
+  spentTransactions: Transaction[]
+  receivedTransactions: Transaction[]
+  loading: boolean
+}) {
+  const recentDatePresets = Array.from({ length: 7 }, (_, index) => {
+    const date = subDays(new Date(), index)
+
+    let label: string
+    if (index === 0) {
+      label = 'Today'
+    } else if (index === 1) {
+      label = 'Yesterday'
+    } else {
+      label = format(date, 'do MMM')
+    }
+
+    return {
+      value: format(date, 'yyyy-MM-dd'),
+      label,
+    }
+  })
+
+  return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          {title}
-        </CardTitle>
-        <span data-slot="badge">{icon}</span>
+      <CardHeader>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="text-base">Day Explorer</CardTitle>
+            <CardDescription>
+              Pick a date to inspect totals and individual transactions.
+            </CardDescription>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="justify-start font-normal">
+                  <Calendar className="mr-2 size-4" />
+                  {format(parseISO(selectedDate), 'dd MMM yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-auto p-3">
+                <CalendarPicker
+                  mode="single"
+                  selected={parseISO(selectedDate)}
+                  onSelect={(date) => {
+                    if (!date) {
+                      return
+                    }
+
+                    onSelectedDateChange(format(date, 'yyyy-MM-dd'))
+                  }}
+                  disabled={(date) => date > new Date()}
+                  autoFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+        <Separator className="w-full mt-2" />
       </CardHeader>
-      <CardContent>
-        {loading ? (
-          <Skeleton className="h-7 w-28" />
-        ) : (
-          <p className="text-2xl font-bold tabular-nums">{value}</p>
-        )}
-        {loading ? (
-          <Skeleton className="mt-1 h-4 w-36" />
-        ) : (
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {subtitle}
-          </p>
-        )}
+      <CardContent className="space-y-6">
+        <div className="flex flex-wrap gap-2">
+          {recentDatePresets.map((preset) => (
+            <Button
+              key={preset.value}
+              variant={preset.value === selectedDate ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onSelectedDateChange(preset.value)}
+            >
+              {preset.label}
+            </Button>
+          ))}
+        </div>
+
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          <SummaryCard
+            title="Spent That Day"
+            value={summary ? fmtCurrency(summary.totalSpent) : undefined}
+            icon={<ArrowDownRight className="size-4 text-red-500" />}
+            subtitle={
+              summary
+                ? `${spentTransactions.length} outgoing transactions`
+                : undefined
+            }
+            loading={loading}
+          />
+          <SummaryCard
+            title="Received That Day"
+            value={summary ? fmtCurrency(summary.totalReceived) : undefined}
+            icon={<ArrowUpRight className="size-4 text-emerald-500" />}
+            subtitle={
+              summary ? `Net: ${fmtCurrency(summary.netFlow)}` : undefined
+            }
+            loading={loading}
+          />
+        </div>
+
+        <Tabs defaultValue="spent" className="space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <TabsList>
+              <TabsTrigger value="spent">
+                Spent ({spentTransactions.length})
+              </TabsTrigger>
+              <TabsTrigger value="received">
+                Received ({receivedTransactions.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <Badge variant="outline">
+              {transactionsTotal} transactions on{' '}
+              {format(parseISO(selectedDate), 'dd MMM yyyy')}
+            </Badge>
+          </div>
+
+          <TabsContent value="spent" className="mt-0">
+            <DayTransactionsList
+              transactions={spentTransactions}
+              loading={loading}
+              emptyMessage="No spending transactions for this date."
+              amountClassName="text-red-500"
+            />
+          </TabsContent>
+
+          <TabsContent value="received" className="mt-0">
+            <DayTransactionsList
+              transactions={receivedTransactions}
+              loading={loading}
+              emptyMessage="No received transactions for this date."
+              amountClassName="text-emerald-500"
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
-  );
+  )
+}
+
+function DayTransactionsList({
+  transactions,
+  loading,
+  emptyMessage,
+  amountClassName,
+}: {
+  transactions: Transaction[]
+  loading: boolean
+  emptyMessage: string
+  amountClassName: string
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <Skeleton key={index} className="h-14 w-full" />
+        ))}
+      </div>
+    )
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        {emptyMessage}
+      </p>
+    )
+  }
+
+  return (
+    <div className="divide-y rounded-lg border">
+      {transactions.map((transaction) => (
+        <div
+          key={transaction.id}
+          className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0 space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium">{transaction.merchant}</p>
+              <Badge variant="outline" className="text-[10px] capitalize">
+                {transaction.subcategory ||
+                  transaction.category.replace(/_/g, ' ')}
+              </Badge>
+              <Badge variant="secondary" className="text-[10px] uppercase">
+                {transaction.transactionMode.replace(/_/g, ' ')}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {(() => {
+                try {
+                  return format(
+                    parseISO(transaction.transactionDate),
+                    'dd MMM yyyy',
+                  )
+                } catch {
+                  return transaction.transactionDate
+                }
+              })()}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1">
+            <p
+              className={cn(
+                'text-sm font-semibold tabular-nums',
+                amountClassName,
+              )}
+            >
+              {fmtCurrency(transaction.amount)}
+            </p>
+            {transaction.cardLast4 ? (
+              <p className="text-xs text-muted-foreground">
+                ••{transaction.cardLast4}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function MilestoneProgressSection({
   milestones,
 }: {
-  milestones: MilestoneProgress[];
+  milestones: MilestoneProgress[]
 }) {
   const getMilestoneColor = (pct: number) => {
-    if (pct >= 100) return "var(--color-chart-2)"; // green / success
-    if (pct >= 50) return "var(--color-chart-4)"; // amber / in-progress
-    return "var(--color-chart-5)"; // muted / low
-  };
+    if (pct >= 100) return 'var(--color-chart-2)' // green / success
+    if (pct >= 50) return 'var(--color-chart-4)' // amber / in-progress
+    return 'var(--color-chart-5)' // muted / low
+  }
 
   return (
     <div className="mt-2 ml-5 space-y-2.5 border-l-2 border-muted pl-4">
@@ -1610,7 +1928,7 @@ function MilestoneProgressSection({
       </div>
 
       {milestones.map((m) => {
-        const color = getMilestoneColor(m.percentage);
+        const color = getMilestoneColor(m.percentage)
         return (
           <div key={m.id} className="space-y-1">
             <div className="flex items-center justify-between gap-2">
@@ -1652,17 +1970,17 @@ function MilestoneProgressSection({
               ) : (
                 <span
                   className="font-medium"
-                  style={{ color: "var(--color-chart-2)" }}
+                  style={{ color: 'var(--color-chart-2)' }}
                 >
                   ✓ Milestone reached!
                 </span>
               )}
             </div>
           </div>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
 
 // ── Period Comparison ──
@@ -1672,39 +1990,39 @@ function PeriodComparisonSection({
   loading,
   period,
 }: {
-  data?: PeriodComparison;
-  loading: boolean;
-  period: AnalyticsPeriod;
+  data?: PeriodComparison
+  loading: boolean
+  period: AnalyticsPeriod
 }) {
   const metrics = data
     ? [
         {
-          label: "Total Spent",
+          label: 'Total Spent',
           current: data.currentPeriod.totalSpent,
           change: data.changes.spentChange,
           invert: true, // negative change is good
         },
         {
-          label: "Total Received",
+          label: 'Total Received',
           current: data.currentPeriod.totalReceived,
           change: data.changes.receivedChange,
           invert: false,
         },
         {
-          label: "Transaction Count",
+          label: 'Transaction Count',
           current: data.currentPeriod.transactionCount,
           change: data.changes.countChange,
           invert: false,
           isCurrency: false,
         },
         {
-          label: "Avg Transaction",
+          label: 'Avg Transaction',
           current: data.currentPeriod.avgTransaction,
           change: data.changes.avgChange,
           invert: true,
         },
       ]
-    : [];
+    : []
 
   return (
     <Card>
@@ -1725,9 +2043,9 @@ function PeriodComparisonSection({
         ) : data ? (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {metrics.map((m) => {
-              const isPositive = m.change > 0;
-              const isGood = m.invert ? !isPositive : isPositive;
-              const isCurrency = m.isCurrency !== false;
+              const isPositive = m.change > 0
+              const isGood = m.invert ? !isPositive : isPositive
+              const isCurrency = m.isCurrency !== false
               return (
                 <div
                   data-slot="badge"
@@ -1745,15 +2063,15 @@ function PeriodComparisonSection({
                   <div className="flex items-center gap-1">
                     {isPositive ? (
                       <ArrowUpRight
-                        className={`size-3 ${isGood ? "text-emerald-500" : "text-red-500"}`}
+                        className={`size-3 ${isGood ? 'text-emerald-500' : 'text-red-500'}`}
                       />
                     ) : (
                       <ArrowDownRight
-                        className={`size-3 ${isGood ? "text-emerald-500" : "text-red-500"}`}
+                        className={`size-3 ${isGood ? 'text-emerald-500' : 'text-red-500'}`}
                       />
                     )}
                     <span
-                      className={`text-xs font-medium tabular-nums ${isGood ? "text-emerald-500" : "text-red-500"}`}
+                      className={`text-xs font-medium tabular-nums ${isGood ? 'text-emerald-500' : 'text-red-500'}`}
                     >
                       {Math.abs(m.change).toFixed(1)}%
                     </span>
@@ -1762,7 +2080,7 @@ function PeriodComparisonSection({
                     </span>
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         ) : (
@@ -1772,7 +2090,7 @@ function PeriodComparisonSection({
         )}
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ── Card × Category Breakdown ──
@@ -1782,18 +2100,18 @@ function CardCategoryBreakdown({ data }: { data: CardCategoryItem[] }) {
   const byCard = new Map<
     string,
     { cardName: string; items: CardCategoryItem[] }
-  >();
+  >()
   for (const item of data) {
     if (!byCard.has(item.cardLast4)) {
-      byCard.set(item.cardLast4, { cardName: item.cardName, items: [] });
+      byCard.set(item.cardLast4, { cardName: item.cardName, items: [] })
     }
-    byCard.get(item.cardLast4)!.items.push(item);
+    byCard.get(item.cardLast4)!.items.push(item)
   }
 
   return (
     <div className="space-y-4">
       {[...byCard.entries()].map(([last4, { cardName, items }]) => {
-        const total = items.reduce((s, i) => s + i.amount, 0);
+        const total = items.reduce((s, i) => s + i.amount, 0)
         return (
           <div key={last4} className="space-y-2">
             <div className="flex items-center gap-2">
@@ -1808,7 +2126,7 @@ function CardCategoryBreakdown({ data }: { data: CardCategoryItem[] }) {
             </div>
             <div className="ml-5 space-y-1.5">
               {items.map((item) => {
-                const pct = total > 0 ? (item.amount / total) * 100 : 0;
+                const pct = total > 0 ? (item.amount / total) * 100 : 0
                 return (
                   <div key={item.category} className="space-y-0.5">
                     <div className="flex items-center justify-between text-xs">
@@ -1834,14 +2152,14 @@ function CardCategoryBreakdown({ data }: { data: CardCategoryItem[] }) {
                       />
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           </div>
-        );
+        )
       })}
     </div>
-  );
+  )
 }
 
 // ── Milestone ETA Card ──
@@ -1849,10 +2167,10 @@ function CardCategoryBreakdown({ data }: { data: CardCategoryItem[] }) {
 function MilestoneEtaCard({ eta }: { eta: MilestoneEta }) {
   const pctColor =
     eta.percentage >= 100
-      ? "var(--color-chart-2)"
+      ? 'var(--color-chart-2)'
       : eta.onTrack
-        ? "var(--color-chart-4)"
-        : "var(--color-chart-1)";
+        ? 'var(--color-chart-4)'
+        : 'var(--color-chart-1)'
 
   return (
     <div data-slot="badge" className="rounded-lg border p-4 space-y-3">
@@ -1897,21 +2215,21 @@ function MilestoneEtaCard({ eta }: { eta: MilestoneEta }) {
         {eta.percentage >= 100 ? (
           <span
             className="font-medium"
-            style={{ color: "var(--color-chart-2)" }}
+            style={{ color: 'var(--color-chart-2)' }}
           >
             ✓ Milestone reached!
           </span>
         ) : eta.estimatedCompletionDate ? (
           <span className="text-muted-foreground">
-            ETA:{" "}
+            ETA:{' '}
             {(() => {
               try {
                 return format(
                   parseISO(eta.estimatedCompletionDate),
-                  "dd MMM yyyy",
-                );
+                  'dd MMM yyyy',
+                )
               } catch {
-                return eta.estimatedCompletionDate;
+                return eta.estimatedCompletionDate
               }
             })()}
           </span>
@@ -1920,15 +2238,15 @@ function MilestoneEtaCard({ eta }: { eta: MilestoneEta }) {
         )}
         {eta.daysRemaining !== null && eta.percentage < 100 && (
           <Badge
-            variant={eta.onTrack ? "secondary" : "destructive"}
+            variant={eta.onTrack ? 'secondary' : 'destructive'}
             className="text-[10px]"
           >
-            {eta.onTrack ? `${eta.daysRemaining}d left` : "Behind schedule"}
+            {eta.onTrack ? `${eta.daysRemaining}d left` : 'Behind schedule'}
           </Badge>
         )}
       </div>
     </div>
-  );
+  )
 }
 
-export default AnalyticsPage;
+export default AnalyticsPage
