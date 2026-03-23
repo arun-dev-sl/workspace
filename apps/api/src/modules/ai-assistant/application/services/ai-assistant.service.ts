@@ -45,7 +45,7 @@ const SYSTEM_PROMPT = [
   'You must reason from the conversation history, tool results, and your bounded general knowledge.',
   'When relevant tools are available, prefer calling them instead of guessing.',
   'For analytical questions, work in stages: identify what needs to be tested, call the right tools, inspect the results, and only then conclude.',
-  'If the first tool result is incomplete, refine the query or call another tool instead of giving a premature answer.',
+  'If the first tool result is incomplete, try ONE refinement or alternative tool — but if the data dimension still does not appear, stop calling tools and synthesize with what you have.',
   'When the question is broad or cross-domain, generate short working hypotheses, test them with tools, compare the evidence, and then synthesize.',
   'Use capability discovery tools when you are unsure which tool or analytics shape is best.',
   'Do not rely on frontend-provided page snapshots, widgets, or route-specific context. Use backend tools to discover the necessary evidence.',
@@ -63,6 +63,33 @@ const SYSTEM_PROMPT = [
   'If the data is incomplete, say what is missing and what additional context would improve the answer, but still provide the best bounded qualitative view you can when appropriate.',
   'Present conclusions as evidence followed by interpretation, especially for inferred relationships or classifications.',
   'When useful, format the response in short markdown sections or bullets.',
+  '',
+  'TOOL-CALLING DISCIPLINE:',
+  'Never call the same tool with the same or very similar arguments more than once per conversation turn.',
+  'After 2-3 tool calls, if the data dimension you need is still not in the results, stop calling tools and synthesize an answer using the evidence you have combined with your general knowledge.',
+  'Do not repeatedly query tools hoping for data that does not exist.',
+  'Every tool result includes a _meta block that lists the fields/dimensions the tool actually provides. If the dimension you need is NOT in _meta.provides, the database does not store it — do not call more tools looking for it.',
+  'When tool results already cover the question, respond immediately without additional tool calls.',
+  '',
+  'DERIVED DIMENSIONS — GENERAL PRINCIPLE:',
+  'Many useful dimensions are NOT stored in the database but CAN be inferred by you from the raw data. These are called "derived dimensions".',
+  'When a user asks about a dimension that no tool returns (i.e. it is absent from every _meta.provides list), follow this pattern:',
+  '1. Fetch the raw data using the appropriate tool (e.g. portfolio holdings, expense transactions, flight history).',
+  '2. Examine the fields that ARE returned (symbol, name, category, merchant, airline, route, dates, amounts, etc.).',
+  '3. Apply your world knowledge to classify, group, or enrich the raw data along the requested dimension.',
+  '4. Present the result clearly, labelling inferred classifications as "based on general knowledge" so the user knows it is not from the database.',
+  '',
+  'Common derived dimensions (non-exhaustive):',
+  '- Sector / Industry: infer from stock symbol & company name (e.g. HDFCBANK → Banking, TCS → IT/Technology, ITC → FMCG)',
+  '- Geography / Country exposure: infer from company domicile or exchange listing',
+  '- Market-cap bucket (large/mid/small): infer from well-known company size',
+  '- Risk profile / Volatility tier: infer from asset type and company characteristics',
+  '- ESG / Sustainability rating: infer general sentiment from company reputation',
+  '- Expense lifestyle category: reclassify merchants into discretionary vs. essential spending',
+  '- Travel purpose (business vs. leisure): infer from route, airline class, hotel tier, and day-of-week patterns',
+  '- Seasonality / Temporal patterns: derive from dates in the raw data',
+  '',
+  'This principle applies to ANY question where the raw data contains enough signal to reason about the answer, even if the exact field is not stored. Fetch data once, then reason — never loop looking for a field that does not exist.',
   '',
   'STRUCTURED OUTPUT GUIDELINES:',
   'At the end of your response, always suggest 2-4 follow-up questions the user might want to explore. Format them as a block:',
@@ -181,12 +208,17 @@ export class AiAssistantService {
       })}`,
     )
 
+    let forceNoTools = false
+
     for (let round = 0; round < this.maxToolRounds; round += 1) {
+      const useToolsThisRound = !forceNoTools && round < this.maxToolRounds - 2
+      const toolChoice = useToolsThisRound && tools.length > 0 ? 'auto' : 'none'
+
       const completion = await this.aiChatProvider.createChatCompletion({
         model,
         messages,
-        tools,
-        toolChoice: tools.length > 0 ? 'auto' : 'none',
+        tools: toolChoice === 'none' ? [] : tools,
+        toolChoice,
       })
 
       if (!completion.toolCalls || completion.toolCalls.length === 0) {
@@ -298,6 +330,16 @@ export class AiAssistantService {
           content: JSON.stringify(toolResult),
         })
       }
+
+      const allCached = toolResults.length > 0 && toolResults.every(({ fromCache }) => fromCache)
+      if (allCached) {
+        this.logger.debug('All tool calls in this round were cache hits — injecting synthesis prompt')
+        messages.push({
+          role: 'system',
+          content: 'All tool calls in this round returned previously cached results — no new data was obtained. You have already gathered all available evidence. Synthesize your answer now using the tool results you have and your general knowledge. Do not call any more tools.',
+        })
+        forceNoTools = true
+      }
     }
 
     this.logger.warn('AI assistant exceeded maximum tool-call rounds, returning partial result')
@@ -331,6 +373,7 @@ export class AiAssistantService {
 
     let fullContent = ''
     let lastUsage: AiStreamEvent & { type: 'done' } | undefined
+    let forceNoTools = false
 
     for (let round = 0; round < this.maxToolRounds; round += 1) {
       let roundContent = ''
@@ -338,11 +381,14 @@ export class AiAssistantService {
       const toolCallArgBuilders = new Map<string, { id: string; name: string; arguments: string }>()
       let roundModel = model
 
+      const useToolsThisRound = !forceNoTools && round < this.maxToolRounds - 2
+      const toolChoice = useToolsThisRound && tools.length > 0 ? 'auto' : 'none'
+
       for await (const chunk of this.aiChatProvider.createStreamingChatCompletion({
         model,
         messages,
-        tools,
-        toolChoice: tools.length > 0 ? 'auto' : 'none',
+        tools: toolChoice === 'none' ? [] : tools,
+        toolChoice,
       })) {
         switch (chunk.type) {
           case 'token': {
@@ -469,6 +515,16 @@ export class AiAssistantService {
           tool_call_id: toolCall.id,
           content: JSON.stringify(result),
         })
+      }
+
+      const allCached = toolResults.length > 0 && toolResults.every(({ fromCache }) => fromCache)
+      if (allCached) {
+        this.logger.debug('All tool calls in this stream round were cache hits — injecting synthesis prompt')
+        messages.push({
+          role: 'system',
+          content: 'All tool calls in this round returned previously cached results — no new data was obtained. You have already gathered all available evidence. Synthesize your answer now using the tool results you have and your general knowledge. Do not call any more tools.',
+        })
+        forceNoTools = true
       }
     }
 

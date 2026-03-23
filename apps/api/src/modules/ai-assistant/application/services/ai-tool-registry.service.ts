@@ -84,6 +84,21 @@ type AiToolExecutionContext = {
   userId: string
 }
 
+type ToolMeta = {
+  provides: string[]
+  derivable: string
+}
+
+function buildToolMeta(providedFields: string[], domainHint?: string): ToolMeta {
+  const hint = domainHint
+    ? ` For ${domainHint} data, use the identifiers in the provided fields (names, symbols, categories, routes, etc.) plus your world knowledge to derive any dimension not listed here.`
+    : ' Use the identifiers in the provided fields plus your world knowledge to derive any dimension not listed here.'
+  return {
+    provides: providedFields,
+    derivable: `Any dimension not in "provides" is a derived dimension — the database does not store it, but you can infer it from the provided fields.${hint}`,
+  }
+}
+
 type AiToolDefinition<TArgs> = {
   name: string
   description: string
@@ -563,6 +578,10 @@ export class AiToolRegistryService {
             ...assetType,
             normalizedAssetType: this.domainIntelligenceService.normalizeAssetType(assetType.assetType),
           })),
+          _meta: buildToolMeta(
+            ['assetType', 'platform', 'investedValue', 'currentValue', 'returns', 'holdingCount'],
+            'investment portfolio',
+          ),
         }
       },
     }
@@ -637,11 +656,17 @@ export class AiToolRegistryService {
         const topMatch = rankedMatches[0]?.holding
         const candidates = rankedMatches.slice(0, 5).map((match) => match.holding)
 
+        const holdingsMeta = buildToolMeta(
+          ['symbol', 'name', 'assetType', 'platform', 'quantity', 'avgBuyPrice', 'currentPrice', 'investedValue', 'currentValue', 'totalReturns', 'returnsPercentage'],
+          'individual holdings',
+        )
+
         if (!topMatch) {
           return {
             found: false,
             query: arguments_.query,
             candidates: [],
+            _meta: holdingsMeta,
           }
         }
 
@@ -679,6 +704,7 @@ export class AiToolRegistryService {
             assetType: holding.assetType,
             platform: holding.platform,
           })),
+          _meta: holdingsMeta,
         }
       },
     }
@@ -700,10 +726,17 @@ export class AiToolRegistryService {
       schema: investmentYearInputSchema,
       pages: ['holdings-overview', 'dividends-overview', 'principal-overview'],
       execute: async (arguments_, context) => {
-        return this.dividendsService.getDashboard(
+        const dashboard = await this.dividendsService.getDashboard(
           context.userId,
           arguments_.year ?? getYear(new Date()),
         )
+        return {
+          ...dashboard,
+          _meta: buildToolMeta(
+            ['companyName', 'totalAmount', 'payoutCount', 'monthlyTrend', 'yearlyGrowth', 'yieldAnalysis', 'repeatPayouts'],
+            'dividend data',
+          ),
+        }
       },
     }
   }
@@ -862,6 +895,10 @@ export class AiToolRegistryService {
               }
             : null,
           signals,
+          _meta: buildToolMeta(
+            ['assetType', 'platform', 'holding', 'dividendCompany', 'principalAllocation', 'concentrationSignals', 'platformRole'],
+            'investment intelligence',
+          ),
         }
       },
     }
@@ -878,7 +915,14 @@ export class AiToolRegistryService {
       schema: z.object({}),
       pages: ['principal-overview', 'holdings-overview', 'dividends-overview'],
       execute: async (_arguments_, context) => {
-        return this.principalService.getAnalytics(context.userId)
+        const analytics = await this.principalService.getAnalytics(context.userId)
+        return {
+          ...analytics,
+          _meta: buildToolMeta(
+            ['contributionMetrics', 'distributionMetrics', 'milestones', 'allocations', 'consistencyScore', 'trendIncreasing'],
+            'principal contributions',
+          ),
+        }
       },
     }
   }
@@ -905,6 +949,10 @@ export class AiToolRegistryService {
               normalizedAirline: this.domainIntelligenceService.normalizeAirline(item.airline),
             })),
           },
+          _meta: buildToolMeta(
+            ['airline', 'route', 'airport', 'flightDate', 'departureTime', 'arrivalTime', 'duration', 'class', 'price'],
+            'flight travel',
+          ),
         }
       },
     }
@@ -932,7 +980,13 @@ export class AiToolRegistryService {
           includeArchived: arguments_.includeArchived,
         }, context.userId)
 
-        return result
+        return {
+          ...result as Record<string, unknown>,
+          _meta: buildToolMeta(
+            ['hotelName', 'location', 'checkIn', 'checkOut', 'nights', 'provider', 'price', 'status'],
+            'hotel stays',
+          ),
+        }
       },
     }
   }
@@ -1046,6 +1100,10 @@ export class AiToolRegistryService {
           period: arguments_.period ?? 'month',
           year: arguments_.year ?? getYear(new Date()),
           results,
+          _meta: buildToolMeta(
+            arguments_.domains.flatMap((domain) => [`${domain}.*`]),
+            'cross-domain comparison',
+          ),
         }
       },
     }
