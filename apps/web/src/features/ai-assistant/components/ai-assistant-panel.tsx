@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { Bot, ChevronDown, LoaderCircle, Sparkles } from 'lucide-react'
+import { Bot, ChevronDown, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 import { getAiAssistantStatus } from '@/features/ai-assistant/api/assistant'
 import { useAiAssistant } from '@/features/ai-assistant/ai-assistant-context'
 import { AssistantAnalysisTrace } from '@/features/ai-assistant/components/assistant-analysis-trace'
+import { AssistantFeedback } from '@/features/ai-assistant/components/assistant-feedback'
 import { AssistantMessage } from '@/features/ai-assistant/components/assistant-message'
 import { Badge } from '@workspace/ui/components/ui/badge'
 import { Button } from '@workspace/ui/components/ui/button'
@@ -229,17 +230,25 @@ export function AiAssistantPanel() {
                           }
                         >
                           {message.role === 'assistant' ? (
-                            <AssistantMessage content={message.content} />
+                            <AssistantMessage
+                              content={message.content}
+                              isStreaming={message.isStreaming}
+                              activeTools={message.activeTools}
+                              onSuggestedAction={(action) => void sendMessage(action, selectedModel || undefined)}
+                            />
                           ) : (
                             <div className="whitespace-pre-wrap leading-6 wrap-anywhere">
                               {message.content}
                             </div>
                           )}
-                          {message.role === 'assistant' ? (
-                            <AssistantAnalysisTrace
-                              analysis={message.analysis}
-                              toolsUsed={message.toolsUsed}
-                            />
+                          {message.role === 'assistant' && !message.isStreaming ? (
+                            <>
+                              <AssistantFeedback messageId={message.id} />
+                              <AssistantAnalysisTrace
+                                analysis={message.analysis}
+                                toolsUsed={message.toolsUsed}
+                              />
+                            </>
                           ) : null}
                         </div>
                       </div>
@@ -248,14 +257,6 @@ export function AiAssistantPanel() {
                 </ScrollArea>
               </div>
 
-              {isSending ? (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/35 px-4 py-3 text-sm text-muted-foreground">
-                    <LoaderCircle className="size-4 animate-spin" />
-                    Analyzing with available tools...
-                  </div>
-                </div>
-              ) : null}
             </div>
 
             {error ? (

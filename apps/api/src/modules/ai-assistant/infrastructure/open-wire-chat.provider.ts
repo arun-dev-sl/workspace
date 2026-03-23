@@ -4,9 +4,10 @@ import { z } from 'zod'
 
 import type { Env } from '@/app/config/env.schema'
 import type {
+  AiChatCompletionInput,
   AiChatProvider,
   AiChatProviderCompletion,
-  AiChatProviderToolCall,
+  AiChatProviderStreamChunk,
 } from '@/modules/ai-assistant/application/ports/ai-chat-provider.port'
 
 const modelsResponseSchema = z.object({
@@ -58,24 +59,7 @@ export class OpenWireChatProvider implements AiChatProvider {
     return parsed.data.map((model) => model.id)
   }
 
-  async createChatCompletion(input: {
-    model?: string
-    messages: Array<{
-      role: 'system' | 'user' | 'assistant' | 'tool'
-      content: string | null
-      tool_call_id?: string
-      tool_calls?: AiChatProviderToolCall[]
-    }>
-    tools?: Array<{
-      type: 'function'
-      function: {
-        name: string
-        description: string
-        parameters: Record<string, unknown>
-      }
-    }>
-    toolChoice?: 'auto' | 'required' | 'none'
-  }): Promise<AiChatProviderCompletion> {
+  async createChatCompletion(input: AiChatCompletionInput): Promise<AiChatProviderCompletion> {
     const requestBody = {
       model: input.model,
       messages: input.messages,
@@ -118,39 +102,172 @@ export class OpenWireChatProvider implements AiChatProvider {
     }
   }
 
-  private async request(path: string, init: RequestInit): Promise<unknown> {
+  async *createStreamingChatCompletion(input: AiChatCompletionInput): AsyncIterable<AiChatProviderStreamChunk> {
+    const requestBody = {
+      model: input.model,
+      messages: input.messages,
+      tools: input.tools,
+      tool_choice: input.toolChoice,
+      stream: true,
+    }
+
+    this.logger.debug(
+      `OpenWire streaming request: ${this.stringifyForLog(requestBody, 8000)}`,
+    )
+
+    const response = await this.requestRaw('/v1/chat/completions', {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    })
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new ServiceUnavailableException('OpenWire returned no readable stream')
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let model = input.model ?? ''
+    let usage: AiChatProviderStreamChunk & { type: 'done' } | undefined
+    const toolCallBuilders = new Map<number, { id: string; name: string; arguments: string }>()
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || trimmed === 'data: [DONE]') continue
+          if (!trimmed.startsWith('data: ')) continue
+
+          let chunk: any
+          try {
+            chunk = JSON.parse(trimmed.slice(6))
+          } catch {
+            continue
+          }
+
+          if (chunk.model) model = chunk.model
+
+          if (chunk.usage) {
+            usage = {
+              type: 'done',
+              model,
+              usage: {
+                promptTokens: chunk.usage.prompt_tokens ?? 0,
+                completionTokens: chunk.usage.completion_tokens ?? 0,
+                totalTokens: chunk.usage.total_tokens ?? 0,
+              },
+            }
+          }
+
+          const delta = chunk.choices?.[0]?.delta
+          if (!delta) continue
+
+          if (delta.content) {
+            yield { type: 'token', content: delta.content }
+          }
+
+          if (delta.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const idx = tc.index ?? 0
+              if (tc.id) {
+                toolCallBuilders.set(idx, {
+                  id: tc.id,
+                  name: tc.function?.name ?? '',
+                  arguments: tc.function?.arguments ?? '',
+                })
+                yield {
+                  type: 'tool-call-start',
+                  toolCall: { id: tc.id, name: tc.function?.name ?? '' },
+                }
+              } else {
+                const builder = toolCallBuilders.get(idx)
+                if (builder && tc.function?.arguments) {
+                  builder.arguments += tc.function.arguments
+                  yield {
+                    type: 'tool-call-args',
+                    toolCallId: builder.id,
+                    argumentsDelta: tc.function.arguments,
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock()
+    }
+
+    yield usage ?? { type: 'done', model }
+  }
+
+  private async requestRaw(path: string, init: RequestInit, maxRetries = 2): Promise<Response> {
     const baseUrl = this.configService.get('OPENWIRE_BASE_URL', { infer: true })
     const apiKey = this.configService.get('OPENWIRE_API_KEY', { infer: true })
     const timeoutMs = this.configService.get('OPENWIRE_TIMEOUT_MS', { infer: true })
-    const headers = new Headers(init.headers)
 
-    headers.set('Content-Type', 'application/json')
-    if (apiKey) {
-      headers.set('Authorization', `Bearer ${apiKey}`)
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+      const headers = new Headers(init.headers)
+      headers.set('Content-Type', 'application/json')
+      if (apiKey) {
+        headers.set('Authorization', `Bearer ${apiKey}`)
+      }
+
+      try {
+        const response = await fetch(`${baseUrl}${path}`, {
+          ...init,
+          headers,
+          signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
+        })
+
+        if (response.ok) {
+          return response
+        }
+
+        const status = response.status
+        const isRetryable = status === 429 || status >= 500
+
+        if (!isRetryable || attempt >= maxRetries) {
+          const errorText = await response.text().catch(() => '')
+          throw new ServiceUnavailableException(
+            `OpenWire request failed (${status}): ${errorText || response.statusText}`,
+          )
+        }
+
+        lastError = new Error(`OpenWire returned ${status}`)
+      } catch (error) {
+        if (error instanceof ServiceUnavailableException) throw error
+
+        lastError = error instanceof Error ? error : new Error('Unknown error')
+
+        if (attempt >= maxRetries) {
+          throw new ServiceUnavailableException(
+            `Unable to reach OpenWire after ${attempt + 1} attempts: ${lastError.message}`,
+          )
+        }
+      }
+
+      const backoffMs = Math.min(1000 * 2 ** attempt, 8000)
+      this.logger.warn(`OpenWire request failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${backoffMs}ms: ${lastError?.message}`)
+      await new Promise((resolve) => setTimeout(resolve, backoffMs))
     }
 
-    let response: Response
-    try {
-      response = await fetch(`${baseUrl}${path}`, {
-        ...init,
-        headers,
-        signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
-      })
-    } catch (error) {
-      throw new ServiceUnavailableException(
-        error instanceof Error
-          ? `Unable to reach OpenWire: ${error.message}`
-          : 'Unable to reach OpenWire',
-      )
-    }
+    throw new ServiceUnavailableException(
+      `Unable to reach OpenWire: ${lastError?.message ?? 'Unknown error'}`,
+    )
+  }
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '')
-      throw new ServiceUnavailableException(
-        `OpenWire request failed (${response.status}): ${errorText || response.statusText}`,
-      )
-    }
-
+  private async request(path: string, init: RequestInit): Promise<unknown> {
+    const response = await this.requestRaw(path, init)
     return response.json()
   }
 

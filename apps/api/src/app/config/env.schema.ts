@@ -143,6 +143,13 @@ export const envSchema = z.object({
     .refine((value) => value === 0 || value >= 1000, {
       message: 'OPENWIRE_TIMEOUT_MS must be 0 or at least 1000ms',
     }),
+  OPENWIRE_MAX_TOOL_ROUNDS: z
+    .string()
+    .optional()
+    .transform((value) => (value ? Number.parseInt(value, 10) : undefined))
+    .refine((value) => value === undefined || (value >= 1 && value <= 20), {
+      message: 'OPENWIRE_MAX_TOOL_ROUNDS must be between 1 and 20',
+    }),
 
   // Web app base URL (OAuth redirect target)
   WEB_APP_URL: z.string().url().default('http://localhost:5173'),

@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
+import { Inject, Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 
 import { AI_CHAT_PROVIDER } from '@/modules/ai-assistant/application/ports/ai-chat-provider.port'
@@ -7,11 +7,13 @@ import { AiToolRegistryService } from '@/modules/ai-assistant/application/servic
 import type { Env } from '@/app/config/env.schema'
 import type {
   AiChatProvider,
-  AiChatProviderMessage, AiChatProviderToolCall
+  AiChatProviderMessage,
+  AiChatProviderToolCall,
+  AiChatProviderToolDefinition,
 } from '@/modules/ai-assistant/application/ports/ai-chat-provider.port'
 import type { AiAssistantChatRequest } from '@/modules/ai-assistant/presentation/dtos/ai-assistant.schema'
 
-type AiAssistantAnalysisStep = {
+export type AiAssistantAnalysisStep = {
   id: string
   type: 'prefetch' | 'observation' | 'tool-call' | 'final'
   title: string
@@ -23,12 +25,20 @@ type AiAssistantAnalysisStep = {
   resultPreview?: string
 }
 
-type AiAssistantAnalysis = {
+export type AiAssistantAnalysis = {
   status: 'completed'
   totalToolRounds: number
   toolsUsed: string[]
   steps: AiAssistantAnalysisStep[]
 }
+
+export type AiStreamEvent =
+  | { type: 'token'; content: string }
+  | { type: 'tool-start'; toolName: string; toolCallId: string }
+  | { type: 'tool-result'; toolCallId: string; toolName: string; ok: boolean; preview: string }
+  | { type: 'step'; step: AiAssistantAnalysisStep }
+  | { type: 'done'; message: string; model: string; toolsUsed: string[]; analysis: AiAssistantAnalysis; usage?: { promptTokens: number; completionTokens: number; totalTokens: number } }
+  | { type: 'error'; message: string }
 
 const SYSTEM_PROMPT = [
   'You are an analytics assistant for a personal operations dashboard.',
@@ -53,20 +63,54 @@ const SYSTEM_PROMPT = [
   'If the data is incomplete, say what is missing and what additional context would improve the answer, but still provide the best bounded qualitative view you can when appropriate.',
   'Present conclusions as evidence followed by interpretation, especially for inferred relationships or classifications.',
   'When useful, format the response in short markdown sections or bullets.',
-].join(' ')
+  '',
+  'STRUCTURED OUTPUT GUIDELINES:',
+  'At the end of your response, always suggest 2-4 follow-up questions the user might want to explore. Format them as a block:',
+  ':::actions',
+  'What is my expense trend over the last quarter?',
+  'How does my dividend income compare year over year?',
+  ':::',
+  '',
+  'When presenting key metrics, use this format for each metric:',
+  ':::metric',
+  '{"label":"Total Portfolio Value","value":"₹12,45,000","trend":"up","change":"+8.2%"}',
+  ':::',
+  '',
+  'You may embed multiple metric blocks in a single response.',
+].join('\n')
 
-const MAX_TOOL_ROUNDS = 4
+const DEFAULT_MAX_TOOL_ROUNDS = 6
+const MAX_CONTEXT_TOKENS = 12_000
+const SUMMARIZATION_THRESHOLD = 10
+
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 3.5)
+}
+
+function estimateMessageTokens(messages: AiChatProviderMessage[]): number {
+  let total = 0
+  for (const msg of messages) {
+    total += 4
+    if (msg.content) total += estimateTokens(msg.content)
+    if (msg.tool_calls) total += estimateTokens(JSON.stringify(msg.tool_calls))
+  }
+  return total
+}
 
 @Injectable()
 export class AiAssistantService {
   private readonly logger = new Logger(AiAssistantService.name)
+  private readonly maxToolRounds: number
 
   constructor(
     @Inject(AI_CHAT_PROVIDER)
     private readonly aiChatProvider: AiChatProvider,
     private readonly aiToolRegistry: AiToolRegistryService,
     private readonly configService: ConfigService<Env, true>,
-  ) {}
+  ) {
+    const envRounds = this.configService.get('OPENWIRE_MAX_TOOL_ROUNDS', { infer: true })
+    this.maxToolRounds = envRounds ?? DEFAULT_MAX_TOOL_ROUNDS
+  }
 
   async getStatus() {
     const baseUrl = this.configService.get('OPENWIRE_BASE_URL', { infer: true })
@@ -111,7 +155,7 @@ export class AiAssistantService {
       })}`,
     )
 
-    for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+    for (let round = 0; round < this.maxToolRounds; round += 1) {
       const completion = await this.aiChatProvider.createChatCompletion({
         model,
         messages,
@@ -180,12 +224,15 @@ export class AiAssistantService {
         })}`,
       )
 
-      for (const toolCall of completion.toolCalls) {
-        toolsUsed.push(toolCall.function.name)
-        const toolResult = await this.aiToolRegistry.executeTool(toolCall, {
-          userId,
-        })
+      const toolResults = await Promise.all(
+        completion.toolCalls.map(async (toolCall) => {
+          const result = await this.aiToolRegistry.executeTool(toolCall, { userId })
+          return { toolCall, result }
+        }),
+      )
 
+      for (const { toolCall, result: toolResult } of toolResults) {
+        toolsUsed.push(toolCall.function.name)
         const parsedArguments = this.tryParseJson(toolCall.function.arguments)
         const resultPreview = toolResult.ok
           ? this.summarizeToolResult(toolResult.result)
@@ -221,21 +268,252 @@ export class AiAssistantService {
       }
     }
 
-    throw new ServiceUnavailableException('Assistant exceeded the maximum tool-call rounds.')
+    this.logger.warn('AI assistant exceeded maximum tool-call rounds, returning partial result')
+
+    return {
+      message: 'I was unable to fully complete the analysis within the allowed number of tool-calling rounds. Here is what I gathered so far. Please try asking a more specific question.',
+      model: input.model || this.configService.get('OPENWIRE_MODEL', { infer: true }),
+      toolsUsed: [...new Set(toolsUsed)],
+      analysis: {
+        status: 'completed' as const,
+        totalToolRounds: this.maxToolRounds,
+        toolsUsed: [...new Set(toolsUsed)],
+        steps: analysisSteps,
+      },
+    }
+  }
+
+  async *chatStream(input: AiAssistantChatRequest, userId: string): AsyncGenerator<AiStreamEvent> {
+    const allTools = this.aiToolRegistry.getTools()
+    const tools = this.filterToolsForPage(allTools, input.pageContext?.pageId)
+    const prefetchedEvidence = await this.buildPrefetchedEvidence(input, userId)
+    const messages = this.buildMessages(input, prefetchedEvidence.messages)
+    const model: string = input.model || this.configService.get('OPENWIRE_MODEL', { infer: true })
+    const toolsUsed: string[] = [...prefetchedEvidence.toolsUsed]
+    const analysisSteps: AiAssistantAnalysisStep[] = [...prefetchedEvidence.steps]
+
+    for (const step of prefetchedEvidence.steps) {
+      yield { type: 'step', step }
+    }
+
+    let fullContent = ''
+    let lastUsage: AiStreamEvent & { type: 'done' } | undefined
+
+    for (let round = 0; round < this.maxToolRounds; round += 1) {
+      let roundContent = ''
+      const roundToolCalls: AiChatProviderToolCall[] = []
+      const toolCallArgBuilders = new Map<string, { id: string; name: string; arguments: string }>()
+      let roundModel = model
+
+      for await (const chunk of this.aiChatProvider.createStreamingChatCompletion({
+        model,
+        messages,
+        tools,
+        toolChoice: tools.length > 0 ? 'auto' : 'none',
+      })) {
+        switch (chunk.type) {
+          case 'token': {
+            roundContent += chunk.content
+            yield { type: 'token', content: chunk.content }
+            break
+          }
+          case 'tool-call-start': {
+            toolCallArgBuilders.set(chunk.toolCall.id, {
+              id: chunk.toolCall.id,
+              name: chunk.toolCall.name,
+              arguments: '',
+            })
+            yield { type: 'tool-start', toolName: chunk.toolCall.name, toolCallId: chunk.toolCall.id }
+            break
+          }
+          case 'tool-call-args': {
+            const builder = toolCallArgBuilders.get(chunk.toolCallId)
+            if (builder) {
+              builder.arguments += chunk.argumentsDelta
+            }
+            break
+          }
+          case 'done': {
+            roundModel = chunk.model
+            lastUsage = {
+              type: 'done',
+              message: '',
+              model: chunk.model,
+              toolsUsed: [],
+              analysis: { status: 'completed', totalToolRounds: 0, toolsUsed: [], steps: [] },
+              usage: chunk.usage,
+            }
+            break
+          }
+        }
+      }
+
+      for (const builder of toolCallArgBuilders.values()) {
+        roundToolCalls.push({
+          id: builder.id,
+          type: 'function',
+          function: { name: builder.name, arguments: builder.arguments },
+        })
+      }
+
+      if (roundToolCalls.length === 0) {
+        fullContent += roundContent
+        analysisSteps.push({
+          id: `final-${round + 1}`,
+          type: 'final',
+          title: 'Synthesized response',
+          summary: fullContent ? this.truncate(fullContent, 240) : 'No response generated.',
+          status: 'completed',
+        })
+
+        yield {
+          type: 'done',
+          message: fullContent || 'No response generated.',
+          model: roundModel,
+          toolsUsed: [...new Set(toolsUsed)],
+          analysis: {
+            status: 'completed',
+            totalToolRounds: round + 1,
+            toolsUsed: [...new Set(toolsUsed)],
+            steps: analysisSteps,
+          },
+          usage: lastUsage?.usage,
+        }
+        return
+      }
+
+      messages.push(this.createAssistantToolCallMessage(roundToolCalls, roundContent || null))
+
+      if (roundContent.trim()) {
+        const observationStep: AiAssistantAnalysisStep = {
+          id: `observation-${round + 1}`,
+          type: 'observation',
+          title: `Planning step ${round + 1}`,
+          summary: this.truncate(roundContent, 240),
+          status: 'completed',
+        }
+        analysisSteps.push(observationStep)
+        yield { type: 'step', step: observationStep }
+      }
+
+      const toolResults = await Promise.all(
+        roundToolCalls.map(async (toolCall) => {
+          const result = await this.aiToolRegistry.executeTool(toolCall, { userId })
+          return { toolCall, result }
+        }),
+      )
+
+      for (const { toolCall, result } of toolResults) {
+        toolsUsed.push(toolCall.function.name)
+        const parsedArguments = this.tryParseJson(toolCall.function.arguments)
+        const resultPreview = result.ok ? this.summarizeToolResult(result.result) : result.error
+
+        const toolStep: AiAssistantAnalysisStep = {
+          id: toolCall.id,
+          type: 'tool-call',
+          title: `Ran ${toolCall.function.name}`,
+          summary: result.ok
+            ? `Executed ${toolCall.function.name} and captured structured evidence.`
+            : `Attempted ${toolCall.function.name}, but the tool returned an error.`,
+          status: result.ok ? 'completed' : 'failed',
+          toolName: toolCall.function.name,
+          toolArgs: parsedArguments,
+          resultData: result.ok ? result.result : { error: result.error },
+          resultPreview,
+        }
+        analysisSteps.push(toolStep)
+        yield { type: 'tool-result', toolCallId: toolCall.id, toolName: toolCall.function.name, ok: result.ok, preview: resultPreview ?? '' }
+        yield { type: 'step', step: toolStep }
+
+        messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(result),
+        })
+      }
+    }
+
+    yield {
+      type: 'error',
+      message: 'Assistant exceeded the maximum tool-call rounds.',
+    }
+  }
+
+  private filterToolsForPage(
+    tools: AiChatProviderToolDefinition[],
+    _pageId?: string,
+  ): AiChatProviderToolDefinition[] {
+    return tools
   }
 
   private buildMessages(
     input: AiAssistantChatRequest,
     prefetchedMessages: AiChatProviderMessage[] = [],
   ): AiChatProviderMessage[] {
-    return [
+    const systemMessages: AiChatProviderMessage[] = [
       {
         role: 'system',
         content: SYSTEM_PROMPT,
       },
-      ...prefetchedMessages,
-      ...input.messages,
     ]
+
+    if (input.pageContext) {
+      systemMessages.push({
+        role: 'system',
+        content: [
+          `The user is currently viewing: "${input.pageContext.title}" (page: ${input.pageContext.pageId}, route: ${input.pageContext.route}).`,
+          input.pageContext.description ? `Page description: ${input.pageContext.description}` : '',
+          input.pageContext.filters ? `Active filters: ${JSON.stringify(input.pageContext.filters)}` : '',
+          input.pageContext.dataSnapshot ? `Visible data snapshot: ${JSON.stringify(input.pageContext.dataSnapshot)}` : '',
+          'Use this context to provide more relevant answers, but always verify with backend tools rather than relying solely on snapshot data.',
+        ].filter(Boolean).join('\n'),
+      })
+    }
+
+    const conversationMessages = this.manageConversationMemory(input.messages)
+
+    return [
+      ...systemMessages,
+      ...prefetchedMessages,
+      ...conversationMessages,
+    ]
+  }
+
+  private manageConversationMemory(
+    messages: AiChatProviderMessage[],
+  ): AiChatProviderMessage[] {
+    if (messages.length <= SUMMARIZATION_THRESHOLD) {
+      return messages
+    }
+
+    const totalTokens = estimateMessageTokens(messages)
+    if (totalTokens <= MAX_CONTEXT_TOKENS) {
+      return messages
+    }
+
+    const recentCount = Math.min(6, messages.length)
+    const recent = messages.slice(-recentCount)
+    const older = messages.slice(0, -recentCount)
+
+    const summaryParts: string[] = []
+    for (const msg of older) {
+      if (msg.role === 'user') {
+        summaryParts.push(`User asked: ${this.truncate(msg.content ?? '', 120)}`)
+      } else if (msg.role === 'assistant' && msg.content) {
+        summaryParts.push(`Assistant answered: ${this.truncate(msg.content, 120)}`)
+      }
+    }
+
+    const summaryMessage: AiChatProviderMessage = {
+      role: 'system',
+      content: `Summary of earlier conversation (${older.length} messages):\n${summaryParts.join('\n')}`,
+    }
+
+    this.logger.debug(
+      `Conversation memory: compressed ${older.length} older messages into summary (${estimateTokens(summaryMessage.content!)} est. tokens). Keeping ${recentCount} recent messages.`,
+    )
+
+    return [summaryMessage, ...recent]
   }
 
   private async buildPrefetchedEvidence(
@@ -250,49 +528,94 @@ export class AiAssistantService {
       return { messages: [], toolsUsed: [], steps: [] }
     }
 
-    const holdingQuery = this.extractHoldingLookupQuery(latestUserMessage.content)
-    if (!holdingQuery) {
-      return { messages: [], toolsUsed: [], steps: [] }
+    const intent = this.detectIntent(latestUserMessage.content)
+
+    if (intent.type === 'holding-lookup' && intent.query) {
+      return this.prefetchHolding(intent.query, userId)
     }
 
+    if (intent.type === 'portfolio-overview') {
+      return this.prefetchPortfolioSummary(userId)
+    }
+
+    if (intent.type === 'expense-summary') {
+      return this.prefetchExpenseSummary(userId, intent.period)
+    }
+
+    return { messages: [], toolsUsed: [], steps: [] }
+  }
+
+  private detectIntent(content: string): {
+    type: 'holding-lookup' | 'portfolio-overview' | 'expense-summary' | 'unknown'
+    query?: string
+    period?: string
+  } {
+    const normalized = content.replaceAll(/\s+/g, ' ').trim().toLowerCase()
+
+    const holdingPatterns = [
+      /analy(?:s|z)e\s+(.+?)(?:,|\.|\?| as per| in my| for my| tell me| give me| what| prospects| outlook| thesis| view| opinion| should)/i,
+      /(?:prospects|outlook|view|opinion|thesis)\s+(?:for|on)\s+(.+?)(?:,|\.|\?| as per| in my| for my| tell me| give me| what| should)/i,
+      /about\s+(.+?)(?:,|\.|\?| as per| in my| for my| tell me| give me| what| prospects| outlook| thesis| view| opinion| should)/i,
+    ]
+
+    for (const pattern of holdingPatterns) {
+      const match = content.replaceAll(/\s+/g, ' ').trim().match(pattern)
+      const extracted = match?.[1]?.trim()
+      if (extracted) {
+        return {
+          type: 'holding-lookup',
+          query: extracted.replaceAll(/^['"]|['"]$/g, '').trim(),
+        }
+      }
+    }
+
+    const portfolioKeywords = ['portfolio', 'allocation', 'holdings', 'invested', 'investment', 'net worth']
+    if (portfolioKeywords.some((kw) => normalized.includes(kw))) {
+      return { type: 'portfolio-overview' }
+    }
+
+    const expenseKeywords = ['expense', 'spending', 'spent', 'merchant', 'transaction', 'cost']
+    if (expenseKeywords.some((kw) => normalized.includes(kw))) {
+      const periodMatch = normalized.match(/\b(week|month|quarter|year)\b/)
+      return { type: 'expense-summary', period: periodMatch?.[1] }
+    }
+
+    return { type: 'unknown' }
+  }
+
+  private async prefetchHolding(query: string, userId: string): Promise<{ messages: AiChatProviderMessage[], toolsUsed: string[], steps: AiAssistantAnalysisStep[] }> {
     const toolResult = await this.aiToolRegistry.executeTool(
       {
         id: 'prefetch-getHoldingDetails',
         type: 'function',
         function: {
           name: 'getHoldingDetails',
-          arguments: JSON.stringify({ query: holdingQuery }),
+          arguments: JSON.stringify({ query }),
         },
       },
-      {
-        userId,
-      },
+      { userId },
     )
 
     this.logger.debug(
-      `AI prefetch result: ${JSON.stringify({
-        userId,
-        tool: 'getHoldingDetails',
-        query: holdingQuery,
+      `AI prefetch holding result: ${JSON.stringify({
+        userId, tool: 'getHoldingDetails', query,
         result: this.truncate(JSON.stringify(toolResult), 2000),
       })}`,
     )
 
     return {
       toolsUsed: ['getHoldingDetails'],
-      steps: [
-        {
-          id: 'prefetch-getHoldingDetails',
-          type: 'prefetch',
-          title: 'Prefetched holding evidence',
-          summary: `Ran getHoldingDetails before the main loop for "${holdingQuery}".`,
-          status: 'completed',
-          toolName: 'getHoldingDetails',
-          toolArgs: { query: holdingQuery },
-          resultData: toolResult,
-          resultPreview: this.summarizeToolResult(toolResult),
-        },
-      ],
+      steps: [{
+        id: 'prefetch-getHoldingDetails',
+        type: 'prefetch',
+        title: 'Prefetched holding evidence',
+        summary: `Ran getHoldingDetails before the main loop for "${query}".`,
+        status: 'completed',
+        toolName: 'getHoldingDetails',
+        toolArgs: { query },
+        resultData: toolResult,
+        resultPreview: this.summarizeToolResult(toolResult),
+      }],
       messages: [
         {
           role: 'system',
@@ -305,16 +628,11 @@ export class AiAssistantService {
         {
           role: 'assistant',
           content: null,
-          tool_calls: [
-            {
-              id: 'prefetch-getHoldingDetails',
-              type: 'function',
-              function: {
-                name: 'getHoldingDetails',
-                arguments: JSON.stringify({ query: holdingQuery }),
-              },
-            },
-          ],
+          tool_calls: [{
+            id: 'prefetch-getHoldingDetails',
+            type: 'function',
+            function: { name: 'getHoldingDetails', arguments: JSON.stringify({ query }) },
+          }],
         },
         {
           role: 'tool',
@@ -325,24 +643,97 @@ export class AiAssistantService {
     }
   }
 
-  private extractHoldingLookupQuery(content: string): string | null {
-    const normalized = content.replaceAll(/\s+/g, ' ').trim()
+  private async prefetchPortfolioSummary(userId: string): Promise<{ messages: AiChatProviderMessage[], toolsUsed: string[], steps: AiAssistantAnalysisStep[] }> {
+    const toolResult = await this.aiToolRegistry.executeTool(
+      {
+        id: 'prefetch-getPortfolioSummary',
+        type: 'function',
+        function: { name: 'getPortfolioSummary', arguments: '{}' },
+      },
+      { userId },
+    )
 
-    const patterns = [
-      /analy(?:s|z)e\s+(.+?)(?:,|\.|\?| as per| in my| for my| tell me| give me| what| prospects| outlook| thesis| view| opinion| should)/i,
-      /(?:prospects|outlook|view|opinion|thesis)\s+(?:for|on)\s+(.+?)(?:,|\.|\?| as per| in my| for my| tell me| give me| what| should)/i,
-      /about\s+(.+?)(?:,|\.|\?| as per| in my| for my| tell me| give me| what| prospects| outlook| thesis| view| opinion| should)/i,
-    ]
-
-    for (const pattern of patterns) {
-      const match = normalized.match(pattern)
-      const extracted = match?.[1]?.trim()
-      if (extracted) {
-        return extracted.replaceAll(/^['\"]|['\"]$/g, '').trim()
-      }
+    return {
+      toolsUsed: ['getPortfolioSummary'],
+      steps: [{
+        id: 'prefetch-getPortfolioSummary',
+        type: 'prefetch',
+        title: 'Prefetched portfolio summary',
+        summary: 'Ran getPortfolioSummary before the main loop.',
+        status: 'completed',
+        toolName: 'getPortfolioSummary',
+        toolArgs: {},
+        resultData: toolResult,
+        resultPreview: this.summarizeToolResult(toolResult),
+      }],
+      messages: [
+        {
+          role: 'system',
+          content: 'A portfolio summary has already been fetched. Use the data below as baseline evidence. Call additional tools only if deeper analysis is needed.',
+        },
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [{
+            id: 'prefetch-getPortfolioSummary',
+            type: 'function',
+            function: { name: 'getPortfolioSummary', arguments: '{}' },
+          }],
+        },
+        {
+          role: 'tool',
+          tool_call_id: 'prefetch-getPortfolioSummary',
+          content: JSON.stringify(toolResult),
+        },
+      ],
     }
+  }
 
-    return null
+  private async prefetchExpenseSummary(userId: string, period = 'month'): Promise<{ messages: AiChatProviderMessage[], toolsUsed: string[], steps: AiAssistantAnalysisStep[] }> {
+    const resolvedPeriod = period
+    const toolResult = await this.aiToolRegistry.executeTool(
+      {
+        id: 'prefetch-getExpenseSummary',
+        type: 'function',
+        function: { name: 'getExpenseSummary', arguments: JSON.stringify({ period: resolvedPeriod }) },
+      },
+      { userId },
+    )
+
+    return {
+      toolsUsed: ['getExpenseSummary'],
+      steps: [{
+        id: 'prefetch-getExpenseSummary',
+        type: 'prefetch',
+        title: 'Prefetched expense summary',
+        summary: `Ran getExpenseSummary for period "${resolvedPeriod}" before the main loop.`,
+        status: 'completed',
+        toolName: 'getExpenseSummary',
+        toolArgs: { period: resolvedPeriod },
+        resultData: toolResult,
+        resultPreview: this.summarizeToolResult(toolResult),
+      }],
+      messages: [
+        {
+          role: 'system',
+          content: `An expense summary for the "${resolvedPeriod}" period has already been fetched. Use the data below as baseline evidence.`,
+        },
+        {
+          role: 'assistant',
+          content: null,
+          tool_calls: [{
+            id: 'prefetch-getExpenseSummary',
+            type: 'function',
+            function: { name: 'getExpenseSummary', arguments: JSON.stringify({ period: resolvedPeriod }) },
+          }],
+        },
+        {
+          role: 'tool',
+          tool_call_id: 'prefetch-getExpenseSummary',
+          content: JSON.stringify(toolResult),
+        },
+      ],
+    }
   }
 
   private createAssistantToolCallMessage(
