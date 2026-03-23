@@ -59,6 +59,12 @@ const holdingLookupInputSchema = z.object({
   query: z.string().trim().min(1).max(120),
 })
 
+const crossDomainInsightSchema = z.object({
+  domains: z.array(z.enum(['expenses', 'holdings', 'dividends', 'principal', 'flights', 'hotels'])).min(2).max(6),
+  period: analyticsPeriodSchema.optional(),
+  year: z.number().int().min(2000).max(2100).optional(),
+})
+
 const analyticsDslQuerySchema = z.object({
   domain: z.enum(['expenses', 'holdings', 'dividends', 'principal', 'flights', 'hotels']),
   queryType: z.enum(['summary', 'breakdown', 'top-items', 'trend']).default('summary'),
@@ -159,6 +165,7 @@ export class AiToolRegistryService {
       this.createFlightAnalyticsTool(),
       this.createHotelStaySummaryTool(),
       this.createAnalyticsDslTool(),
+      this.createCrossDomainInsightTool(),
     ]
   }
 
@@ -968,6 +975,78 @@ export class AiToolRegistryService {
       pages: ['expenses-analytics', 'holdings-overview', 'dividends-overview', 'principal-overview', 'flights-overview', 'hotels-overview'],
       execute: async (arguments_, context) => {
         return this.analyticsDslService.execute(arguments_, context.userId)
+      },
+    }
+  }
+
+  private createCrossDomainInsightTool(): AiToolDefinition<z.infer<typeof crossDomainInsightSchema>> {
+    return {
+      name: 'getCrossDomainInsight',
+      description: 'Query multiple domains in a single call to compare or correlate data across expenses, holdings, dividends, principal, flights, and hotels. Use when the user asks cross-cutting questions like "How do my expenses compare to my dividend income?" or "What is the relationship between my travel spending and investment returns?".',
+      parameters: {
+        type: 'object',
+        properties: {
+          domains: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['expenses', 'holdings', 'dividends', 'principal', 'flights', 'hotels'],
+            },
+            minItems: 2,
+            maxItems: 6,
+            description: 'The domains to query and compare.',
+          },
+          period: {
+            type: 'string',
+            enum: ['week', 'month', 'quarter', 'year'],
+            description: 'Time period for expense/trend data.',
+          },
+          year: {
+            type: 'number',
+            description: 'Calendar year for dividend/investment analysis.',
+          },
+        },
+        required: ['domains'],
+      },
+      schema: crossDomainInsightSchema,
+      pages: ['global'],
+      execute: async (arguments_, context) => {
+        const results: Record<string, unknown> = {}
+
+        const domainFetchers: Record<string, () => Promise<unknown>> = {
+          expenses: () => this.expensesService.getSpendingSummary(context.userId, arguments_.period ?? 'month'),
+          holdings: () => this.holdingsService.getPortfolioSummary(context.userId),
+          dividends: () => this.dividendsService.getDashboard(context.userId, arguments_.year ?? getYear(new Date())),
+          principal: () => this.principalService.getAnalytics(context.userId),
+          flights: () => this.flightAnalyticsService.getAnalytics(context.userId),
+          hotels: async () => {
+            const result = await this.analyticsDslService.execute({
+              domain: 'hotels',
+              queryType: 'summary',
+            }, context.userId)
+            return result
+          },
+        }
+
+        const fetchPromises = arguments_.domains.map(async (domain) => {
+          const fetcher = domainFetchers[domain]
+          if (fetcher) {
+            try {
+              results[domain] = await fetcher()
+            } catch (error) {
+              results[domain] = { error: error instanceof Error ? error.message : 'Failed to fetch' }
+            }
+          }
+        })
+
+        await Promise.all(fetchPromises)
+
+        return {
+          queriedDomains: arguments_.domains,
+          period: arguments_.period ?? 'month',
+          year: arguments_.year ?? getYear(new Date()),
+          results,
+        }
       },
     }
   }

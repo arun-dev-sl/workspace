@@ -12,6 +12,9 @@ import {
   transactionsTable,
   merchantCategoryRulesTable,
   webauthnCredentialsTable,
+  aiConversationsTable,
+  aiMessagesTable,
+  aiMessageFeedbackTable,
 } from './schemas/index.js'
 
 /**
@@ -194,6 +197,38 @@ export const webauthnCredentialsRelations = relations(
     user: one(usersTable, {
       fields: [webauthnCredentialsTable.userId],
       references: [usersTable.id],
+    }),
+  }),
+)
+
+export const aiConversationsRelations = relations(
+  aiConversationsTable,
+  ({ one, many }) => ({
+    user: one(usersTable, {
+      fields: [aiConversationsTable.userId],
+      references: [usersTable.id],
+    }),
+    messages: many(aiMessagesTable),
+  }),
+)
+
+export const aiMessagesRelations = relations(
+  aiMessagesTable,
+  ({ one, many }) => ({
+    conversation: one(aiConversationsTable, {
+      fields: [aiMessagesTable.conversationId],
+      references: [aiConversationsTable.id],
+    }),
+    feedback: many(aiMessageFeedbackTable),
+  }),
+)
+
+export const aiMessageFeedbackRelations = relations(
+  aiMessageFeedbackTable,
+  ({ one }) => ({
+    message: one(aiMessagesTable, {
+      fields: [aiMessageFeedbackTable.messageId],
+      references: [aiMessagesTable.id],
     }),
   }),
 )
