@@ -993,6 +993,11 @@ const ExpenseEmailsPage = () => {
                     )}
                     <BulkActionsToolbar
                       selectedIds={Object.keys(rowSelection)}
+                      selectedTransactions={
+                        (expensesData?.data ?? []).filter(
+                          (t) => rowSelection[t.id as keyof typeof rowSelection],
+                        )
+                      }
                       onClearSelection={() => setRowSelection({})}
                     />
                   </div>

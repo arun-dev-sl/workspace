@@ -490,6 +490,10 @@ export class ExpensesService {
     return this.transactionRepository.findById(params)
   }
 
+  async findTransactionsByIds(userId: string, ids: string[]): Promise<Transaction[]> {
+    return this.transactionRepository.findByIds({ userId, ids })
+  }
+
   async updateTransaction(params: {
     userId: string
     id: string

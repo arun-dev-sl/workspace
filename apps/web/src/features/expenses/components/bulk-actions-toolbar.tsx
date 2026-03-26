@@ -6,6 +6,7 @@ import {
   type BulkUpdateRequest,
 } from "@/features/expenses/api/bulk-update-transactions";
 import { CATEGORY_OPTIONS } from "@/features/expenses/constants/category-options";
+import { LlmCategorizeDialog } from "@/features/expenses/components/llm-categorize-dialog";
 
 import { Badge } from "@workspace/ui/components/ui/badge";
 import { Button } from "@workspace/ui/components/ui/button";
@@ -26,7 +27,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/ui/select";
-import { CheckCircle, CircleAlert, Layers, Tag, X } from "lucide-react";
+import { CheckCircle, CircleAlert, Layers, Sparkles, Tag, X } from "lucide-react";
+
+import type { Transaction } from "@workspace/domain";
 
 const TRANSACTION_MODES = [
   "upi",
@@ -39,21 +42,20 @@ const TRANSACTION_MODES = [
 interface BulkActionsToolbarProps {
   /** IDs of selected transactions */
   selectedIds: string[];
+  /** Full transaction objects for the selected rows */
+  selectedTransactions: Transaction[];
   /** Callback to clear the selection after a successful operation */
   onClearSelection: () => void;
 }
 
-/**
- * Floating toolbar that appears when one or more table rows are selected.
- * Offers quick actions (mark reviewed, mark needs-review) and an "Edit…"
- * dialog for setting category / subcategory / mode.
- */
 export function BulkActionsToolbar({
   selectedIds,
+  selectedTransactions,
   onClearSelection,
 }: BulkActionsToolbarProps) {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [llmDialogOpen, setLlmDialogOpen] = useState(false);
 
   // ── Dialog form state ──
   const [formCategory, setFormCategory] = useState("");
@@ -131,6 +133,17 @@ export function BulkActionsToolbar({
         >
           <CircleAlert className="size-3.5" />
           Needs Review
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs gap-1.5"
+          onClick={() => setLlmDialogOpen(true)}
+          disabled={mutation.isPending}
+        >
+          <Sparkles className="size-3.5" />
+          Refine with AI
         </Button>
 
         <Button
@@ -259,6 +272,13 @@ export function BulkActionsToolbar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LlmCategorizeDialog
+        open={llmDialogOpen}
+        onOpenChange={setLlmDialogOpen}
+        transactions={selectedTransactions}
+        onComplete={onClearSelection}
+      />
     </>
   );
 }

@@ -5,6 +5,7 @@ import { EMAIL_PARSERS } from '@/modules/expenses/application/ports/email-parser
 import { MERCHANT_RULE_REPOSITORY } from '@/modules/expenses/application/ports/merchant-rule.repository.port'
 import { STATEMENT_REPOSITORY } from '@/modules/expenses/application/ports/statement.repository.port'
 import { TRANSACTION_REPOSITORY } from '@/modules/expenses/application/ports/transaction.repository.port'
+import { ExpenseLlmCategorizationService } from '@/modules/expenses/application/services/expense-llm-categorization.service'
 import { ExpensesService } from '@/modules/expenses/application/services/expenses.service'
 import { GmailOAuthService } from '@/modules/expenses/application/services/gmail-oauth.service'
 import { ChaseEmailParser } from '@/modules/expenses/infrastructure/parsers/chase-email.parser'
@@ -22,6 +23,7 @@ import { SharedEmailSyncModule } from '@/shared/shared-email-sync.module'
   controllers: [ExpensesController, GmailOAuthController, GmailDisconnectController],
   providers: [
     ExpensesService,
+    ExpenseLlmCategorizationService,
     GmailOAuthService,
     ChaseEmailParser,
     HdfcEmailParser,

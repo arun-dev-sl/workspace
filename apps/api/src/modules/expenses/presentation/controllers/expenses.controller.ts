@@ -12,12 +12,14 @@ import {
   Res,
   UseGuards,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common'
 import { ApiOperation, ApiResponse, ApiTags, ApiParam, ApiQuery } from '@nestjs/swagger'
 import { SkipThrottle } from '@nestjs/throttler'
 
 import { ZodValidationPipe } from '@/app/pipes/zod-validation.pipe'
 import { JwtAuthGuard } from '@/modules/auth/presentation/guards/jwt-auth.guard'
+import { ExpenseLlmCategorizationService } from '@/modules/expenses/application/services/expense-llm-categorization.service'
 import { ExpensesService } from '@/modules/expenses/application/services/expenses.service'
 import { GmailOAuthService } from '@/modules/expenses/application/services/gmail-oauth.service'
 import { BulkCategorizeDto } from '@/modules/expenses/presentation/dtos/bulk-categorize.dto'
@@ -25,6 +27,7 @@ import { BulkUpdateTransactionsDto } from '@/modules/expenses/presentation/dtos/
 import { ListExpensesCursorSchema } from '@/modules/expenses/presentation/dtos/expenses.schema'
 import { ListExpenseEmailsDto } from '@/modules/expenses/presentation/dtos/list-expense-emails.dto'
 import { ListExpensesDto } from '@/modules/expenses/presentation/dtos/list-expenses.dto'
+import { LlmCategorizeRequestSchema } from '@/modules/expenses/presentation/dtos/llm-categorize.dto'
 import { SyncExpensesDto } from '@/modules/expenses/presentation/dtos/sync-expenses.dto'
 import { UpdateTransactionDto } from '@/modules/expenses/presentation/dtos/update-transaction.dto'
 import { ListResponseDto, OffsetListResponseDto } from '@/shared/infrastructure/dtos/list-response.dto'
@@ -39,6 +42,7 @@ export class ExpensesController {
   constructor(
     private readonly expensesService: ExpensesService,
     private readonly gmailOAuthService: GmailOAuthService,
+    private readonly llmCategorizationService: ExpenseLlmCategorizationService,
   ) {}
 
   @Post('sync')
@@ -590,6 +594,44 @@ export class ExpensesController {
     @Query('period') period: AnalyticsPeriod = 'year',
   ) {
     return this.expensesService.getInvestmentAnalytics(req.user.id, period)
+  }
+
+  @Get('llm-providers')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Check which LLM providers are available for categorization' })
+  @ApiResponse({ status: 200, description: 'Returns availability of OpenWire and Gemini' })
+  async getLlmProviders() {
+    return this.llmCategorizationService.getAvailableProviders()
+  }
+
+  @Post('categorize-with-llm')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Categorize transactions using an LLM provider' })
+  @ApiResponse({ status: 200, description: 'Returns categorization suggestions' })
+  async categorizeWithLlm(
+    @Request() req: FastifyRequest & { user: { id: string } },
+  ) {
+    const parsed = LlmCategorizeRequestSchema.safeParse(req.body)
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.issues)
+    }
+
+    const transactions = await this.expensesService.findTransactionsByIds(
+      req.user.id,
+      parsed.data.transactionIds,
+    )
+
+    if (transactions.length === 0) {
+      throw new NotFoundException('No transactions found for the given IDs')
+    }
+
+    const suggestions = await this.llmCategorizationService.categorize(
+      transactions,
+      parsed.data.provider,
+    )
+
+    return { suggestions }
   }
 
   @Get('gmail/connect')

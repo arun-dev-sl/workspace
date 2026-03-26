@@ -40,6 +40,7 @@ export interface TransactionFilters {
 export interface TransactionRepository {
   upsertMany(transactions: Transaction[]): Promise<void>
   findById(params: { userId: string, id: string }): Promise<Transaction | null>
+  findByIds(params: { userId: string, ids: string[] }): Promise<Transaction[]>
   updateById(params: {
     userId: string
     id: string

@@ -226,6 +226,22 @@ export class TransactionRepositoryImpl implements TransactionRepository {
     return record ? this.toDomain(record) : null
   }
 
+  async findByIds(params: { userId: string, ids: string[] }): Promise<Transaction[]> {
+    if (params.ids.length === 0) return []
+
+    const records = await this.db
+      .select()
+      .from(transactionsTable)
+      .where(
+        and(
+          eq(transactionsTable.userId, params.userId),
+          inArray(transactionsTable.id, params.ids),
+        ),
+      )
+
+    return records.map((record) => this.toDomain(record))
+  }
+
   async updateById(params: {
     userId: string
     id: string
